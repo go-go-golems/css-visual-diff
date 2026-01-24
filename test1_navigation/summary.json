@@ -1,0 +1,38 @@
+{
+  "url1": "file:///home/ubuntu/css-visual-diff/tests/page1.html",
+  "selector1": ".header-nav",
+  "url2": "file:///home/ubuntu/css-visual-diff/tests/page2.html",
+  "selector2": ".navigation-header",
+  "question": "What are the main visual differences in the navigation header? Focus on colors, spacing, shadows, and typography. What specific CSS properties changed and how do they impact the overall design?",
+  "output_dir": "/home/ubuntu/css-visual-diff/tests/results/test1_navigation",
+  "diff_stats": {
+    "diff_path": "/home/ubuntu/css-visual-diff/tests/results/test1_navigation/diff_comparison.png",
+    "diff_only_path": "/home/ubuntu/css-visual-diff/tests/results/test1_navigation/diff_only.png",
+    "total_pixels": 97960,
+    "changed_pixels": 0,
+    "change_percentage": 0.0,
+    "dimensions": {
+      "url1": [
+        1240,
+        68
+      ],
+      "url2": [
+        1240,
+        79
+      ],
+      "normalized": [
+        1240,
+        79
+      ]
+    }
+  },
+  "timestamp": "2026-01-24T12:08:37.936539",
+  "analysis": {
+    "model": "gpt-4.1-mini",
+    "tokens_used": {
+      "prompt": 1338,
+      "completion": 1254,
+      "total": 2592
+    }
+  }
+}

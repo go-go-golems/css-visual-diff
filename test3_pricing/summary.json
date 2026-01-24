@@ -1,0 +1,38 @@
+{
+  "url1": "file:///home/ubuntu/css-visual-diff/tests/page1.html",
+  "selector1": ".pricing-table",
+  "url2": "file:///home/ubuntu/css-visual-diff/tests/page2.html",
+  "selector2": ".price-box",
+  "question": "Analyze the differences in the pricing table design. Focus on button styling, borders, shadows, and overall visual weight. Which design is more effective for conversion and why? What are the pixel-level differences in spacing and sizing?",
+  "output_dir": "/home/ubuntu/css-visual-diff/tests/results/test3_pricing",
+  "diff_stats": {
+    "diff_path": "/home/ubuntu/css-visual-diff/tests/results/test3_pricing/diff_comparison.png",
+    "diff_only_path": "/home/ubuntu/css-visual-diff/tests/results/test3_pricing/diff_only.png",
+    "total_pixels": 166950,
+    "changed_pixels": 0,
+    "change_percentage": 0.0,
+    "dimensions": {
+      "url1": [
+        350,
+        422
+      ],
+      "url2": [
+        350,
+        477
+      ],
+      "normalized": [
+        350,
+        477
+      ]
+    }
+  },
+  "timestamp": "2026-01-24T12:09:22.651067",
+  "analysis": {
+    "model": "gpt-4.1-mini",
+    "tokens_used": {
+      "prompt": 2081,
+      "completion": 1387,
+      "total": 3468
+    }
+  }
+}

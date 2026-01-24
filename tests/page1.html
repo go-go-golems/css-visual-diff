@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Page 1 - Original Design</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .header-nav {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .header-nav .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+        
+        .header-nav .nav-links {
+            display: flex;
+            gap: 25px;
+        }
+        
+        .header-nav .nav-links a {
+            color: white;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        
+        .header-nav .nav-links a:hover {
+            opacity: 0.8;
+        }
+        
+        .card-widget {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            max-width: 400px;
+            margin-bottom: 30px;
+        }
+        
+        .card-widget h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        
+        .card-widget p {
+            color: #666;
+            line-height: 1.6;
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+        
+        .card-widget .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .card-widget .btn:hover {
+            background: #5568d3;
+        }
+        
+        .pricing-table {
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            max-width: 350px;
+            text-align: center;
+        }
+        
+        .pricing-table .plan-name {
+            font-size: 18px;
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .pricing-table .price {
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .pricing-table .price span {
+            font-size: 24px;
+            color: #999;
+        }
+        
+        .pricing-table .period {
+            color: #999;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+        
+        .pricing-table ul {
+            list-style: none;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+        
+        .pricing-table ul li {
+            padding: 10px 0;
+            color: #666;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .pricing-table ul li:last-child {
+            border-bottom: none;
+        }
+        
+        .pricing-table .subscribe-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        
+        .pricing-table .subscribe-btn:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <nav class="header-nav">
+        <div class="logo">BrandName</div>
+        <div class="nav-links">
+            <a href="#home">Home</a>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#contact">Contact</a>
+        </div>
+    </nav>
+    
+    <div class="card-widget">
+        <h2>Welcome to Our Platform</h2>
+        <p>Discover amazing features that will transform the way you work. Our platform is designed with simplicity and power in mind.</p>
+        <button class="btn">Get Started</button>
+    </div>
+    
+    <div class="pricing-table">
+        <div class="plan-name">Pro Plan</div>
+        <div class="price">$49<span>/mo</span></div>
+        <div class="period">Billed monthly</div>
+        <ul>
+            <li>✓ Unlimited projects</li>
+            <li>✓ Priority support</li>
+            <li>✓ Advanced analytics</li>
+            <li>✓ Custom integrations</li>
+        </ul>
+        <button class="subscribe-btn">Subscribe Now</button>
+    </div>
+</body>
+</html>
