@@ -1,13 +1,13 @@
-.PHONY: gifs
+.PHONY: all gifs docker-lint golangci-lint-install lint lintmax gosec govulncheck test build goreleaser tag-major tag-minor tag-patch release bump-glazed install
 
-all: gifs
+all: build
 
 VERSION=v0.1.14
 GORELEASER_ARGS ?= --skip=sign --snapshot --clean
 GORELEASER_TARGET ?= --single-target
 GOLANGCI_LINT_VERSION ?= $(shell cat .golangci-lint-version)
 GOLANGCI_LINT_BIN ?= $(CURDIR)/.bin/golangci-lint
-GOLANGCI_LINT_ARGS ?= --timeout=5m ./cmd/... ./pkg/...
+GOLANGCI_LINT_ARGS ?= --timeout=5m ./cmd/... ./internal/... ./pkg/...
 LINT_DIRS := $(shell git ls-files '*.go' | grep -vE '(^|/)ttmp/|(^|/)testdata/' | xargs -r -n1 dirname | sed 's#^#./#' | sort -u)
 GOSEC_EXCLUDE_DIRS := -exclude-dir=.history -exclude-dir=testdata -exclude-dir=ttmp
 
