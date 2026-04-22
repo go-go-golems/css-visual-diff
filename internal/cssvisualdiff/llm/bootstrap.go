@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	geppettoengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
@@ -50,7 +51,7 @@ func (r *BootstrapResult) Close() {
 
 func (r *BootstrapResult) BuildEngine() (geppettoengine.Engine, error) {
 	if r == nil || r.Resolved == nil {
-		return nil, nil
+		return nil, fmt.Errorf("bootstrap result is nil")
 	}
 	return profilebootstrap.NewEngineFromResolvedCLIEngineSettings(r.Resolved)
 }

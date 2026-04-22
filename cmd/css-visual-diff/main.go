@@ -14,6 +14,7 @@ import (
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/llm"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/runner"
 	"github.com/go-go-golems/glazed/pkg/cli"
@@ -243,6 +244,7 @@ func main() {
 
 	rootCmd.AddCommand(cobraRunCmd)
 	rootCmd.AddCommand(newCompareCommand())
+	rootCmd.AddCommand(newLLMReviewCommand())
 	rootCmd.AddCommand(newChromedpProbeCommand())
 	if err := cli.AddCommandsToRootCommand(rootCmd, scriptCommands, nil, cli.WithParserConfig(cli.CobraParserConfig{
 		ShortHelpSections: []string{schema.DefaultSlug},
@@ -282,69 +284,72 @@ type compareSettings struct {
 	Threshold int
 }
 
-func newCompareCommand() *cobra.Command {
-	settings := &compareSettings{}
-	cmd := &cobra.Command{
-		Use:   "compare",
-		Short: "Compare a single element between two URLs (screenshots + CSS + pixel diff)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			props := parseCSV(settings.Props)
-			if len(props) == 0 {
-				props = []string{
-					"display",
-					"position",
-					"top",
-					"right",
-					"bottom",
-					"left",
-					"width",
-					"height",
-					"margin-top",
-					"margin-right",
-					"margin-bottom",
-					"margin-left",
-					"padding-top",
-					"padding-right",
-					"padding-bottom",
-					"padding-left",
-					"font-family",
-					"font-size",
-					"font-weight",
-					"line-height",
-					"color",
-					"background-color",
-					"background-image",
-					"border-radius",
-					"box-shadow",
-					"z-index",
-				}
-			}
+func defaultCompareProps() []string {
+	return []string{
+		"display",
+		"position",
+		"top",
+		"right",
+		"bottom",
+		"left",
+		"width",
+		"height",
+		"margin-top",
+		"margin-right",
+		"margin-bottom",
+		"margin-left",
+		"padding-top",
+		"padding-right",
+		"padding-bottom",
+		"padding-left",
+		"font-family",
+		"font-size",
+		"font-weight",
+		"line-height",
+		"color",
+		"background-color",
+		"background-image",
+		"border-radius",
+		"box-shadow",
+		"z-index",
+	}
+}
 
-			attrs := parseCSV(settings.Attrs)
-			if len(attrs) == 0 {
-				attrs = []string{"id", "class"}
-			}
+func defaultCompareAttrs() []string {
+	return []string{"id", "class"}
+}
 
-			return modes.Compare(cmd.Context(), modes.CompareSettings{
-				URL1:               settings.URL1,
-				Selector1:          settings.Selector1,
-				WaitMS1:            settings.WaitMS1,
-				URL2:               settings.URL2,
-				Selector2:          settings.Selector2,
-				WaitMS2:            settings.WaitMS2,
-				ViewportW:          settings.ViewportW,
-				ViewportH:          settings.ViewportH,
-				Props:              props,
-				Attributes:         attrs,
-				OutDir:             settings.OutDir,
-				WriteJSON:          settings.WriteJSON,
-				WriteMarkdown:      settings.WriteMarkdown,
-				WritePNGs:          settings.WritePNGs,
-				PixelDiffThreshold: settings.Threshold,
-			})
-		},
+func buildCompareModeSettings(settings *compareSettings) modes.CompareSettings {
+	props := parseCSV(settings.Props)
+	if len(props) == 0 {
+		props = defaultCompareProps()
 	}
 
+	attrs := parseCSV(settings.Attrs)
+	if len(attrs) == 0 {
+		attrs = defaultCompareAttrs()
+	}
+
+	return modes.CompareSettings{
+		URL1:               settings.URL1,
+		Selector1:          settings.Selector1,
+		WaitMS1:            settings.WaitMS1,
+		URL2:               settings.URL2,
+		Selector2:          settings.Selector2,
+		WaitMS2:            settings.WaitMS2,
+		ViewportW:          settings.ViewportW,
+		ViewportH:          settings.ViewportH,
+		Props:              props,
+		Attributes:         attrs,
+		OutDir:             settings.OutDir,
+		WriteJSON:          settings.WriteJSON,
+		WriteMarkdown:      settings.WriteMarkdown,
+		WritePNGs:          settings.WritePNGs,
+		PixelDiffThreshold: settings.Threshold,
+	}
+}
+
+func addCompareFlags(cmd *cobra.Command, settings *compareSettings) {
 	cmd.Flags().StringVar(&settings.URL1, "url1", "", "First URL to compare")
 	cmd.Flags().StringVar(&settings.Selector1, "selector1", "", "CSS selector for URL1 element")
 	cmd.Flags().IntVar(&settings.WaitMS1, "wait-ms1", 0, "Wait after navigation for URL1 (ms)")
@@ -369,7 +374,93 @@ func newCompareCommand() *cobra.Command {
 	_ = cmd.MarkFlagRequired("url1")
 	_ = cmd.MarkFlagRequired("selector1")
 	_ = cmd.MarkFlagRequired("url2")
+}
 
+func newCompareCommand() *cobra.Command {
+	settings := &compareSettings{}
+	cmd := &cobra.Command{
+		Use:   "compare",
+		Short: "Compare a single element between two URLs (screenshots + CSS + pixel diff)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return modes.Compare(cmd.Context(), buildCompareModeSettings(settings))
+		},
+	}
+
+	addCompareFlags(cmd, settings)
+	return cmd
+}
+
+type llmReviewSettings struct {
+	compareSettings
+
+	Question          string
+	ConfigFile        string
+	Profile           string
+	ProfileRegistries []string
+
+	WriteReviewJSON     bool
+	WriteReviewMarkdown bool
+}
+
+func newLLMReviewCommand() *cobra.Command {
+	settings := &llmReviewSettings{}
+	cmd := &cobra.Command{
+		Use:   "llm-review",
+		Short: "Compare a region and ask an LLM for a multimodal review using Pinocchio profile settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			compareSettings := buildCompareModeSettings(&settings.compareSettings)
+			result, err := modes.GenerateCompareResult(cmd.Context(), compareSettings)
+			if err != nil {
+				return err
+			}
+			if err := modes.WriteCompareArtifacts(result, compareSettings.WriteJSON, compareSettings.WriteMarkdown); err != nil {
+				return err
+			}
+
+			bootstrapResult, err := llm.ResolveEngineSettings(cmd.Context(), llm.BootstrapOptions{
+				ConfigFile:        settings.ConfigFile,
+				Profile:           settings.Profile,
+				ProfileRegistries: settings.ProfileRegistries,
+			})
+			if err != nil {
+				return err
+			}
+			defer bootstrapResult.Close()
+
+			review, err := llm.ReviewCompare(cmd.Context(), bootstrapResult, llm.ReviewOptions{
+				Question: settings.Question,
+				Evidence: result,
+			})
+			if err != nil {
+				return err
+			}
+
+			if settings.WriteReviewJSON {
+				if err := llm.WriteReviewJSON(filepath.Join(result.Inputs.OutDir, "llm-review.json"), review); err != nil {
+					return err
+				}
+			}
+			if settings.WriteReviewMarkdown {
+				if err := llm.WriteReviewMarkdown(filepath.Join(result.Inputs.OutDir, "llm-review.md"), review); err != nil {
+					return err
+				}
+			}
+
+			fmt.Print(review.Answer)
+			if !strings.HasSuffix(review.Answer, "\n") {
+				fmt.Println()
+			}
+			return nil
+		},
+	}
+
+	addCompareFlags(cmd, &settings.compareSettings)
+	cmd.Flags().StringVar(&settings.Question, "question", "What are the main visual differences and their likely CSS causes?", "Question to ask about the compared regions")
+	cmd.Flags().StringVar(&settings.ConfigFile, "config-file", "", "Optional Pinocchio config file used for profile/bootstrap resolution")
+	cmd.Flags().StringVar(&settings.Profile, "profile", "", "Pinocchio/Geppetto engine profile to resolve")
+	cmd.Flags().StringSliceVar(&settings.ProfileRegistries, "profile-registries", nil, "Comma-separated or repeated Pinocchio/Geppetto profile registry sources")
+	cmd.Flags().BoolVar(&settings.WriteReviewJSON, "write-review-json", true, "Write llm-review.json")
+	cmd.Flags().BoolVar(&settings.WriteReviewMarkdown, "write-review-markdown", true, "Write llm-review.md")
 	return cmd
 }
 
