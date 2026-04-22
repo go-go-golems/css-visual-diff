@@ -349,7 +349,7 @@ func buildCompareModeSettings(settings *compareSettings) modes.CompareSettings {
 	}
 }
 
-func addCompareFlags(cmd *cobra.Command, settings *compareSettings) {
+func addCompareFlags(cmd *cobra.Command, settings *compareSettings, requireTargets bool) {
 	cmd.Flags().StringVar(&settings.URL1, "url1", "", "First URL to compare")
 	cmd.Flags().StringVar(&settings.Selector1, "selector1", "", "CSS selector for URL1 element")
 	cmd.Flags().IntVar(&settings.WaitMS1, "wait-ms1", 0, "Wait after navigation for URL1 (ms)")
@@ -371,9 +371,11 @@ func addCompareFlags(cmd *cobra.Command, settings *compareSettings) {
 	cmd.Flags().BoolVar(&settings.WriteMarkdown, "write-markdown", true, "Write compare.md")
 	cmd.Flags().BoolVar(&settings.WritePNGs, "write-pngs", true, "Write screenshots and diff images")
 
-	_ = cmd.MarkFlagRequired("url1")
-	_ = cmd.MarkFlagRequired("selector1")
-	_ = cmd.MarkFlagRequired("url2")
+	if requireTargets {
+		_ = cmd.MarkFlagRequired("url1")
+		_ = cmd.MarkFlagRequired("selector1")
+		_ = cmd.MarkFlagRequired("url2")
+	}
 }
 
 func newCompareCommand() *cobra.Command {
@@ -386,7 +388,7 @@ func newCompareCommand() *cobra.Command {
 		},
 	}
 
-	addCompareFlags(cmd, settings)
+	addCompareFlags(cmd, settings, true)
 	return cmd
 }
 
@@ -398,8 +400,9 @@ type llmReviewSettings struct {
 	Profile           string
 	ProfileRegistries []string
 
-	WriteReviewJSON     bool
-	WriteReviewMarkdown bool
+	WriteReviewJSON        bool
+	WriteReviewMarkdown    bool
+	PrintInferenceSettings bool
 }
 
 func newLLMReviewCommand() *cobra.Command {
@@ -408,15 +411,6 @@ func newLLMReviewCommand() *cobra.Command {
 		Use:   "llm-review",
 		Short: "Compare a region and ask an LLM for a multimodal review using Pinocchio profile settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			compareSettings := buildCompareModeSettings(&settings.compareSettings)
-			result, err := modes.GenerateCompareResult(cmd.Context(), compareSettings)
-			if err != nil {
-				return err
-			}
-			if err := modes.WriteCompareArtifacts(result, compareSettings.WriteJSON, compareSettings.WriteMarkdown); err != nil {
-				return err
-			}
-
 			bootstrapResult, err := llm.ResolveEngineSettings(cmd.Context(), llm.BootstrapOptions{
 				ConfigFile:        settings.ConfigFile,
 				Profile:           settings.Profile,
@@ -426,6 +420,19 @@ func newLLMReviewCommand() *cobra.Command {
 				return err
 			}
 			defer bootstrapResult.Close()
+
+			if settings.PrintInferenceSettings {
+				return llm.WriteInferenceSettingsDebug(cmd.OutOrStdout(), bootstrapResult)
+			}
+
+			compareSettings := buildCompareModeSettings(&settings.compareSettings)
+			result, err := modes.GenerateCompareResult(cmd.Context(), compareSettings)
+			if err != nil {
+				return err
+			}
+			if err := modes.WriteCompareArtifacts(result, compareSettings.WriteJSON, compareSettings.WriteMarkdown); err != nil {
+				return err
+			}
 
 			review, err := llm.ReviewCompare(cmd.Context(), bootstrapResult, llm.ReviewOptions{
 				Question: settings.Question,
@@ -454,13 +461,14 @@ func newLLMReviewCommand() *cobra.Command {
 		},
 	}
 
-	addCompareFlags(cmd, &settings.compareSettings)
+	addCompareFlags(cmd, &settings.compareSettings, false)
 	cmd.Flags().StringVar(&settings.Question, "question", "What are the main visual differences and their likely CSS causes?", "Question to ask about the compared regions")
 	cmd.Flags().StringVar(&settings.ConfigFile, "config-file", "", "Optional Pinocchio config file used for profile/bootstrap resolution")
 	cmd.Flags().StringVar(&settings.Profile, "profile", "", "Pinocchio/Geppetto engine profile to resolve")
 	cmd.Flags().StringSliceVar(&settings.ProfileRegistries, "profile-registries", nil, "Comma-separated or repeated Pinocchio/Geppetto profile registry sources")
 	cmd.Flags().BoolVar(&settings.WriteReviewJSON, "write-review-json", true, "Write llm-review.json")
 	cmd.Flags().BoolVar(&settings.WriteReviewMarkdown, "write-review-markdown", true, "Write llm-review.md")
+	cmd.Flags().BoolVar(&settings.PrintInferenceSettings, "print-inference-settings", false, "Print the resolved inference settings and exit")
 	return cmd
 }
 

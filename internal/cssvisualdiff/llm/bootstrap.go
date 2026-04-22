@@ -3,8 +3,10 @@ package llm
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
+	geppettobootstrap "github.com/go-go-golems/geppetto/pkg/cli/bootstrap"
 	geppettoengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	profilebootstrap "github.com/go-go-golems/pinocchio/pkg/cmds/profilebootstrap"
@@ -82,4 +84,21 @@ func SelectedRegistry(r *BootstrapResult) string {
 		return ""
 	}
 	return strings.TrimSpace(r.Resolved.ResolvedEngineProfile.RegistrySlug.String())
+}
+
+func WriteInferenceSettingsDebug(w io.Writer, r *BootstrapResult) error {
+	if r == nil || r.Resolved == nil {
+		return fmt.Errorf("bootstrap result is nil")
+	}
+	_, err := geppettobootstrap.HandleInferenceDebugOutput(
+		w,
+		profilebootstrap.BootstrapConfig(),
+		r.Parsed,
+		geppettobootstrap.InferenceDebugSettings{PrintInferenceSettings: true},
+		r.Resolved,
+		geppettobootstrap.InferenceDebugOutputOptions{
+			CommandBase: r.Resolved.BaseInferenceSettings,
+		},
+	)
+	return err
 }
