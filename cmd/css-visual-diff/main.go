@@ -11,17 +11,19 @@ import (
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/runner"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
+	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
 	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/runner"
 	"github.com/spf13/cobra"
 )
 
@@ -37,15 +39,6 @@ type RunSettings struct {
 }
 
 func NewRunCommand() (*RunCommand, error) {
-	glazedLayer, err := schema.NewGlazedSchema()
-	if err != nil {
-		return nil, err
-	}
-	commandSettingsLayer, err := cli.NewCommandSettingsLayer()
-	if err != nil {
-		return nil, err
-	}
-
 	cmdDesc := cmds.NewCommandDescription(
 		"run",
 		cmds.WithShort("Run css-visual-diff capture and analysis modes"),
@@ -75,7 +68,6 @@ func NewRunCommand() (*RunCommand, error) {
 				fields.WithHelp("Pixel diff threshold (0-255) used by pixeldiff mode"),
 			),
 		),
-		cmds.WithLayersList(glazedLayer, commandSettingsLayer),
 	)
 
 	return &RunCommand{CommandDescription: cmdDesc}, nil
@@ -87,7 +79,7 @@ func (c *RunCommand) RunIntoGlazeProcessor(
 	gp middlewares.Processor,
 ) error {
 	settings := &RunSettings{}
-	if err := values.DecodeSectionInto(vals, schema.DefaultSlug, settings); err != nil {
+	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings); err != nil {
 		return err
 	}
 	if settings.Config == "" {
@@ -214,16 +206,51 @@ func main() {
 		os.Exit(1)
 	}
 
-	cobraRunCmd, err := cli.BuildCobraCommand(runCmd)
+	host, err := dsl.NewHost()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating script host: %v\n", err)
+		os.Exit(1)
+	}
+
+	scriptCommands, err := host.Commands()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error building script commands: %v\n", err)
+		os.Exit(1)
+	}
+
+	rootCmd := &cobra.Command{
+		Use:   "css-visual-diff",
+		Short: "Compare rendered HTML/CSS across browser targets",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return logging.InitLoggerFromCobra(cmd)
+		},
+	}
+	if err := logging.AddLoggingSectionToRootCommand(rootCmd, "css-visual-diff"); err != nil {
+		fmt.Fprintf(os.Stderr, "Error adding logging flags: %v\n", err)
+		os.Exit(1)
+	}
+	setDefaultFlagValue(rootCmd, "log-level", "error")
+	setDefaultFlagValue(rootCmd, "log-format", "text")
+
+	cobraRunCmd, err := cli.BuildCobraCommand(runCmd, cli.WithParserConfig(cli.CobraParserConfig{
+		ShortHelpSections: []string{schema.DefaultSlug},
+		MiddlewaresFunc:   cli.CobraCommandDefaultMiddlewares,
+	}))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error building run command: %v\n", err)
 		os.Exit(1)
 	}
 
-	rootCmd := &cobra.Command{Use: "css-visual-diff"}
 	rootCmd.AddCommand(cobraRunCmd)
 	rootCmd.AddCommand(newCompareCommand())
 	rootCmd.AddCommand(newChromedpProbeCommand())
+	if err := cli.AddCommandsToRootCommand(rootCmd, scriptCommands, nil, cli.WithParserConfig(cli.CobraParserConfig{
+		ShortHelpSections: []string{schema.DefaultSlug},
+		MiddlewaresFunc:   cli.CobraCommandDefaultMiddlewares,
+	})); err != nil {
+		fmt.Fprintf(os.Stderr, "Error registering script commands: %v\n", err)
+		os.Exit(1)
+	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -375,6 +402,15 @@ type chromedpProbeSettings struct {
 	ViewportW int
 	ViewportH int
 	TimeoutMS int
+}
+
+func setDefaultFlagValue(root *cobra.Command, name string, value string) {
+	flag := root.PersistentFlags().Lookup(name)
+	if flag == nil {
+		return
+	}
+	flag.DefValue = value
+	_ = flag.Value.Set(value)
 }
 
 func newChromedpProbeCommand() *cobra.Command {

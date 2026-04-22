@@ -88,20 +88,43 @@ type PixelDiffStats struct {
 }
 
 func Compare(ctx context.Context, settings CompareSettings) error {
+	result, err := GenerateCompareResult(ctx, settings)
+	if err != nil {
+		return err
+	}
+
+	return WriteCompareArtifacts(result, settings.WriteJSON, settings.WriteMarkdown)
+}
+
+func WriteCompareArtifacts(result CompareResult, writeJSONFile bool, writeMarkdownFile bool) error {
+	if writeJSONFile {
+		if err := writeJSON(filepath.Join(result.Inputs.OutDir, "compare.json"), result); err != nil {
+			return err
+		}
+	}
+	if writeMarkdownFile {
+		if err := writeCompareMarkdown(filepath.Join(result.Inputs.OutDir, "compare.md"), result); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func GenerateCompareResult(ctx context.Context, settings CompareSettings) (CompareResult, error) {
 	if settings.URL1 == "" || settings.URL2 == "" {
-		return fmt.Errorf("--url1 and --url2 are required")
+		return CompareResult{}, fmt.Errorf("--url1 and --url2 are required")
 	}
 	if strings.TrimSpace(settings.Selector1) == "" {
-		return fmt.Errorf("--selector1 is required")
+		return CompareResult{}, fmt.Errorf("--selector1 is required")
 	}
 	if strings.TrimSpace(settings.Selector2) == "" {
 		settings.Selector2 = settings.Selector1
 	}
 	if settings.ViewportW <= 0 || settings.ViewportH <= 0 {
-		return fmt.Errorf("viewport must be positive")
+		return CompareResult{}, fmt.Errorf("viewport must be positive")
 	}
 	if settings.PixelDiffThreshold < 0 || settings.PixelDiffThreshold > 255 {
-		return fmt.Errorf("--threshold must be between 0 and 255")
+		return CompareResult{}, fmt.Errorf("--threshold must be between 0 and 255")
 	}
 
 	if settings.OutDir == "" {
@@ -109,32 +132,32 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 	}
 	settings.OutDir = filepath.Clean(settings.OutDir)
 	if err := os.MkdirAll(settings.OutDir, 0o755); err != nil {
-		return err
+		return CompareResult{}, err
 	}
 
 	browser, err := driver.NewBrowser(ctx)
 	if err != nil {
-		return err
+		return CompareResult{}, err
 	}
 	defer browser.Close()
 
 	page1, err := browser.NewPage()
 	if err != nil {
-		return err
+		return CompareResult{}, err
 	}
 	defer page1.Close()
 
 	page2, err := browser.NewPage()
 	if err != nil {
-		return err
+		return CompareResult{}, err
 	}
 	defer page2.Close()
 
 	if err := page1.SetViewport(settings.ViewportW, settings.ViewportH); err != nil {
-		return err
+		return CompareResult{}, err
 	}
 	if err := page2.SetViewport(settings.ViewportW, settings.ViewportH); err != nil {
-		return err
+		return CompareResult{}, err
 	}
 
 	side1, err := captureCompareSide(
@@ -148,7 +171,7 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 		settings.Attributes,
 	)
 	if err != nil {
-		return err
+		return CompareResult{}, err
 	}
 
 	side2, err := captureCompareSide(
@@ -162,7 +185,7 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 		settings.Attributes,
 	)
 	if err != nil {
-		return err
+		return CompareResult{}, err
 	}
 
 	computedDiffs := buildDiffs(settings.Props, side1.Computed, side2.Computed)
@@ -178,7 +201,7 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 	if settings.WritePNGs {
 		stats, err := writePixelDiffImages(side1.ElementScreenshot, side2.ElementScreenshot, diffComparisonPath, diffOnlyPath, settings.PixelDiffThreshold)
 		if err != nil {
-			return err
+			return CompareResult{}, err
 		}
 		pixelDiffStats = stats
 	}
@@ -204,18 +227,7 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 		PixelDiff:     pixelDiffStats,
 	}
 
-	if settings.WriteJSON {
-		if err := writeJSON(filepath.Join(settings.OutDir, "compare.json"), result); err != nil {
-			return err
-		}
-	}
-	if settings.WriteMarkdown {
-		if err := writeCompareMarkdown(filepath.Join(settings.OutDir, "compare.md"), result); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return result, nil
 }
 
 func captureCompareSide(
