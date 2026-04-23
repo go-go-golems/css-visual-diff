@@ -22,3 +22,6 @@ css-visual-diff-compare-*
 .env
 .envrc
 .history
+
+# Generated visual-diff example artifacts
+examples/out/
