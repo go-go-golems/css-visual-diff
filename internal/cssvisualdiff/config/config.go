@@ -64,11 +64,40 @@ type Viewport struct {
 }
 
 type SectionSpec struct {
-	Name             string `yaml:"name"`
-	Selector         string `yaml:"selector"`
-	SelectorOriginal string `yaml:"selector_original"`
-	SelectorReact    string `yaml:"selector_react"`
-	OCRQuestion      string `yaml:"ocr_question"`
+	Name               string            `yaml:"name"`
+	Selector           string            `yaml:"selector"`
+	SelectorOriginal   string            `yaml:"selector_original"`
+	SelectorReact      string            `yaml:"selector_react"`
+	OCRQuestion        string            `yaml:"ocr_question"`
+	ExpectText         *TextExpectations `yaml:"expect_text"`
+	ExpectTextOriginal *TextExpectations `yaml:"expect_text_original"`
+	ExpectTextReact    *TextExpectations `yaml:"expect_text_react"`
+	ExpectPNG          *PNGExpectations  `yaml:"expect_png"`
+	ExpectPNGOriginal  *PNGExpectations  `yaml:"expect_png_original"`
+	ExpectPNGReact     *PNGExpectations  `yaml:"expect_png_react"`
+}
+
+type TextExpectations struct {
+	Includes []string `yaml:"includes"`
+	Excludes []string `yaml:"excludes"`
+}
+
+type PNGExpectations struct {
+	Width              int               `yaml:"width"`
+	Height             int               `yaml:"height"`
+	MinWidth           int               `yaml:"min_width"`
+	MinHeight          int               `yaml:"min_height"`
+	MaxWidth           int               `yaml:"max_width"`
+	MaxHeight          int               `yaml:"max_height"`
+	TopStripNear       *ColorExpectation `yaml:"top_strip_near"`
+	TopStripNotNear    *ColorExpectation `yaml:"top_strip_not_near"`
+	BottomStripNear    *ColorExpectation `yaml:"bottom_strip_near"`
+	BottomStripNotNear *ColorExpectation `yaml:"bottom_strip_not_near"`
+}
+
+type ColorExpectation struct {
+	RGB       []int `yaml:"rgb"`
+	Tolerance int   `yaml:"tolerance"`
 }
 
 type StyleSpec struct {
