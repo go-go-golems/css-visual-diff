@@ -491,6 +491,11 @@ func newLLMReviewCommand() *cobra.Command {
 			if !strings.HasSuffix(review.Answer, "\n") {
 				fmt.Println()
 			}
+			if usageText := llm.ReviewUsageConsoleText(review); usageText != "" {
+				fmt.Println()
+				fmt.Println("Token usage:")
+				fmt.Println(usageText)
+			}
 			return nil
 		},
 	}

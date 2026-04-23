@@ -246,6 +246,12 @@ func WriteReviewMarkdown(path string, result ReviewResult) error {
 	lines = append(lines, "")
 	lines = append(lines, result.Answer)
 	lines = append(lines, "")
+	if usageLines := ReviewUsageMarkdownLines(result); len(usageLines) > 0 {
+		lines = append(lines, "## Token Usage")
+		lines = append(lines, "")
+		lines = append(lines, usageLines...)
+		lines = append(lines, "")
+	}
 	if len(result.Artifacts) > 0 {
 		keys := make([]string, 0, len(result.Artifacts))
 		for key := range result.Artifacts {
@@ -260,6 +266,75 @@ func WriteReviewMarkdown(path string, result ReviewResult) error {
 		lines = append(lines, "")
 	}
 	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
+}
+
+func ReviewUsageMarkdownLines(result ReviewResult) []string {
+	if result.InferenceResult == nil || result.InferenceResult.Usage == nil {
+		return nil
+	}
+	usage := result.InferenceResult.Usage
+	total := usage.InputTokens + usage.OutputTokens
+	lines := []string{
+		fmt.Sprintf("- **Input tokens:** %d", usage.InputTokens),
+		fmt.Sprintf("- **Output tokens:** %d", usage.OutputTokens),
+		fmt.Sprintf("- **Total tokens:** %d", total),
+	}
+	if usage.CachedTokens != 0 {
+		lines = append(lines, fmt.Sprintf("- **Cached tokens:** %d", usage.CachedTokens))
+	}
+	if usage.CacheCreationInputTokens != 0 {
+		lines = append(lines, fmt.Sprintf("- **Cache creation input tokens:** %d", usage.CacheCreationInputTokens))
+	}
+	if usage.CacheReadInputTokens != 0 {
+		lines = append(lines, fmt.Sprintf("- **Cache read input tokens:** %d", usage.CacheReadInputTokens))
+	}
+	if reasoningTokens, ok := reviewExtraInt(result, "reasoning_tokens"); ok {
+		lines = append(lines, fmt.Sprintf("- **Reasoning tokens:** %d", reasoningTokens))
+	}
+	if result.InferenceResult.MaxTokens != nil {
+		lines = append(lines, fmt.Sprintf("- **Max tokens:** %d", *result.InferenceResult.MaxTokens))
+	}
+	if result.InferenceResult.DurationMs != nil {
+		lines = append(lines, fmt.Sprintf("- **Duration:** %d ms", *result.InferenceResult.DurationMs))
+	}
+	return lines
+}
+
+func ReviewUsageConsoleText(result ReviewResult) string {
+	lines := ReviewUsageMarkdownLines(result)
+	if len(lines) == 0 {
+		return ""
+	}
+	for i, line := range lines {
+		line = strings.TrimPrefix(line, "- **")
+		line = strings.Replace(line, "**", "", 1)
+		lines[i] = line
+	}
+	return strings.Join(lines, "\n")
+}
+
+func reviewExtraInt(result ReviewResult, key string) (int, bool) {
+	if result.InferenceResult == nil || result.InferenceResult.Extra == nil {
+		return 0, false
+	}
+	raw, ok := result.InferenceResult.Extra[key]
+	if !ok || raw == nil {
+		return 0, false
+	}
+	switch v := raw.(type) {
+	case int:
+		return v, true
+	case int64:
+		return int(v), true
+	case float64:
+		return int(v), true
+	case json.Number:
+		i, err := v.Int64()
+		if err == nil {
+			return int(i), true
+		}
+	}
+	return 0, false
 }
 
 func BuildImagePayload(path string, required bool) (map[string]any, string, error) {

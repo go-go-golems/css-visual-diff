@@ -46,6 +46,31 @@ func TestExtractAssistantTextReturnsLatestLLMText(t *testing.T) {
 	require.Equal(t, "second", ExtractAssistantText(turn))
 }
 
+func TestReviewUsageMarkdownLinesIncludesTokenSummary(t *testing.T) {
+	maxTokens := 2048
+	duration := int64(1234)
+	lines := ReviewUsageMarkdownLines(ReviewResult{InferenceResult: &turns.InferenceResult{
+		Usage: &turns.InferenceUsage{
+			InputTokens:  100,
+			OutputTokens: 25,
+			CachedTokens: 4,
+		},
+		MaxTokens:  &maxTokens,
+		DurationMs: &duration,
+		Extra: map[string]any{
+			"reasoning_tokens": 7,
+		},
+	}})
+
+	require.Contains(t, lines, "- **Input tokens:** 100")
+	require.Contains(t, lines, "- **Output tokens:** 25")
+	require.Contains(t, lines, "- **Total tokens:** 125")
+	require.Contains(t, lines, "- **Cached tokens:** 4")
+	require.Contains(t, lines, "- **Reasoning tokens:** 7")
+	require.Contains(t, lines, "- **Max tokens:** 2048")
+	require.Contains(t, lines, "- **Duration:** 1234 ms")
+}
+
 func sampleCompareResult(t *testing.T) modes.CompareResult {
 	t.Helper()
 	tmp := t.TempDir()
