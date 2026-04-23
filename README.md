@@ -33,3 +33,83 @@ GOWORK=off go run ./cmd/css-visual-diff --help
 GOWORK=off go run ./cmd/css-visual-diff compare --help
 GOWORK=off go run ./cmd/css-visual-diff chromedp-probe --help
 ```
+
+## Prepared targets
+
+Some design sources do not render the comparison target directly. They may open a
+pan/zoom design canvas, prototype shell, or development board first. Config-driven
+runs can now prepare each target after navigation and before capture/CSS analysis.
+
+Minimal script prepare:
+
+```yaml
+original:
+  name: prototype
+  url: http://localhost:7070/Pyxis%20Public%20Site.html
+  wait_ms: 1000
+  viewport: { width: 1200, height: 2200 }
+  root_selector: "#capture-root"
+  prepare:
+    type: script
+    wait_for: "window.React && window.ReactDOM && window.PPXDesktop"
+    script: |
+      document.body.innerHTML = '<div id="capture-root"></div>';
+      document.body.style.margin = '0';
+      document.body.style.background = '#fff';
+      const root = document.getElementById('capture-root');
+      root.style.width = '920px';
+      ReactDOM.createRoot(root).render(React.createElement(PPXDesktop, { page: 'shows' }));
+    after_wait_ms: 1000
+```
+
+Convenience React-global prepare:
+
+```yaml
+original:
+  name: prototype
+  url: http://localhost:7070/Pyxis%20Public%20Site.html
+  viewport: { width: 1200, height: 2200 }
+  prepare:
+    type: direct-react-global
+    wait_for: "window.React && window.ReactDOM && window.PPXDesktop"
+    component: PPXDesktop
+    props: { page: shows }
+    root_selector: "#capture-root"
+    width: 920
+    background: "#fff"
+```
+
+When `root_selector` is set, capture mode uses an element screenshot for the full
+baseline PNG instead of a browser full-page screenshot. This avoids including
+prototype shell or design-canvas chrome in the exported baseline.
+
+Optional capture artifacts and validation:
+
+```yaml
+sections:
+  - name: full
+    selector_original: "#capture-root"
+    selector_react: "[data-page='shows']"
+    expect_text_original:
+      includes: ["ppxis", "Upcoming shows", "Instagram"]
+      excludes: ["01 · Desktop", "Poster-grid shell"]
+    expect_png_original:
+      width: 920
+      min_height: 1700
+      top_strip_near: { rgb: [255, 255, 255], tolerance: 8 }
+      top_strip_not_near: { rgb: [240, 238, 233], tolerance: 8 }
+
+output:
+  dir: ./out/pyxis-public-shows
+  write_json: true
+  write_markdown: true
+  write_pngs: true
+  write_prepared_html: true
+  write_inspect_json: true
+  validate_pngs: true
+```
+
+Validation is intentionally layered: inspect DOM text/selectors first, then PNG
+structure and color-strip statistics. Use human visual review or `understand_image`
+for semantic questions such as cutoff/footer visibility; OCR should be a later
+fallback, not the first validation tool.
