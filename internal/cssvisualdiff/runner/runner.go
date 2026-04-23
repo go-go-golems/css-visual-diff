@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/ai"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 )
@@ -21,6 +22,7 @@ type RunResult struct {
 
 type RunOptions struct {
 	PixelDiffThreshold int
+	AIClient           ai.Client
 }
 
 var defaultModes = []string{"capture", "cssdiff"}
@@ -85,7 +87,11 @@ func Run(ctx context.Context, cfg *config.Config, modesList []string, dryRun boo
 		case "story-discovery":
 			err = modes.StoryDiscovery(ctx, cfg)
 		case "ai-review":
-			err = modes.AIReview(ctx, cfg)
+			if options.AIClient != nil {
+				err = modes.RunAIReviewWithClient(ctx, cfg, options.AIClient)
+			} else {
+				err = modes.AIReview(ctx, cfg)
+			}
 		default:
 			err = fmt.Errorf("unknown mode: %s", mode)
 		}

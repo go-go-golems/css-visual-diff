@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 	geppettoengine "github.com/go-go-golems/geppetto/pkg/inference/engine"
 	"github.com/go-go-golems/geppetto/pkg/turns"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 )
 
 const defaultSystemPrompt = "You are an expert frontend engineer and visual QA analyst. Use the provided screenshots and structured CSS/layout evidence to answer the user's question. Be concrete about visual changes, likely CSS causes, and user-facing impact."
@@ -26,16 +26,16 @@ type ReviewOptions struct {
 }
 
 type ReviewResult struct {
-	Question        string                            `json:"question"`
-	Answer          string                            `json:"answer"`
-	Model           string                            `json:"model,omitempty"`
-	Provider        string                            `json:"provider,omitempty"`
-	APIType         string                            `json:"apiType,omitempty"`
-	Profile         string                            `json:"profile,omitempty"`
-	Registry        string                            `json:"registry,omitempty"`
-	PromptSummary   string                            `json:"promptSummary,omitempty"`
-	Artifacts       map[string]string                 `json:"artifacts,omitempty"`
-	InferenceResult *geppettoengine.InferenceResult   `json:"inferenceResult,omitempty"`
+	Question        string                          `json:"question"`
+	Answer          string                          `json:"answer"`
+	Model           string                          `json:"model,omitempty"`
+	Provider        string                          `json:"provider,omitempty"`
+	APIType         string                          `json:"apiType,omitempty"`
+	Profile         string                          `json:"profile,omitempty"`
+	Registry        string                          `json:"registry,omitempty"`
+	PromptSummary   string                          `json:"promptSummary,omitempty"`
+	Artifacts       map[string]string               `json:"artifacts,omitempty"`
+	InferenceResult *geppettoengine.InferenceResult `json:"inferenceResult,omitempty"`
 }
 
 func ReviewCompare(ctx context.Context, bootstrap *BootstrapResult, opts ReviewOptions) (ReviewResult, error) {
@@ -167,21 +167,21 @@ func BuildReviewImages(evidence modes.CompareResult) ([]map[string]any, map[stri
 	images := make([]map[string]any, 0, 3)
 	artifacts := map[string]string{}
 
-	left, leftPath, err := buildImagePayload(evidence.URL1.ElementScreenshot, true)
+	left, leftPath, err := BuildImagePayload(evidence.URL1.ElementScreenshot, true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("left screenshot: %w", err)
 	}
 	images = append(images, left)
 	artifacts["left"] = leftPath
 
-	right, rightPath, err := buildImagePayload(evidence.URL2.ElementScreenshot, true)
+	right, rightPath, err := BuildImagePayload(evidence.URL2.ElementScreenshot, true)
 	if err != nil {
 		return nil, nil, fmt.Errorf("right screenshot: %w", err)
 	}
 	images = append(images, right)
 	artifacts["right"] = rightPath
 
-	if diff, diffPath, err := buildImagePayload(evidence.PixelDiff.DiffComparisonPath, false); err != nil {
+	if diff, diffPath, err := BuildImagePayload(evidence.PixelDiff.DiffComparisonPath, false); err != nil {
 		return nil, nil, fmt.Errorf("diff comparison screenshot: %w", err)
 	} else if diff != nil {
 		images = append(images, diff)
@@ -262,7 +262,7 @@ func WriteReviewMarkdown(path string, result ReviewResult) error {
 	return os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644)
 }
 
-func buildImagePayload(path string, required bool) (map[string]any, string, error) {
+func BuildImagePayload(path string, required bool) (map[string]any, string, error) {
 	path = strings.TrimSpace(path)
 	if path == "" {
 		if required {

@@ -29,6 +29,14 @@ type AIResponse struct {
 }
 
 func RunAIReview(ctx context.Context, cfg *config.Config) error {
+	return RunAIReviewWithClient(ctx, cfg, ai.NoopClient{})
+}
+
+func RunAIReviewWithClient(ctx context.Context, cfg *config.Config, client ai.Client) error {
+	if client == nil {
+		client = ai.NoopClient{}
+	}
+
 	capturePath := filepath.Join(cfg.Output.Dir, "capture.json")
 	data, err := os.ReadFile(capturePath)
 	if err != nil {
@@ -40,7 +48,6 @@ func RunAIReview(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	client := ai.NoopClient{}
 	result := AIReviewResult{}
 
 	for i, section := range cfg.Sections {

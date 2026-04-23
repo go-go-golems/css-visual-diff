@@ -33,10 +33,13 @@ type RunCommand struct {
 }
 
 type RunSettings struct {
-	Config             string `glazed:"config"`
-	Modes              string `glazed:"modes"`
-	DryRun             bool   `glazed:"dry-run"`
-	PixelDiffThreshold int    `glazed:"pixeldiff-threshold"`
+	Config             string   `glazed:"config"`
+	Modes              string   `glazed:"modes"`
+	DryRun             bool     `glazed:"dry-run"`
+	PixelDiffThreshold int      `glazed:"pixeldiff-threshold"`
+	ProfileConfigFile  string   `glazed:"profile-config-file"`
+	Profile            string   `glazed:"profile"`
+	ProfileRegistries  []string `glazed:"profile-registries"`
 }
 
 func NewRunCommand() (*RunCommand, error) {
@@ -67,6 +70,23 @@ func NewRunCommand() (*RunCommand, error) {
 				fields.TypeInteger,
 				fields.WithDefault(30),
 				fields.WithHelp("Pixel diff threshold (0-255) used by pixeldiff mode"),
+			),
+			fields.New(
+				"profile-config-file",
+				fields.TypeString,
+				fields.WithDefault(""),
+				fields.WithHelp("Optional Pinocchio config file used for ai-review profile/bootstrap resolution"),
+			),
+			fields.New(
+				"profile",
+				fields.TypeString,
+				fields.WithDefault(""),
+				fields.WithHelp("Pinocchio/Geppetto engine profile used by ai-review"),
+			),
+			fields.New(
+				"profile-registries",
+				fields.TypeStringList,
+				fields.WithHelp("Comma-separated or repeated Pinocchio/Geppetto profile registry sources used by ai-review"),
 			),
 		),
 	)
@@ -102,9 +122,23 @@ func (c *RunCommand) RunIntoGlazeProcessor(
 		return err
 	}
 
-	result, err := runner.Run(ctx, cfg, modesList, settings.DryRun, runner.RunOptions{
+	runOptions := runner.RunOptions{
 		PixelDiffThreshold: settings.PixelDiffThreshold,
-	})
+	}
+	if !settings.DryRun && containsMode(modesList, "ai-review") {
+		bootstrapResult, err := llm.ResolveEngineSettings(ctx, llm.BootstrapOptions{
+			ConfigFile:        settings.ProfileConfigFile,
+			Profile:           settings.Profile,
+			ProfileRegistries: settings.ProfileRegistries,
+		})
+		if err != nil {
+			return err
+		}
+		defer bootstrapResult.Close()
+		runOptions.AIClient = llm.NewImageQuestionClient(bootstrapResult)
+	}
+
+	result, err := runner.Run(ctx, cfg, modesList, settings.DryRun, runOptions)
 	if err != nil && settings.DryRun {
 		return err
 	}

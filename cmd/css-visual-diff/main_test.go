@@ -65,6 +65,25 @@ modes: [capture]
 	}
 }
 
+func TestRunCommandIncludesAIReviewProfileFlags(t *testing.T) {
+	runCmd, err := NewRunCommand()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd, err := cli.BuildCobraCommand(runCmd, cli.WithParserConfig(cli.CobraParserConfig{
+		ShortHelpSections: []string{schema.DefaultSlug},
+		MiddlewaresFunc:   cli.CobraCommandDefaultMiddlewares,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"profile", "profile-registries", "profile-config-file"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Fatalf("expected flag %q", name)
+		}
+	}
+}
+
 func writeTestFile(t *testing.T, path string, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
