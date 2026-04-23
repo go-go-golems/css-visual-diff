@@ -32,10 +32,30 @@ type RelatedFile struct {
 }
 
 type Target struct {
-	Name     string   `yaml:"name"`
-	URL      string   `yaml:"url"`
-	WaitMS   int      `yaml:"wait_ms"`
-	Viewport Viewport `yaml:"viewport"`
+	Name         string       `yaml:"name"`
+	URL          string       `yaml:"url"`
+	WaitMS       int          `yaml:"wait_ms"`
+	Viewport     Viewport     `yaml:"viewport"`
+	RootSelector string       `yaml:"root_selector"`
+	Prepare      *PrepareSpec `yaml:"prepare"`
+}
+
+type PrepareSpec struct {
+	Type string `yaml:"type"`
+
+	Script     string `yaml:"script"`
+	ScriptFile string `yaml:"script_file"`
+
+	WaitFor          string `yaml:"wait_for"`
+	WaitForTimeoutMS int    `yaml:"wait_for_timeout_ms"`
+	AfterWaitMS      int    `yaml:"after_wait_ms"`
+
+	Component    string         `yaml:"component"`
+	Props        map[string]any `yaml:"props"`
+	RootSelector string         `yaml:"root_selector"`
+	Width        int            `yaml:"width"`
+	MinHeight    int            `yaml:"min_height"`
+	Background   string         `yaml:"background"`
 }
 
 type Viewport struct {
@@ -113,6 +133,8 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.Output.Dir) == "" {
 		errs = append(errs, "output.dir is required")
 	}
+	errs = append(errs, validatePrepare("original", c.Original.Prepare)...)
+	errs = append(errs, validatePrepare("react", c.React.Prepare)...)
 	for i, s := range c.Sections {
 		if strings.TrimSpace(s.Name) == "" {
 			errs = append(errs, fmt.Sprintf("sections[%d] must include name", i))
@@ -158,6 +180,38 @@ func (c *Config) normalizeOutput(configPath string) {
 	}
 	base := filepath.Dir(configPath)
 	c.Output.Dir = filepath.Join(base, c.Output.Dir)
+}
+
+func validatePrepare(label string, prepare *PrepareSpec) []string {
+	if prepare == nil {
+		return nil
+	}
+
+	prepareType := strings.TrimSpace(prepare.Type)
+	if prepareType == "" || prepareType == "none" {
+		return nil
+	}
+
+	var errs []string
+	switch prepareType {
+	case "script":
+		if strings.TrimSpace(prepare.Script) == "" && strings.TrimSpace(prepare.ScriptFile) == "" {
+			errs = append(errs, fmt.Sprintf("%s.prepare.script requires script or script_file", label))
+		}
+	case "direct-react-global":
+		if strings.TrimSpace(prepare.Component) == "" {
+			errs = append(errs, fmt.Sprintf("%s.prepare.direct-react-global requires component", label))
+		}
+		if strings.TrimSpace(prepare.RootSelector) == "" {
+			errs = append(errs, fmt.Sprintf("%s.prepare.direct-react-global requires root_selector", label))
+		}
+		if prepare.Width <= 0 {
+			errs = append(errs, fmt.Sprintf("%s.prepare.direct-react-global requires positive width", label))
+		}
+	default:
+		errs = append(errs, fmt.Sprintf("%s.prepare.type %q is not supported", label, prepare.Type))
+	}
+	return errs
 }
 
 func validateURL(raw string) error {
