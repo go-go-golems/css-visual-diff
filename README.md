@@ -109,6 +109,39 @@ output:
   validate_pngs: true
 ```
 
+To generate a static artifact browser for the run, include `html-report` after the
+modes that produce artifacts:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config examples/pyxis-public-shows.yaml \
+  --modes capture,cssdiff,matched-styles,pixeldiff,html-report
+```
+
+The report is written to:
+
+```text
+<output.dir>/index.html
+```
+
+### Prototype-only inspection
+
+The current config shape still requires both `original` and `react` targets because
+`css-visual-diff` is a comparator. To inspect only a prototype/export target, point
+both targets at the same URL and use the same prepare hook, then run only capture and
+report modes:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config examples/pyxis-prototype-only.yaml \
+  --modes capture,html-report
+```
+
+In that workflow the second target is just a mirror so the report renderer can reuse
+its existing two-column UI. Do not interpret pixel diffs from a prototype-only run.
+Use it to validate the prepared DOM, PNGs, prepared HTML, inspect JSON, and capture
+validation before comparing against Storybook.
+
 Validation is intentionally layered: inspect DOM text/selectors first, then PNG
 structure and color-strip statistics. Use human visual review or `understand_image`
 for semantic questions such as cutoff/footer visibility; OCR should be a later

@@ -57,7 +57,7 @@ func NewRunCommand() (*RunCommand, error) {
 				"modes",
 				fields.TypeString,
 				fields.WithDefault(""),
-				fields.WithHelp("Comma-delimited list of modes (capture,cssdiff,matched-styles,ai-review,full)"),
+				fields.WithHelp("Comma-delimited list of modes (capture,cssdiff,matched-styles,ai-review,html-report,full)"),
 			),
 			fields.New(
 				"dry-run",

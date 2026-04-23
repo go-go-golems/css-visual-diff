@@ -41,7 +41,7 @@ func NormalizeModes(raw string) ([]string, error) {
 			continue
 		}
 		if m == "full" {
-			for _, fullMode := range []string{"capture", "pixeldiff", "cssdiff", "matched-styles", "ai-review"} {
+			for _, fullMode := range []string{"capture", "pixeldiff", "cssdiff", "matched-styles", "ai-review", "html-report"} {
 				if !seen[fullMode] {
 					modesOut = append(modesOut, fullMode)
 					seen[fullMode] = true
@@ -92,6 +92,8 @@ func Run(ctx context.Context, cfg *config.Config, modesList []string, dryRun boo
 			} else {
 				err = modes.AIReview(ctx, cfg)
 			}
+		case "html-report":
+			err = modes.HTMLReport(ctx, cfg)
 		default:
 			err = fmt.Errorf("unknown mode: %s", mode)
 		}
