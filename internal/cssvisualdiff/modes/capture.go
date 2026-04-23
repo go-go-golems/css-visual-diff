@@ -113,7 +113,11 @@ func captureTarget(browser *driver.Browser, target config.Target, sections []con
 
 	pageResult := PageResult{Name: target.Name, URL: target.URL}
 	fullPath := filepath.Join(outDir, fmt.Sprintf("%s-full.png", prefix))
-	if err := page.FullScreenshot(fullPath); err != nil {
+	if rootSelector := rootSelectorForTarget(target); rootSelector != "" {
+		if err := page.Screenshot(rootSelector, fullPath); err != nil {
+			return PageResult{}, err
+		}
+	} else if err := page.FullScreenshot(fullPath); err != nil {
 		return PageResult{}, err
 	}
 	pageResult.FullScreenshot = fullPath
@@ -192,6 +196,16 @@ func formatPageResult(label string, page PageResult) string {
 	}
 	content += "\n"
 	return content
+}
+
+func rootSelectorForTarget(target config.Target) string {
+	if target.RootSelector != "" {
+		return target.RootSelector
+	}
+	if target.Prepare != nil && target.Prepare.RootSelector != "" {
+		return target.Prepare.RootSelector
+	}
+	return ""
 }
 
 func computeCoverage(original PageResult, react PageResult) CoverageSummary {
