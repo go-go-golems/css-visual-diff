@@ -22,6 +22,8 @@ type PageResult struct {
 	Name           string          `json:"name"`
 	URL            string          `json:"url"`
 	FullScreenshot string          `json:"full_screenshot"`
+	PreparedHTML   string          `json:"prepared_html,omitempty"`
+	InspectJSON    string          `json:"inspect_json,omitempty"`
 	Sections       []SectionResult `json:"sections"`
 }
 
@@ -61,12 +63,12 @@ func RunCapture(ctx context.Context, cfg *config.Config) error {
 	}
 	defer browser.Close()
 
-	original, err := captureTarget(browser, cfg.Original, cfg.Sections, cfg.Output.Dir, "original")
+	original, err := captureTarget(browser, cfg.Original, cfg.Sections, cfg.Output, "original")
 	if err != nil {
 		return err
 	}
 
-	react, err := captureTarget(browser, cfg.React, cfg.Sections, cfg.Output.Dir, "react")
+	react, err := captureTarget(browser, cfg.React, cfg.Sections, cfg.Output, "react")
 	if err != nil {
 		return err
 	}
@@ -89,7 +91,7 @@ func RunCapture(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func captureTarget(browser *driver.Browser, target config.Target, sections []config.SectionSpec, outDir, prefix string) (PageResult, error) {
+func captureTarget(browser *driver.Browser, target config.Target, sections []config.SectionSpec, output config.OutputSpec, prefix string) (PageResult, error) {
 	page, err := browser.NewPage()
 	if err != nil {
 		return PageResult{}, err
@@ -112,8 +114,24 @@ func captureTarget(browser *driver.Browser, target config.Target, sections []con
 	}
 
 	pageResult := PageResult{Name: target.Name, URL: target.URL}
-	fullPath := filepath.Join(outDir, fmt.Sprintf("%s-full.png", prefix))
-	if rootSelector := rootSelectorForTarget(target); rootSelector != "" {
+	rootSelector := rootSelectorForTarget(target)
+	if output.WritePreparedHTML {
+		preparedHTMLPath := filepath.Join(output.Dir, fmt.Sprintf("%s-prepared.html", prefix))
+		if err := writePreparedHTML(page, rootSelector, preparedHTMLPath); err != nil {
+			return PageResult{}, err
+		}
+		pageResult.PreparedHTML = preparedHTMLPath
+	}
+	if output.WriteInspectJSON {
+		inspectPath := filepath.Join(output.Dir, fmt.Sprintf("%s-inspect.json", prefix))
+		if err := writeInspectJSON(page, rootSelector, inspectPath); err != nil {
+			return PageResult{}, err
+		}
+		pageResult.InspectJSON = inspectPath
+	}
+
+	fullPath := filepath.Join(output.Dir, fmt.Sprintf("%s-full.png", prefix))
+	if rootSelector != "" {
 		if err := page.Screenshot(rootSelector, fullPath); err != nil {
 			return PageResult{}, err
 		}
@@ -151,7 +169,7 @@ func captureTarget(browser *driver.Browser, target config.Target, sections []con
 			Visible:  check.Visible,
 		}
 		if check.Exists {
-			screenshotPath := filepath.Join(outDir, fmt.Sprintf("%s-%s.png", prefix, section.Name))
+			screenshotPath := filepath.Join(output.Dir, fmt.Sprintf("%s-%s.png", prefix, section.Name))
 			if err := page.Screenshot(selector, screenshotPath); err != nil {
 				return PageResult{}, err
 			}
@@ -169,6 +187,72 @@ func writeJSON(path string, data any) error {
 		return err
 	}
 	return os.WriteFile(path, payload, 0o644)
+}
+
+func writePreparedHTML(page *driver.Page, selector, path string) error {
+	selectorJSON, _ := json.Marshal(selector)
+	script := fmt.Sprintf(`(() => {
+	  const selector = %s;
+	  const el = selector ? document.querySelector(selector) : document.documentElement;
+	  return el ? el.outerHTML : document.documentElement.outerHTML;
+	})()`, string(selectorJSON))
+	var html string
+	if err := page.Evaluate(script, &html); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(html), 0o644)
+}
+
+func writeInspectJSON(page *driver.Page, selector, path string) error {
+	selectorJSON, _ := json.Marshal(selector)
+	script := fmt.Sprintf(`(() => {
+	  const selector = %s;
+	  const root = selector ? document.querySelector(selector) : document.documentElement;
+	  const inspect = (el, depth = 0) => {
+	    if (!el || depth > 8) return null;
+	    const rect = el.getBoundingClientRect();
+	    const style = window.getComputedStyle(el);
+	    const attrs = {};
+	    for (const attr of el.attributes || []) attrs[attr.name] = attr.value;
+	    return {
+	      tag: el.tagName ? el.tagName.toLowerCase() : '',
+	      id: el.id || '',
+	      class_name: el.className || '',
+	      attributes: attrs,
+	      text: (el.children && el.children.length === 0 ? el.textContent : '').trim().slice(0, 200),
+	      bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+	      computed: {
+	        display: style.display,
+	        position: style.position,
+	        boxSizing: style.boxSizing,
+	        width: style.width,
+	        height: style.height,
+	        margin: style.margin,
+	        padding: style.padding,
+	        color: style.color,
+	        backgroundColor: style.backgroundColor,
+	        fontFamily: style.fontFamily,
+	        fontSize: style.fontSize,
+	        fontWeight: style.fontWeight,
+	        lineHeight: style.lineHeight,
+	        border: style.border,
+	        borderRadius: style.borderRadius,
+	        gap: style.gap,
+	        gridTemplateColumns: style.gridTemplateColumns,
+	        flexDirection: style.flexDirection,
+	        alignItems: style.alignItems,
+	        justifyContent: style.justifyContent
+	      },
+	      children: Array.from(el.children || []).map((child) => inspect(child, depth + 1)).filter(Boolean)
+	    };
+	  };
+	  return inspect(root);
+	})()`, string(selectorJSON))
+	var out any
+	if err := page.Evaluate(script, &out); err != nil {
+		return err
+	}
+	return writeJSON(path, out)
 }
 
 func writeMarkdown(path string, result CaptureResult) error {
@@ -189,6 +273,12 @@ func formatPageResult(label string, page PageResult) string {
 	content := fmt.Sprintf("## %s\n\n", label)
 	content += fmt.Sprintf("URL: %s\n\n", page.URL)
 	content += fmt.Sprintf("Full screenshot: %s\n\n", page.FullScreenshot)
+	if page.PreparedHTML != "" {
+		content += fmt.Sprintf("Prepared HTML: %s\n\n", page.PreparedHTML)
+	}
+	if page.InspectJSON != "" {
+		content += fmt.Sprintf("Inspect JSON: %s\n\n", page.InspectJSON)
+	}
 	content += "| Section | Exists | Visible | Screenshot |\n"
 	content += "| --- | --- | --- | --- |\n"
 	for _, s := range page.Sections {

@@ -83,10 +83,13 @@ type StyleSpec struct {
 }
 
 type OutputSpec struct {
-	Dir           string `yaml:"dir"`
-	WriteJSON     bool   `yaml:"write_json"`
-	WriteMarkdown bool   `yaml:"write_markdown"`
-	WritePNGs     bool   `yaml:"write_pngs"`
+	Dir               string `yaml:"dir"`
+	WriteJSON         bool   `yaml:"write_json"`
+	WriteMarkdown     bool   `yaml:"write_markdown"`
+	WritePNGs         bool   `yaml:"write_pngs"`
+	WritePreparedHTML bool   `yaml:"write_prepared_html"`
+	WriteInspectJSON  bool   `yaml:"write_inspect_json"`
+	ValidatePNGs      bool   `yaml:"validate_pngs"`
 }
 
 type Config struct {
