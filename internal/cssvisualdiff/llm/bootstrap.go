@@ -59,10 +59,10 @@ func (r *BootstrapResult) BuildEngine() (geppettoengine.Engine, error) {
 }
 
 func SelectedProfile(r *BootstrapResult) string {
-	if r == nil || r.Resolved == nil || r.Resolved.ProfileSelection == nil {
+	if r == nil || r.Resolved == nil || r.Resolved.ProfileRuntime == nil {
 		return ""
 	}
-	return strings.TrimSpace(r.Resolved.ProfileSelection.Profile)
+	return strings.TrimSpace(r.Resolved.ProfileRuntime.ProfileSettings.Profile)
 }
 
 func SelectedModel(r *BootstrapResult) string {
@@ -95,7 +95,10 @@ func WriteInferenceSettingsDebug(w io.Writer, r *BootstrapResult) error {
 		profilebootstrap.BootstrapConfig(),
 		r.Parsed,
 		geppettobootstrap.InferenceDebugSettings{PrintInferenceSettings: true},
-		r.Resolved,
+		&geppettobootstrap.ResolvedInferenceTrace{
+			FinalInferenceSettings: r.Resolved.FinalInferenceSettings,
+			ResolvedEngineProfile:  r.Resolved.ResolvedEngineProfile,
+		},
 		geppettobootstrap.InferenceDebugOutputOptions{
 			CommandBase: r.Resolved.BaseInferenceSettings,
 		},

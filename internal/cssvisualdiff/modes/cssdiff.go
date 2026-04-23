@@ -153,8 +153,16 @@ func CSSDiff(ctx context.Context, cfg *config.Config) error {
 }
 
 func evaluateStyle(page *driver.Page, spec config.StyleSpec) (StyleSnapshot, error) {
-	propsJSON, _ := json.Marshal(spec.Props)
-	attrsJSON, _ := json.Marshal(spec.Attributes)
+	props := spec.Props
+	if props == nil {
+		props = []string{}
+	}
+	attrs := spec.Attributes
+	if attrs == nil {
+		attrs = []string{}
+	}
+	propsJSON, _ := json.Marshal(props)
+	attrsJSON, _ := json.Marshal(attrs)
 	script := fmt.Sprintf(`(() => {
 	  const props = %s;
 	  const attrs = %s;

@@ -33,10 +33,10 @@ type RunCommand struct {
 }
 
 type RunSettings struct {
-	Config             string `glazed.parameter:"config"`
-	Modes              string `glazed.parameter:"modes"`
-	DryRun             bool   `glazed.parameter:"dry-run"`
-	PixelDiffThreshold int    `glazed.parameter:"pixeldiff-threshold"`
+	Config             string `glazed:"config"`
+	Modes              string `glazed:"modes"`
+	DryRun             bool   `glazed:"dry-run"`
+	PixelDiffThreshold int    `glazed:"pixeldiff-threshold"`
 }
 
 func NewRunCommand() (*RunCommand, error) {
