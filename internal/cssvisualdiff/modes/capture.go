@@ -107,6 +107,9 @@ func captureTarget(browser *driver.Browser, target config.Target, sections []con
 	if target.WaitMS > 0 {
 		page.Wait(time.Duration(target.WaitMS) * time.Millisecond)
 	}
+	if err := prepareTarget(page, target); err != nil {
+		return PageResult{}, err
+	}
 
 	pageResult := PageResult{Name: target.Name, URL: target.URL}
 	fullPath := filepath.Join(outDir, fmt.Sprintf("%s-full.png", prefix))

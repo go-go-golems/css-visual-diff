@@ -2,6 +2,7 @@ package driver
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"time"
 
@@ -112,4 +113,31 @@ func (p *Page) Evaluate(script string, out any) error {
 		return err
 	}
 	return nil
+}
+
+func (p *Page) Eval(script string) error {
+	var out any
+	return p.Evaluate(script, &out)
+}
+
+func (p *Page) WaitForFunction(expr string, timeout time.Duration) error {
+	if expr == "" {
+		return nil
+	}
+
+	deadline := time.Now().Add(timeout)
+	for {
+		var ok bool
+		script := fmt.Sprintf(`Boolean(%s)`, expr)
+		if err := p.Evaluate(script, &ok); err != nil {
+			return fmt.Errorf("evaluate wait_for expression %q: %w", expr, err)
+		}
+		if ok {
+			return nil
+		}
+		if timeout > 0 && time.Now().After(deadline) {
+			return fmt.Errorf("timeout waiting for JavaScript expression %q after %s", expr, timeout)
+		}
+		p.Wait(100 * time.Millisecond)
+	}
 }

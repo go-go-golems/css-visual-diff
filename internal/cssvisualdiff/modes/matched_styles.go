@@ -164,12 +164,18 @@ func RunMatchedStyles(ctx context.Context, cfg *config.Config) error {
 	if cfg.Original.WaitMS > 0 {
 		originalPage.Wait(time.Duration(cfg.Original.WaitMS) * time.Millisecond)
 	}
+	if err := prepareTarget(originalPage, cfg.Original); err != nil {
+		return err
+	}
 
 	if err := reactPage.Goto(cfg.React.URL); err != nil {
 		return err
 	}
 	if cfg.React.WaitMS > 0 {
 		reactPage.Wait(time.Duration(cfg.React.WaitMS) * time.Millisecond)
+	}
+	if err := prepareTarget(reactPage, cfg.React); err != nil {
+		return err
 	}
 
 	result := MatchedStylesResult{}
