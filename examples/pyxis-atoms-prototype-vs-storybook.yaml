@@ -1,0 +1,106 @@
+metadata:
+  slug: pyxis-atoms-prototype-vs-storybook
+  title: Pyxis atom components — prototype vs Storybook
+  description: Isolated atom-level comparison for avatar, button, badge, icon, input, select, and tag components.
+
+original:
+  name: pyxis-prototype-atoms
+  url: http://localhost:7070/Pyxis%20Public%20Site.html
+  wait_ms: 1000
+  viewport:
+    width: 1200
+    height: 1200
+  root_selector: "#atom-capture-root"
+  prepare:
+    type: script
+    wait_for: "window.React && window.ReactDOM && window.Btn && window.Badge && window.Input && window.Select && window.Avatar"
+    wait_for_timeout_ms: 30000
+    script_file: /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/23/PYXIS-SCREENSHOT-EXTRACTION--pyxis-screenshot-css-extraction-from-prototype-html/scripts/10-atom-original-prepare.js
+    after_wait_ms: 1000
+
+react:
+  name: pyxis-storybook-atoms
+  url: http://localhost:6006/iframe.html?id=atoms-atom-diff-fixture--default
+  wait_ms: 2500
+  viewport:
+    width: 1200
+    height: 1200
+  root_selector: "[data-fixture='pyxis-atoms']"
+
+sections:
+  - { name: full, selector_original: "#atom-capture-root", selector_react: "[data-fixture='pyxis-atoms']" }
+  - { name: button-primary, selector: "[data-comp='button-primary']" }
+  - { name: button-dark, selector: "[data-comp='button-dark']" }
+  - { name: button-outline, selector: "[data-comp='button-outline']" }
+  - { name: button-ghost, selector: "[data-comp='button-ghost']" }
+  - { name: button-danger, selector: "[data-comp='button-danger']" }
+  - { name: button-success, selector: "[data-comp='button-success']" }
+  - { name: badge-confirmed, selector: "[data-comp='badge-confirmed']" }
+  - { name: badge-pending, selector: "[data-comp='badge-pending']" }
+  - { name: badge-declined, selector: "[data-comp='badge-declined']" }
+  - { name: badge-archived, selector: "[data-comp='badge-archived']" }
+  - { name: tag-default, selector: "[data-comp='tag-default']" }
+  - { name: tag-accent, selector: "[data-comp='tag-accent']" }
+  - { name: avatar-md, selector: "[data-comp='avatar-md']" }
+  - { name: avatar-lg, selector: "[data-comp='avatar-lg']" }
+  - { name: icon-calendar, selector: "[data-comp='icon-calendar']" }
+  - { name: icon-ticket, selector: "[data-comp='icon-ticket']" }
+  - { name: icon-discord, selector: "[data-comp='icon-discord']" }
+  - { name: icon-button, selector: "[data-comp='icon-button']" }
+  - { name: input-search, selector: "[data-comp='input-search']" }
+  - { name: input-error, selector: "[data-comp='input-error']" }
+  - { name: select-status, selector: "[data-comp='select-status']" }
+
+styles:
+  - name: button-primary
+    selector: "[data-comp='button-primary'] button"
+    include_bounds: true
+    props: [height, padding, background-color, color, border, border-radius, font-size, font-weight, line-height, gap]
+  - name: button-outline
+    selector: "[data-comp='button-outline'] button"
+    include_bounds: true
+    props: [height, padding, background-color, color, border, border-radius, font-size, font-weight, line-height, gap]
+  - name: badge-confirmed
+    selector: "[data-comp='badge-confirmed'] > span"
+    include_bounds: true
+    props: [display, gap, background-color, color, font-size, font-weight, padding, border-radius, line-height]
+  - name: tag-default
+    selector: "[data-comp='tag-default'] > span"
+    include_bounds: true
+    props: [display, background-color, color, border, padding, border-radius, font-size, line-height]
+  - name: avatar-md
+    selector_original: "[data-comp='avatar-md'] > div"
+    selector_react: "[data-comp='avatar-md'] > div"
+    include_bounds: true
+    props: [width, height, border-radius, background-color, color, font-size, font-weight, font-family]
+  - name: icon-calendar
+    selector: "[data-comp='icon-calendar'] svg"
+    include_bounds: true
+    props: [width, height, color, stroke-width, display]
+  - name: icon-button
+    selector: "[data-comp='icon-button'] button"
+    include_bounds: true
+    props: [width, height, background-color, color, border, border-radius, padding]
+  - name: input-search
+    selector: "[data-comp='input-search'] input"
+    include_bounds: true
+    props: [width, padding, background-color, color, border, border-radius, font-size, line-height, font-family]
+  - name: select-status
+    selector: "[data-comp='select-status'] select"
+    include_bounds: true
+    props: [width, padding, background-color, color, border, border-radius, font-size, line-height, font-family]
+
+output:
+  dir: ./out/pyxis-atoms-prototype-vs-storybook
+  write_json: true
+  write_markdown: true
+  write_pngs: true
+  write_prepared_html: true
+  write_inspect_json: true
+  validate_pngs: true
+
+modes:
+  - capture
+  - cssdiff
+  - pixeldiff
+  - html-report
