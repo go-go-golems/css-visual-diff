@@ -286,3 +286,15 @@
 
 ### Validation
 - Ran final Go tests and binary smoke scripts for help, JS API success, typed errors, catalog service, built-in `inspect-page`, and built-in `inspect-config`.
+
+
+## 2026-04-24 — Big Brother assessment document
+
+### Added
+- Added `review/01-big-brother-code-review-and-assessment.md` with a senior-style assessment of the Goja/jsverbs implementation work.
+- Generated a local PDF copy under `review/pdf/` for manual transfer/reference.
+
+### reMarkable upload status
+- Dry-run upload via `remarquee upload md --dry-run` succeeded.
+- Actual cloud upload failed repeatedly with rmapi/reMarkable cloud `request failed with status 400`, including via `remarquee upload md`, `remarquee cloud put`, direct `rmapi put`, and the legacy uploader script.
+- Existing remote folder `/ai/2026/04/24/CSSVD-GOJA-JS-API` is readable, but create/upload operations currently fail.

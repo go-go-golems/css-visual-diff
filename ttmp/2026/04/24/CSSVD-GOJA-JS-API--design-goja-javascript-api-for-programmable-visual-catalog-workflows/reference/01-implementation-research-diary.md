@@ -690,3 +690,44 @@ ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-v
 ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/010-binary-built-in-catalog-inspect-page-smoke.sh
 ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/011-binary-built-in-catalog-inspect-config-smoke.sh
 ```
+
+## Implementation Step 15: store code review assessment and attempt reMarkable upload
+
+I stored the senior-style “big brother” code review as a ticket document:
+
+```text
+review/01-big-brother-code-review-and-assessment.md
+```
+
+I also generated a local PDF copy under:
+
+```text
+review/pdf/01-big-brother-code-review-and-assessment.pdf
+```
+
+### Upload attempts
+
+The dry run succeeded:
+
+```bash
+remarquee upload md --dry-run review/01-big-brother-code-review-and-assessment.md \
+  --remote-dir /ai/2026/04/24/CSSVD-GOJA-JS-API \
+  --name "CSSVD Goja JS API - Big Brother Code Review"
+```
+
+Actual upload failed with reMarkable/rmapi status 400. I tried:
+
+```bash
+remarquee upload md ...
+remarquee cloud put ...
+rmapi put ...
+python3 /home/manuel/.local/bin/remarkable_upload.py ...
+```
+
+All upload/create attempts failed with variants of:
+
+```text
+failed to upload file [...pdf]: request failed with status 400
+```
+
+`remarquee status`, `remarquee cloud account --non-interactive`, and `remarquee cloud ls /ai/2026/04/24/CSSVD-GOJA-JS-API --long --non-interactive` succeeded, so read/auth status appears available, but cloud mutation/upload is currently failing.
