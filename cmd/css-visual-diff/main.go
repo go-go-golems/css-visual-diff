@@ -276,6 +276,9 @@ func containsMode(modesList []string, value string) bool {
 func emitCoverageRows(ctx context.Context, gp middlewares.Processor, configPath, outDir string) error {
 	data, err := os.ReadFile(filepath.Join(outDir, "capture.json"))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	var capture modes.CaptureResult
@@ -297,6 +300,9 @@ func emitCoverageRows(ctx context.Context, gp middlewares.Processor, configPath,
 func emitStoryRows(ctx context.Context, gp middlewares.Processor, configPath, outDir string) error {
 	data, err := os.ReadFile(filepath.Join(outDir, "stories.json"))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
 		return err
 	}
 	var stories modes.StoryDiscoveryResult
