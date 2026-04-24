@@ -43,6 +43,8 @@ func TestEmbeddedCompareCommandsExecute(t *testing.T) {
 	host, err := NewHost()
 	require.NoError(t, err)
 	commandMap := mustCommandMap(t, host)
+	regionOutDir := t.TempDir()
+	briefOutDir := t.TempDir()
 
 	rows := runCommand(t, commandMap["script compare region"], map[string]map[string]interface{}{
 		"targets": {
@@ -54,6 +56,7 @@ func TestEmbeddedCompareCommandsExecute(t *testing.T) {
 			"height": 844,
 		},
 		"output": {
+			"outDir":    regionOutDir,
 			"writePngs": true,
 		},
 		"selectors": {
@@ -78,6 +81,7 @@ func TestEmbeddedCompareCommandsExecute(t *testing.T) {
 			"height": 844,
 		},
 		"output": {
+			"outDir":    briefOutDir,
 			"writePngs": true,
 		},
 		"selectors": {

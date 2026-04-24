@@ -10,16 +10,17 @@ import (
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 const (
-	InspectFormatBundle       = "bundle"
-	InspectFormatPNG          = "png"
-	InspectFormatHTML         = "html"
-	InspectFormatCSSJSON      = "css-json"
-	InspectFormatCSSMarkdown  = "css-md"
-	InspectFormatInspectJSON  = "inspect-json"
-	InspectFormatMetadataJSON = "metadata-json"
+	InspectFormatBundle       = service.InspectFormatBundle
+	InspectFormatPNG          = service.InspectFormatPNG
+	InspectFormatHTML         = service.InspectFormatHTML
+	InspectFormatCSSJSON      = service.InspectFormatCSSJSON
+	InspectFormatCSSMarkdown  = service.InspectFormatCSSMarkdown
+	InspectFormatInspectJSON  = service.InspectFormatInspectJSON
+	InspectFormatMetadataJSON = service.InspectFormatMetadataJSON
 )
 
 // InspectOptions describes a single-side inspection run against an existing
@@ -43,40 +44,13 @@ type InspectOptions struct {
 	OutputFile string
 }
 
-type InspectRequest struct {
-	Name       string   `json:"name"`
-	Selector   string   `json:"selector"`
-	Props      []string `json:"props,omitempty"`
-	Attributes []string `json:"attributes,omitempty"`
-	Source     string   `json:"source"`
-}
+type InspectRequest = service.InspectRequest
 
-type InspectMetadata struct {
-	Side           string          `json:"side"`
-	TargetName     string          `json:"target_name"`
-	URL            string          `json:"url"`
-	Viewport       config.Viewport `json:"viewport"`
-	Name           string          `json:"name"`
-	Selector       string          `json:"selector"`
-	SelectorSource string          `json:"selector_source"`
-	RootSelector   string          `json:"root_selector,omitempty"`
-	PrepareType    string          `json:"prepare_type,omitempty"`
-	Format         string          `json:"format"`
-	CreatedAt      time.Time       `json:"created_at"`
-}
+type InspectMetadata = service.InspectMetadata
 
-type InspectArtifactResult struct {
-	Metadata    InspectMetadata `json:"metadata"`
-	Style       *StyleSnapshot  `json:"style,omitempty"`
-	Screenshot  string          `json:"screenshot,omitempty"`
-	HTML        string          `json:"html,omitempty"`
-	InspectJSON string          `json:"inspect_json,omitempty"`
-}
+type InspectArtifactResult = service.InspectArtifactResult
 
-type InspectResult struct {
-	OutputDir string                  `json:"output_dir,omitempty"`
-	Results   []InspectArtifactResult `json:"results"`
-}
+type InspectResult = service.InspectResult
 
 func Inspect(ctx context.Context, cfg *config.Config, opts InspectOptions) (InspectResult, error) {
 	if err := validateInspectOptions(opts); err != nil {
@@ -114,37 +88,15 @@ func Inspect(ctx context.Context, cfg *config.Config, opts InspectOptions) (Insp
 	}
 	defer page.Close()
 
-	if err := page.SetViewport(target.Viewport.Width, target.Viewport.Height); err != nil {
-		return InspectResult{}, err
-	}
-	if err := page.Goto(target.URL); err != nil {
-		return InspectResult{}, err
-	}
-	if target.WaitMS > 0 {
-		page.Wait(time.Duration(target.WaitMS) * time.Millisecond)
-	}
-	if err := prepareTarget(page, target); err != nil {
+	if err := service.LoadAndPreparePage(page, target); err != nil {
 		return InspectResult{}, err
 	}
 
-	result := InspectResult{OutputDir: outDir}
-	for _, req := range requests {
-		destDir := outDir
-		if opts.OutputFile == "" && len(requests) > 1 {
-			destDir = filepath.Join(outDir, sanitizeName(req.Name))
-		}
-		artifact, err := writeInspectArtifacts(page, target, side, req, format, destDir, opts.OutputFile)
-		if err != nil {
-			return result, err
-		}
-		result.Results = append(result.Results, artifact)
-	}
-	if opts.OutputFile == "" && len(result.Results) > 1 {
-		if err := writeInspectIndex(outDir, result); err != nil {
-			return result, err
-		}
-	}
-	return result, nil
+	return service.InspectPreparedPage(page, target, side, requests, service.InspectAllOptions{
+		OutDir:     outDir,
+		Format:     format,
+		OutputFile: opts.OutputFile,
+	})
 }
 
 func validateInspectOptions(opts InspectOptions) error {
@@ -311,6 +263,12 @@ func writeInspectArtifacts(page *driver.Page, target config.Target, side string,
 		return artifact, err
 	}
 
+	if inspectFormatRequiresExistingSelector(format) {
+		if err := ensureInspectSelectorExists(page, req); err != nil {
+			return artifact, err
+		}
+	}
+
 	if format == InspectFormatBundle || format == InspectFormatHTML {
 		htmlPath := filepath.Join(outDir, "prepared.html")
 		if err := writePreparedHTML(page, req.Selector, htmlPath); err != nil {
@@ -352,8 +310,44 @@ func writeInspectArtifacts(page *driver.Page, target config.Target, side string,
 	return artifact, nil
 }
 
+func inspectFormatRequiresExistingSelector(format string) bool {
+	switch format {
+	case InspectFormatBundle, InspectFormatPNG, InspectFormatHTML, InspectFormatInspectJSON:
+		return true
+	default:
+		return false
+	}
+}
+
+func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
+	statuses, err := service.PreflightProbes(page, []service.ProbeSpec{{
+		Name:     req.Name,
+		Selector: req.Selector,
+		Source:   req.Source,
+	}})
+	if err != nil {
+		return fmt.Errorf("preflight selector %q for %s %q: %w", req.Selector, req.Source, req.Name, err)
+	}
+	if len(statuses) != 1 {
+		return fmt.Errorf("preflight selector %q for %s %q returned %d statuses", req.Selector, req.Source, req.Name, len(statuses))
+	}
+	status := statuses[0]
+	if status.Error != "" {
+		return fmt.Errorf("preflight selector %q for %s %q: %s", req.Selector, req.Source, req.Name, status.Error)
+	}
+	if !status.Exists {
+		return fmt.Errorf("%s %q selector did not match: %s", req.Source, req.Name, req.Selector)
+	}
+	return nil
+}
+
 func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata InspectMetadata, format, path string) (InspectArtifactResult, error) {
 	artifact := InspectArtifactResult{Metadata: metadata}
+	if inspectFormatRequiresExistingSelector(format) {
+		if err := ensureInspectSelectorExists(page, req); err != nil {
+			return artifact, err
+		}
+	}
 	switch format {
 	case InspectFormatPNG:
 		if err := page.Screenshot(req.Selector, path); err != nil {

@@ -31,7 +31,7 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 
 	reg.RegisterNativeModule("diff", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
-		exports.Set("compareRegion", func(raw map[string]interface{}) (interface{}, error) {
+		_ = exports.Set("compareRegion", func(raw map[string]interface{}) (interface{}, error) {
 			input, err := decodeInto[compareRegionInput](raw)
 			if err != nil {
 				return nil, err
@@ -48,9 +48,11 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 		})
 	})
 
+	registerCVDModule(ctx, reg)
+
 	reg.RegisterNativeModule("report", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
-		exports.Set("agentBrief", func(raw map[string]interface{}) (interface{}, error) {
+		_ = exports.Set("agentBrief", func(raw map[string]interface{}) (interface{}, error) {
 			input, err := decodeInto[agentBriefInput](raw)
 			if err != nil {
 				return nil, err
@@ -62,7 +64,7 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 			})
 			return toPlainValue(brief)
 		})
-		exports.Set("renderAgentBrief", func(raw map[string]interface{}) (string, error) {
+		_ = exports.Set("renderAgentBrief", func(raw map[string]interface{}) (string, error) {
 			input, err := decodeInto[agentBriefInput](raw)
 			if err != nil {
 				return "", err

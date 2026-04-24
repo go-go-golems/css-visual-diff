@@ -116,3 +116,16 @@ func TestCanonicalInspectFormatAliases(t *testing.T) {
 		t.Fatalf("format = %q, want %q", got, InspectFormatPNG)
 	}
 }
+
+func TestInspectFormatRequiresExistingSelector(t *testing.T) {
+	for _, format := range []string{InspectFormatBundle, InspectFormatPNG, InspectFormatHTML, InspectFormatInspectJSON} {
+		if !inspectFormatRequiresExistingSelector(format) {
+			t.Fatalf("format %q should require an existing selector", format)
+		}
+	}
+	for _, format := range []string{InspectFormatCSSJSON, InspectFormatCSSMarkdown, InspectFormatMetadataJSON} {
+		if inspectFormatRequiresExistingSelector(format) {
+			t.Fatalf("format %q should not require an existing selector preflight", format)
+		}
+	}
+}
