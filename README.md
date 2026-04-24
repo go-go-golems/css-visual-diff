@@ -34,6 +34,63 @@ GOWORK=off go run ./cmd/css-visual-diff compare --help
 GOWORK=off go run ./cmd/css-visual-diff chromedp-probe --help
 ```
 
+## Inspect one side before comparing
+
+When tuning a `*.css-visual-diff.yml` file, first inspect one side and one selector
+before running a full comparison. This helps verify that the URL, viewport, prepare
+hook, root selector, section selector, and CSS probe selector are correct.
+
+A config can contain many screenshot regions under `sections` and many computed-CSS
+probes under `styles`. Inspect a named CSS probe and write a bundle of artifacts:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff inspect \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side react \
+  --style button-primary \
+  --out /tmp/css-visual-diff-inspect/button-primary
+```
+
+The bundle contains:
+
+```text
+metadata.json
+screenshot.png
+prepared.html
+computed-css.json
+computed-css.md
+inspect.json
+```
+
+For tight selector-tuning loops, use the single-artifact verbs:
+
+```bash
+# Check the crop/element screenshot.
+GOWORK=off go run ./cmd/css-visual-diff screenshot \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side react \
+  --style button-primary \
+  --output-file /tmp/button-primary.png
+
+# Check computed CSS in human-readable Markdown.
+GOWORK=off go run ./cmd/css-visual-diff css-md \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side react \
+  --style button-primary \
+  --output-file /tmp/button-primary-css.md
+
+# Debug prepared DOM/root output.
+GOWORK=off go run ./cmd/css-visual-diff html \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side original \
+  --root \
+  --output-file /tmp/original-root.html
+```
+
+Available single-artifact verbs are `screenshot`, `css-md`, `css-json`, `html`, and
+`inspect-json`. They share the same selector flags as `inspect`: `--root`,
+`--section`, `--style`, or `--selector`.
+
 ## Prepared targets
 
 Some design sources do not render the comparison target directly. They may open a

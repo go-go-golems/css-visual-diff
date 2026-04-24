@@ -277,6 +277,12 @@ func main() {
 	}
 
 	rootCmd.AddCommand(cobraRunCmd)
+	rootCmd.AddCommand(newInspectCommand())
+	rootCmd.AddCommand(newInspectArtifactCommand("screenshot", "Capture one inspected selector as a PNG file", modes.InspectFormatPNG))
+	rootCmd.AddCommand(newInspectArtifactCommand("css-md", "Write computed CSS for one inspected selector as Markdown", modes.InspectFormatCSSMarkdown))
+	rootCmd.AddCommand(newInspectArtifactCommand("css-json", "Write computed CSS for one inspected selector as JSON", modes.InspectFormatCSSJSON))
+	rootCmd.AddCommand(newInspectArtifactCommand("html", "Write prepared HTML for one inspected selector", modes.InspectFormatHTML))
+	rootCmd.AddCommand(newInspectArtifactCommand("inspect-json", "Write DOM inspection JSON for one inspected selector", modes.InspectFormatInspectJSON))
 	rootCmd.AddCommand(newCompareCommand())
 	rootCmd.AddCommand(newLLMReviewCommand())
 	rootCmd.AddCommand(newChromedpProbeCommand())
@@ -292,6 +298,121 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
 	}
+}
+
+type inspectSettings struct {
+	Config string
+	Side   string
+
+	Root        bool
+	Section     string
+	Style       string
+	Selector    string
+	AllSections bool
+	AllStyles   bool
+
+	Props string
+	Attrs string
+
+	Out        string
+	Format     string
+	OutputFile string
+}
+
+func newInspectCommand() *cobra.Command {
+	settings := &inspectSettings{}
+	cmd := &cobra.Command{
+		Use:   "inspect",
+		Short: "Inspect one side of a css-visual-diff config and write screenshot/HTML/CSS artifacts",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInspectCommand(cmd, settings, "")
+		},
+	}
+	addInspectFlags(cmd, settings, false)
+	cmd.Flags().StringVar(&settings.Out, "out", "", "Output directory for bundle artifacts (default: <config output.dir>/inspect/<side>)")
+	cmd.Flags().StringVar(&settings.Format, "format", modes.InspectFormatBundle, "Artifact format: bundle, png, html, css-json, css-md, inspect-json, metadata-json")
+	cmd.Flags().StringVar(&settings.OutputFile, "output-file", "", "Write a single artifact file instead of a bundle directory")
+	return cmd
+}
+
+func newInspectArtifactCommand(name, short, format string) *cobra.Command {
+	settings := &inspectSettings{Format: format}
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: short,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if settings.OutputFile == "" {
+				return fmt.Errorf("--output-file is required")
+			}
+			return runInspectCommand(cmd, settings, format)
+		},
+	}
+	addInspectFlags(cmd, settings, true)
+	cmd.Flags().StringVar(&settings.OutputFile, "output-file", "", "Output file path")
+	_ = cmd.MarkFlagRequired("output-file")
+	return cmd
+}
+
+func addInspectFlags(cmd *cobra.Command, settings *inspectSettings, singleFile bool) {
+	cmd.Flags().StringVar(&settings.Config, "config", "", "Path to css-visual-diff YAML config")
+	cmd.Flags().StringVar(&settings.Side, "side", "", "Target side to inspect: original or react")
+	cmd.Flags().BoolVar(&settings.Root, "root", false, "Inspect the target root_selector")
+	cmd.Flags().StringVar(&settings.Section, "section", "", "Inspect a named sections[] entry")
+	cmd.Flags().StringVar(&settings.Style, "style", "", "Inspect a named styles[] entry")
+	cmd.Flags().StringVar(&settings.Selector, "selector", "", "Inspect an explicit CSS selector")
+	if !singleFile {
+		cmd.Flags().BoolVar(&settings.AllSections, "all-sections", false, "Inspect all sections[] entries")
+		cmd.Flags().BoolVar(&settings.AllStyles, "all-styles", false, "Inspect all styles[] entries")
+	}
+	cmd.Flags().StringVar(&settings.Props, "props", "", "Comma-delimited CSS properties to capture (defaults to style props or a small inspect set)")
+	cmd.Flags().StringVar(&settings.Attrs, "attrs", "id,class", "Comma-delimited attributes to capture in computed CSS artifacts")
+	_ = cmd.MarkFlagRequired("config")
+	_ = cmd.MarkFlagRequired("side")
+}
+
+func runInspectCommand(cmd *cobra.Command, settings *inspectSettings, forcedFormat string) error {
+	if settings.Config == "" {
+		return fmt.Errorf("--config is required")
+	}
+	if settings.Side == "" {
+		return fmt.Errorf("--side is required")
+	}
+	cfg, err := config.Load(settings.Config)
+	if err != nil {
+		return err
+	}
+	format := settings.Format
+	if forcedFormat != "" {
+		format = forcedFormat
+	}
+	result, err := modes.Inspect(cmd.Context(), cfg, modes.InspectOptions{
+		Side:        settings.Side,
+		Root:        settings.Root,
+		Section:     settings.Section,
+		Style:       settings.Style,
+		Selector:    settings.Selector,
+		AllSections: settings.AllSections,
+		AllStyles:   settings.AllStyles,
+		Props:       parseCSV(settings.Props),
+		Attributes:  parseCSV(settings.Attrs),
+		OutDir:      settings.Out,
+		Format:      format,
+		OutputFile:  settings.OutputFile,
+	})
+	if err != nil {
+		return err
+	}
+	if settings.OutputFile != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\n", settings.OutputFile)
+		return nil
+	}
+	for _, r := range result.Results {
+		fmt.Fprintf(cmd.OutOrStdout(), "%s\t%s\t%s\n", r.Metadata.Name, r.Metadata.SelectorSource, r.Metadata.Selector)
+	}
+	if result.OutputDir != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "output_dir\t%s\n", result.OutputDir)
+	}
+	return nil
 }
 
 type compareSettings struct {
