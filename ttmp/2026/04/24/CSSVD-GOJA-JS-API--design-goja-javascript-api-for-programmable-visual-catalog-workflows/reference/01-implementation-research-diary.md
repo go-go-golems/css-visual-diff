@@ -450,3 +450,41 @@ All tests passed.
 - This is an MVP. Some JS-visible result objects still expose Go exported field names (`Results`, `OutputDir`, `Exists`) rather than lowerCamel fields. The lowerCamel result codec task remains open.
 - `page.goto` and single `page.inspect` are not implemented yet.
 - JS-visible typed error classes are not implemented yet; current errors reject promises with Go errors.
+
+## Implementation Step 9: complete Phase 4 JavaScript API surface
+
+I completed the remaining Phase 4 API work on top of the Promise-first module MVP.
+
+### What I changed
+
+- Added `page.goto(url, options)`.
+- Added single-probe `page.inspect(probe, options)`.
+- Changed `page.preflight(...)` and `page.inspectAll(...)` JS-facing returns from Go exported field names to lowerCamel objects:
+  - `Exists` became `exists`,
+  - `TextStart` became `textStart`,
+  - `OutputDir` became `outputDir`,
+  - `Results` became `results`,
+  - `InspectJSON` became `inspectJson`,
+  - metadata fields such as `target_name`/`selector_source` became `targetName`/`selectorSource`.
+- Added `CvdError`, `SelectorError`, `PrepareError`, `BrowserError`, and `ArtifactError` constructors to the module exports.
+- Updated Promise rejection handling to construct classified JS errors on the runtime owner thread.
+- Added basic validation for missing URLs and empty/selectorless inspect calls.
+- Extended the verb integration tests to prove:
+  - lowerCamel results are visible to JavaScript,
+  - `page.goto(...)` works from a `browser.newPage()` flow,
+  - missing selector inspect failures are caught as `SelectorError`,
+  - typed errors inherit from `CvdError`.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/dsl/cvd_module.go internal/cssvisualdiff/verbcli/command_test.go
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Notes
+
+The Phase 4 module is now complete enough for repository-scanned scripts to drive browser/page/preflight/inspect workflows with Promise-first semantics and JS-idiomatic result shapes. The next planned phase is the Go-side catalog service and a `cvd.catalog(...)` adapter.

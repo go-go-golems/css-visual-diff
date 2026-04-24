@@ -119,7 +119,7 @@ async function inspect(url, outDir) {
     const statuses = await page.preflight(probes);
     const result = await page.inspectAll(probes, { outDir, artifacts: "css-json" });
     await page.close();
-    return { exists: statuses[0].Exists, count: result.Results.length, outputDir: result.OutputDir };
+    return { exists: statuses[0].exists, count: result.results.length, outputDir: result.outputDir };
   } finally {
     await browser.close();
   }
@@ -158,6 +158,73 @@ __verb__("inspect", {
 	require.Equal(t, outDir, row["outputDir"])
 	_, err = os.Stat(filepath.Join(outDir, "computed-css.json"))
 	require.NoError(t, err)
+}
+
+func TestCVDModuleExposesLowerCamelGotoInspectAndTypedErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><main id="app"><p>Ready</p></main></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "missing.js"), `
+async function missing(url, outDir) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.newPage();
+    const gotoResult = await page.goto(url, { viewport: { width: 320, height: 240 }, name: "typed-error-test" });
+    await page.inspect({ name: "missing", selector: "#missing" }, { outDir, artifacts: "html" });
+    return { ok: true, gotoUrl: gotoResult.url };
+  } catch (err) {
+    return {
+      ok: false,
+      name: err.name,
+      code: err.code,
+      operation: err.operation,
+      isSelector: err instanceof cvd.SelectorError,
+      isCvd: err instanceof cvd.CvdError
+    };
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("missing", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true },
+    outDir: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL, "outDir": t.TempDir()},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, false, row["ok"])
+	require.Equal(t, "SelectorError", row["name"])
+	require.Equal(t, "SELECTOR_ERROR", row["code"])
+	require.Equal(t, "css-visual-diff.page.inspect", row["operation"])
+	require.Equal(t, true, row["isSelector"])
+	require.Equal(t, true, row["isCvd"])
 }
 
 func writeFile(t *testing.T, path string, content string) {

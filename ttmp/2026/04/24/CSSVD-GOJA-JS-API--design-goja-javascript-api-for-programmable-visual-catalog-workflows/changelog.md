@@ -191,3 +191,24 @@
 ### Follow-up
 - JS result objects currently expose Go exported field names in some paths (`Results`, `OutputDir`, `Exists`); lowerCamel result codecs remain to be implemented.
 - `page.goto`, single `page.inspect`, and JS-visible typed error classes remain pending.
+
+
+## 2026-04-24 — Phase 4 completion: page navigation, lowerCamel results, typed JS errors
+
+### Changed
+- Completed the Promise-first page API with `page.goto(...)` and single-probe `page.inspect(...)`.
+- Converted JS-visible preflight and inspect results to lowerCamel fields such as `exists`, `textStart`, `outputDir`, `results`, `inspectJson`, `targetName`, `selectorSource`, and `createdAt`.
+- Added lowerCamel option decoding for `outputFile`, `waitMs`, `rootSelector`, prepare timing fields, and both `attrs`/`attributes` probe spellings.
+- Added JS-visible error constructors exported by `require("css-visual-diff")`:
+  - `CvdError`
+  - `SelectorError`
+  - `PrepareError`
+  - `BrowserError`
+  - `ArtifactError`
+- Promise rejections now use classified JS error objects with `name`, `code`, `operation`, and `details` fields.
+- Added basic validation errors for missing page URLs and empty inspect request lists/selectors.
+- Extended verb integration tests to assert lowerCamel results, `page.goto(...)`, `page.inspect(...)`, and `err instanceof cvd.SelectorError`/`cvd.CvdError`.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
