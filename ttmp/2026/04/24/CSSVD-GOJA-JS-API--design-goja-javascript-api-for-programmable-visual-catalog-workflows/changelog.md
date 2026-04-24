@@ -110,3 +110,20 @@
 
 ### Validation
 - Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+
+
+## 2026-04-24 — Phase 3 initial service extraction
+
+### Changed
+- Added `internal/cssvisualdiff/service` with shared `Bounds`, `StyleSnapshot`, `ProbeSpec`, and `SelectorStatus` types.
+- Extracted style evaluation into `service.EvaluateStyle(...)` and kept `modes.evaluateStyle(...)` as a compatibility wrapper.
+- Added batched selector preflight service `service.PreflightProbes(...)` that evaluates all probes in one page-side JavaScript pass.
+- Updated `modes.ensureInspectSelectorExists(...)` to use the shared preflight service instead of a style-evaluation-only check.
+- Added service tests for existing, missing, invalid, and hidden selectors.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
+
+### Follow-up
+- Full Phase 3 still needs prepare-service extraction plus `InspectPreparedPage` / `InspectAll` service extraction.

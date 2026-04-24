@@ -10,6 +10,7 @@ import (
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 const (
@@ -368,16 +369,22 @@ func inspectFormatRequiresExistingSelector(format string) bool {
 }
 
 func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
-	style, err := evaluateStyle(page, config.StyleSpec{
-		Selector:      req.Selector,
-		Props:         []string{},
-		Attributes:    []string{},
-		IncludeBounds: true,
-	})
+	statuses, err := service.PreflightProbes(page, []service.ProbeSpec{{
+		Name:     req.Name,
+		Selector: req.Selector,
+		Source:   req.Source,
+	}})
 	if err != nil {
 		return fmt.Errorf("preflight selector %q for %s %q: %w", req.Selector, req.Source, req.Name, err)
 	}
-	if !style.Exists {
+	if len(statuses) != 1 {
+		return fmt.Errorf("preflight selector %q for %s %q returned %d statuses", req.Selector, req.Source, req.Name, len(statuses))
+	}
+	status := statuses[0]
+	if status.Error != "" {
+		return fmt.Errorf("preflight selector %q for %s %q: %s", req.Selector, req.Source, req.Name, status.Error)
+	}
+	if !status.Exists {
 		return fmt.Errorf("%s %q selector did not match: %s", req.Source, req.Name, req.Selector)
 	}
 	return nil

@@ -282,3 +282,41 @@ go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-
 ```
 
 Tests passed.
+
+## Implementation Step 4: extract initial preflight/style services
+
+I started Phase 3 with the smallest service extraction that is directly useful for the JS API: style evaluation and selector preflight. This avoids touching the whole inspect artifact writer in one large change while still creating Go-side service functions that the future Promise-first JS module can call.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/service/types.go` with:
+  - `Bounds`,
+  - `StyleSnapshot`,
+  - `ProbeSpec`,
+  - `SelectorStatus`.
+- Added `internal/cssvisualdiff/service/style.go` with `EvaluateStyle(...)`.
+- Added `internal/cssvisualdiff/service/preflight.go` with `PreflightProbes(...)`.
+  - It batches all probes into one page-side `document.querySelector` pass.
+  - It reports existence, visibility, bounds, text prefix, and selector errors.
+- Updated `internal/cssvisualdiff/modes/cssdiff.go` to alias `StyleSnapshot` / `Bounds` from the service package and route `evaluateStyle(...)` through `service.EvaluateStyle(...)`.
+- Updated `internal/cssvisualdiff/modes/inspect.go` so `ensureInspectSelectorExists(...)` uses `service.PreflightProbes(...)`.
+- Added `internal/cssvisualdiff/service/preflight_test.go` covering existing, missing, invalid, and hidden selectors.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/service internal/cssvisualdiff/modes/cssdiff.go internal/cssvisualdiff/modes/inspect.go
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Follow-up
+
+This is only the initial Phase 3 extraction. Remaining Phase 3 work:
+
+- extract prepare service,
+- extract prepared-page inspect/artifact service,
+- add no-reload-per-probe tests,
+- keep CLI behavior unchanged while making service APIs available to JS adapters.

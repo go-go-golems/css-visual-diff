@@ -43,12 +43,13 @@ Goal: make browser operations callable from both existing CLI modes and JS modul
 
 - [ ] Add service types for `BrowserService`, `PageService`, `ProbeSpec`, `SelectorStatus`, `InspectAllOptions`, and `InspectAllResult`.
 - [ ] Extract prepare logic so `script` and `directReactGlobal` can be called against an already-created page.
-- [ ] Extract batched preflight service that checks selectors in one page evaluation where possible.
+- [x] Extract style evaluation service shared by CSS diff and inspect paths.
+- [x] Extract batched preflight service that checks selectors in one page evaluation where possible.
 - [ ] Extract `InspectPreparedPage` / `InspectAll` service from `modes.Inspect` artifact writers.
-- [ ] Keep existing `modes.Inspect(...)` behavior unchanged by routing it through the extracted services.
-- [ ] Add tests for missing selectors, hidden/zero-bounds selectors if supported, CSS-only extraction, bundle extraction, and no reload per probe.
-- [ ] Run `go test ./internal/cssvisualdiff/modes ./internal/cssvisualdiff/service ./cmd/css-visual-diff`.
-- [ ] Commit Phase 3 service extraction.
+- [x] Keep existing selector-preflight behavior unchanged by routing inspect selector checks through the extracted preflight service.
+- [x] Add tests for missing selectors and hidden/zero-bounds selectors in preflight service.
+- [x] Run `go test ./internal/cssvisualdiff/modes ./internal/cssvisualdiff/service ./cmd/css-visual-diff`.
+- [x] Commit Phase 3 initial preflight/style service extraction.
 
 ## Phase 4 — Implement Promise-first `require("css-visual-diff")` native module
 
