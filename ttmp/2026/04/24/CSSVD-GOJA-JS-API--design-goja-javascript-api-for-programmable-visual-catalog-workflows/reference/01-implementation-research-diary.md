@@ -375,3 +375,39 @@ All tests passed.
 ### Follow-up
 
 The browser/page service is intentionally minimal. The next substantial extraction is still `InspectPreparedPage` / `InspectAll`, which will move artifact writing and inspect batching out of `modes.Inspect(...)`.
+
+## Implementation Step 7: extract prepared-page inspect/artifact service
+
+I completed the planned Phase 3 service extraction by moving inspect artifact writing and prepared-page batch inspection into the service package. This is the key seam needed by the future JavaScript `page.inspectAll(...)` adapter: it can operate on an already-loaded, already-prepared page without invoking the config-driven CLI mode.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/service/inspect.go` with:
+  - inspect format constants,
+  - `InspectRequest`,
+  - `InspectMetadata`,
+  - `InspectArtifactResult`,
+  - `InspectAllOptions`,
+  - `InspectResult`,
+  - `InspectPreparedPage`,
+  - `WriteInspectArtifacts`,
+  - `WriteSingleInspectArtifact`,
+  - `WriteInspectIndex`,
+  - shared `WritePreparedHTML`, `WriteInspectJSON`, `WriteJSON`, `RootSelectorForTarget`, and `SanitizeName` helpers.
+- Updated `modes.Inspect(...)` to call `service.InspectPreparedPage(...)` after loading and preparing the page.
+- Converted mode-level inspect types/constants to service aliases for compatibility.
+- Added `internal/cssvisualdiff/service/inspect_test.go` with a no-reload-per-probe test. The test loads a target once, inspects two CSS probes, and asserts the HTTP root path was only requested once.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/service/inspect.go internal/cssvisualdiff/service/inspect_test.go internal/cssvisualdiff/modes/inspect.go
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Notes
+
+Some older private helpers still exist in `modes` for compatibility with other mode code paths. The important architectural boundary is now in place: prepared-page inspect and artifact extraction can be called from `service` without going through `modes.Inspect(...)`.

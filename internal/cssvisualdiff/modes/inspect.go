@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	InspectFormatBundle       = "bundle"
-	InspectFormatPNG          = "png"
-	InspectFormatHTML         = "html"
-	InspectFormatCSSJSON      = "css-json"
-	InspectFormatCSSMarkdown  = "css-md"
-	InspectFormatInspectJSON  = "inspect-json"
-	InspectFormatMetadataJSON = "metadata-json"
+	InspectFormatBundle       = service.InspectFormatBundle
+	InspectFormatPNG          = service.InspectFormatPNG
+	InspectFormatHTML         = service.InspectFormatHTML
+	InspectFormatCSSJSON      = service.InspectFormatCSSJSON
+	InspectFormatCSSMarkdown  = service.InspectFormatCSSMarkdown
+	InspectFormatInspectJSON  = service.InspectFormatInspectJSON
+	InspectFormatMetadataJSON = service.InspectFormatMetadataJSON
 )
 
 // InspectOptions describes a single-side inspection run against an existing
@@ -44,40 +44,13 @@ type InspectOptions struct {
 	OutputFile string
 }
 
-type InspectRequest struct {
-	Name       string   `json:"name"`
-	Selector   string   `json:"selector"`
-	Props      []string `json:"props,omitempty"`
-	Attributes []string `json:"attributes,omitempty"`
-	Source     string   `json:"source"`
-}
+type InspectRequest = service.InspectRequest
 
-type InspectMetadata struct {
-	Side           string          `json:"side"`
-	TargetName     string          `json:"target_name"`
-	URL            string          `json:"url"`
-	Viewport       config.Viewport `json:"viewport"`
-	Name           string          `json:"name"`
-	Selector       string          `json:"selector"`
-	SelectorSource string          `json:"selector_source"`
-	RootSelector   string          `json:"root_selector,omitempty"`
-	PrepareType    string          `json:"prepare_type,omitempty"`
-	Format         string          `json:"format"`
-	CreatedAt      time.Time       `json:"created_at"`
-}
+type InspectMetadata = service.InspectMetadata
 
-type InspectArtifactResult struct {
-	Metadata    InspectMetadata `json:"metadata"`
-	Style       *StyleSnapshot  `json:"style,omitempty"`
-	Screenshot  string          `json:"screenshot,omitempty"`
-	HTML        string          `json:"html,omitempty"`
-	InspectJSON string          `json:"inspect_json,omitempty"`
-}
+type InspectArtifactResult = service.InspectArtifactResult
 
-type InspectResult struct {
-	OutputDir string                  `json:"output_dir,omitempty"`
-	Results   []InspectArtifactResult `json:"results"`
-}
+type InspectResult = service.InspectResult
 
 func Inspect(ctx context.Context, cfg *config.Config, opts InspectOptions) (InspectResult, error) {
 	if err := validateInspectOptions(opts); err != nil {
@@ -119,24 +92,11 @@ func Inspect(ctx context.Context, cfg *config.Config, opts InspectOptions) (Insp
 		return InspectResult{}, err
 	}
 
-	result := InspectResult{OutputDir: outDir}
-	for _, req := range requests {
-		destDir := outDir
-		if opts.OutputFile == "" && len(requests) > 1 {
-			destDir = filepath.Join(outDir, sanitizeName(req.Name))
-		}
-		artifact, err := writeInspectArtifacts(page, target, side, req, format, destDir, opts.OutputFile)
-		if err != nil {
-			return result, err
-		}
-		result.Results = append(result.Results, artifact)
-	}
-	if opts.OutputFile == "" && len(result.Results) > 1 {
-		if err := writeInspectIndex(outDir, result); err != nil {
-			return result, err
-		}
-	}
-	return result, nil
+	return service.InspectPreparedPage(page, target, side, requests, service.InspectAllOptions{
+		OutDir:     outDir,
+		Format:     format,
+		OutputFile: opts.OutputFile,
+	})
 }
 
 func validateInspectOptions(opts InspectOptions) error {

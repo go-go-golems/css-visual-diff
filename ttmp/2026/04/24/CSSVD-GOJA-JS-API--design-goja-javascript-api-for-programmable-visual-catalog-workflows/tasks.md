@@ -41,13 +41,14 @@ Goal: make JS verbs a first-class CLI namespace and stop injecting generated scr
 
 Goal: make browser operations callable from both existing CLI modes and JS modules without duplicating chromedp/artifact logic.
 
-- [ ] Add service types for `BrowserService`, `PageService`, `ProbeSpec`, `SelectorStatus`, `InspectAllOptions`, and `InspectAllResult` (browser/page/probe/status done; inspect option/result types still pending).
+- [x] Add service types for `BrowserService`, `PageService`, `ProbeSpec`, `SelectorStatus`, `InspectAllOptions`, and `InspectAllResult`.
 - [x] Extract prepare logic so `script` and `directReactGlobal` can be called against an already-created page.
 - [x] Extract style evaluation service shared by CSS diff and inspect paths.
 - [x] Extract batched preflight service that checks selectors in one page evaluation where possible.
-- [ ] Extract `InspectPreparedPage` / `InspectAll` service from `modes.Inspect` artifact writers.
+- [x] Extract `InspectPreparedPage` / `InspectAll` service from `modes.Inspect` artifact writers.
 - [x] Keep existing selector-preflight behavior unchanged by routing inspect selector checks through the extracted preflight service.
 - [x] Add tests for missing selectors and hidden/zero-bounds selectors in preflight service.
+- [x] Add no-reload-per-probe test for prepared-page inspect service.
 - [x] Run `go test ./internal/cssvisualdiff/modes ./internal/cssvisualdiff/service ./cmd/css-visual-diff`.
 - [x] Commit Phase 3 initial preflight/style service extraction.
 

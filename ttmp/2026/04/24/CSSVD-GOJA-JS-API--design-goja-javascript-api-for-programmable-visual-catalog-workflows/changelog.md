@@ -150,3 +150,19 @@
 ### Validation
 - Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff`.
 - Ran `go test ./...`.
+
+
+## 2026-04-24 — Phase 3 inspect artifact service extraction
+
+### Changed
+- Added `internal/cssvisualdiff/service/inspect.go` with inspect format constants, inspect request/result metadata types, `InspectPreparedPage`, `WriteInspectArtifacts`, single-artifact writers, inspect index writer, and shared HTML/inspect JSON helpers.
+- Updated `modes.Inspect(...)` to delegate prepared-page artifact extraction to `service.InspectPreparedPage(...)`.
+- Kept existing mode-level inspect types as aliases to service types for compatibility.
+- Added a service test proving multiple probes are inspected on one prepared page without reloading the target URL per probe.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
+
+### Phase status
+- Phase 3 service extraction is functionally complete for the planned Browser/Page, prepare, preflight, style, and inspect artifact service layers.
