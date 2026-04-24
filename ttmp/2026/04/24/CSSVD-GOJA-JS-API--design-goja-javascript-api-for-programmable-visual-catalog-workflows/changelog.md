@@ -225,3 +225,19 @@
   - `scripts/006-binary-help-smoke.sh`
   - `scripts/007-binary-js-api-success-smoke.sh`
   - `scripts/008-binary-js-api-typed-error-smoke.sh`
+
+
+## 2026-04-24 — Phase 5 Go-side catalog service and JS adapter
+
+### Added
+- Added `internal/cssvisualdiff/service/catalog_service.go` with a versioned catalog manifest, target/preflight/result/failure records, summary calculation, slug/path normalization, `artifactDir` derivation, `manifest.json` writer, and Markdown index writer.
+- Added `internal/cssvisualdiff/service/catalog_service_test.go` covering manifest JSON, Markdown index output, path normalization, slug normalization, summary counts, and failure records.
+- Added `internal/cssvisualdiff/dsl/catalog_adapter.go` and exported `cvd.catalog(options)` from `require("css-visual-diff")`.
+- Implemented JS-facing catalog methods: `artifactDir`, `addTarget`, `recordPreflight`, `addResult`, `addFailure`, `summary`, `manifest`, `writeManifest`, and `writeIndex`.
+- Added a repository-scanned JS integration test that writes a catalog manifest and index from a verb.
+- Added `scripts/009-binary-catalog-smoke.sh` for compiled-binary validation of `cvd.catalog(...)`.
+
+### Validation
+- Ran `scripts/009-binary-catalog-smoke.sh`.
+- Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go test ./...`.

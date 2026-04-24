@@ -160,6 +160,63 @@ __verb__("inspect", {
 	require.NoError(t, err)
 }
 
+func TestRepositoryVerbWritesCatalogManifestAndIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "catalog.js"), `
+async function catalogSmoke(outDir) {
+  const cvd = require("css-visual-diff");
+  const catalog = cvd.catalog({ title: "Verb Catalog Smoke", outDir, artifactRoot: "../artifacts" });
+  const target = { slug: "../Demo Target!", name: "Demo Target", url: "http://example.test", selector: "#root", viewport: { width: 320, height: 240 } };
+  catalog.addTarget(target);
+  catalog.recordPreflight(target, [{ name: "root", selector: "#root", exists: true, visible: true, textStart: "Ready" }]);
+  catalog.addResult(target, { outputDir: catalog.artifactDir(target.slug), results: [{ metadata: { name: "root", selector: "#root", createdAt: "2026-04-24T00:00:00Z" }, style: { exists: true, computed: { color: "rgb(0, 0, 0)" } } }] });
+  const manifestPath = await catalog.writeManifest();
+  const indexPath = await catalog.writeIndex();
+  const summary = catalog.summary();
+  return { manifestPath, indexPath, targetCount: summary.targetCount, resultCount: summary.resultCount, artifactDir: catalog.artifactDir(target.slug) };
+}
+__verb__("catalogSmoke", {
+  parents: ["custom"],
+  fields: {
+    outDir: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"outDir": outDir},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, filepath.Join(outDir, "manifest.json"), row["manifestPath"])
+	require.Equal(t, filepath.Join(outDir, "index.md"), row["indexPath"])
+	require.EqualValues(t, 1, row["targetCount"])
+	require.EqualValues(t, 1, row["resultCount"])
+	require.Equal(t, filepath.Join(outDir, "artifacts", "demo-target"), row["artifactDir"])
+	manifestBytes, err := os.ReadFile(filepath.Join(outDir, "manifest.json"))
+	require.NoError(t, err)
+	require.Contains(t, string(manifestBytes), `"schema_version": "css-visual-diff.catalog.v1"`)
+	require.Contains(t, string(manifestBytes), `"slug": "demo-target"`)
+	indexBytes, err := os.ReadFile(filepath.Join(outDir, "index.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(indexBytes), "# Verb Catalog Smoke")
+}
+
 func TestCVDModuleExposesLowerCamelGotoInspectAndTypedErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><main id="app"><p>Ready</p></main></body></html>`)

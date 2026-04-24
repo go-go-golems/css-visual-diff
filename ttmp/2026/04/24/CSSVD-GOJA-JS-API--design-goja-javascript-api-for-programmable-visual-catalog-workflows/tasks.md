@@ -71,12 +71,12 @@ Goal: expose the Go services to repository-scanned scripts through a stable asyn
 
 Goal: keep catalog manifests and indexes durable, typed, and usable from both JS and Go CLI code.
 
-- [ ] Add `internal/cssvisualdiff/service/catalog_service.go` with manifest schema/version, target records, preflight records, result records, failure records, summary, slug/path normalization, and writers.
-- [ ] Add `cvd.catalog(options)` adapter backed by the Go catalog service.
-- [ ] Implement `catalog.artifactDir`, `addTarget`, `recordPreflight`, `addResult`, `addFailure`, `summary`, `writeManifest`, and `writeIndex`.
-- [ ] Add tests for manifest JSON, markdown/HTML index rendering if implemented, path normalization, and failures.
-- [ ] Add one JS integration test that writes a catalog manifest and index from a verb.
-- [ ] Commit Phase 5 catalog service.
+- [x] Add `internal/cssvisualdiff/service/catalog_service.go` with manifest schema/version, target records, preflight records, result records, failure records, summary, slug/path normalization, and writers.
+- [x] Add `cvd.catalog(options)` adapter backed by the Go catalog service.
+- [x] Implement `catalog.artifactDir`, `addTarget`, `recordPreflight`, `addResult`, `addFailure`, `summary`, `writeManifest`, and `writeIndex`.
+- [x] Add tests for manifest JSON, markdown/HTML index rendering if implemented, path normalization, and failures.
+- [x] Add one JS integration test that writes a catalog manifest and index from a verb.
+- [x] Commit Phase 5 catalog service.
 
 ## Phase 6 — Add built-in catalog verbs and examples
 

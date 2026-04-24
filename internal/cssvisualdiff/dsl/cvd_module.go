@@ -17,6 +17,13 @@ func registerCVDModule(ctx *engine.RuntimeModuleContext, reg *noderequire.Regist
 	reg.RegisterNativeModule("css-visual-diff", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		installCVDErrorClasses(vm, exports)
+		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
+			catalog, err := newCatalogFromJS(raw)
+			if err != nil {
+				return nil, err
+			}
+			return wrapCatalog(ctx, vm, catalog), nil
+		})
 		_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
 			return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {
 				return service.NewBrowserService(ctx.Context)

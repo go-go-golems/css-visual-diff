@@ -515,3 +515,56 @@ ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-v
 ```
 
 All three passed.
+
+## Implementation Step 11: implement Go-side catalog service and `cvd.catalog(...)`
+
+I completed Phase 5 by adding the catalog implementation on the Go side and exposing it through the Promise-first JS module. This keeps durable catalog behavior—manifest schema, path normalization, summary counts, and report writers—in Go rather than in ad hoc JavaScript helpers.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/service/catalog_service.go` with:
+  - `CatalogSchemaVersion`,
+  - `CatalogOptions`,
+  - `CatalogManifest`,
+  - `CatalogTargetRecord`,
+  - `CatalogPreflightRecord`,
+  - `CatalogResultRecord`,
+  - `CatalogFailureRecord`,
+  - `CatalogSummary`,
+  - `NewCatalog`,
+  - `ArtifactDir`,
+  - `AddTarget`,
+  - `RecordPreflight`,
+  - `AddResult`,
+  - `AddFailure`,
+  - `Summary`,
+  - `WriteManifest`,
+  - `WriteIndex`,
+  - slug and relative-path normalization helpers.
+- Added `internal/cssvisualdiff/dsl/catalog_adapter.go` with the JS adapter for `cvd.catalog(options)`.
+- Added JS-facing catalog methods:
+  - `artifactDir(slug)`,
+  - `addTarget(target)`,
+  - `recordPreflight(target, statuses)`,
+  - `addResult(target, inspectResult)`,
+  - `addFailure(target, error)`,
+  - `summary()`,
+  - `manifest()`,
+  - `writeManifest()`,
+  - `writeIndex()`.
+- Added service tests and a repository-scanned JS verb integration test.
+- Added `scripts/009-binary-catalog-smoke.sh` to replay a compiled-binary catalog smoke test.
+
+### Validation
+
+```bash
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/009-binary-catalog-smoke.sh
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Notes
+
+The initial catalog index is Markdown-only. The service data model is versioned and should be stable enough for built-in catalog verbs in the next phase. If we later add richer HTML reports, they should be additional writers using the same `CatalogManifest` model.
