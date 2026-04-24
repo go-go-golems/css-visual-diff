@@ -19,3 +19,52 @@
 
 ### Publishing
 - Uploaded to reMarkable under `/ai/2026/04/24/CSSVD-GOJA-JS-API/`.
+
+
+## 2026-04-24 — Research update for repository-scanned JS verbs
+
+### Updated
+- Expanded `design/01-goja-javascript-api-analysis-design-and-implementation-guide.md` after reading the current `internal/cssvisualdiff/dsl` prototype, the Discord helper-verbs design/diary, the loupedeck jsverbs implementation, and upstream `go-go-goja/pkg/jsverbs`.
+- Reframed the implementation from greenfield Goja work to productizing the existing css-visual-diff jsverbs host.
+- Added a concrete plan for scanning JavaScript scripts from embedded/filesystem repositories and exposing them as CLI verbs with Glazed flags under a lazy `css-visual-diff verbs` subtree.
+- Added guidance for keeping the native module API (`require("css-visual-diff")`) separate from the CLI verb API (`__verb__(...)`).
+- Added an implementation research diary at `reference/01-implementation-research-diary.md`.
+- Updated `tasks.md` with repository-scanned verbs, service extraction, and artifact-cleanup follow-ups.
+
+### Key findings
+- `css-visual-diff` already has a working first-generation jsverbs host in `internal/cssvisualdiff/dsl`; implementation should extend it rather than start over.
+- Loupedeck provides the closest implemented reference for lazy dynamic verbs, repository discovery, embedded builtins, duplicate detection, and custom runtime invocation.
+- The current root-level generated script command injection should be treated as prototype UX; the target product shape should be `css-visual-diff verbs ...`.
+- Generated `css-visual-diff-compare-*` PNG artifact directories under `internal/cssvisualdiff/dsl` should be cleaned up or explicitly classified as fixtures before more JS API work.
+
+
+## 2026-04-24 — Incorporate maintainer clarifications
+
+### Updated
+- Clarified that the JS API must be Promise-first from the initial implementation, not a synchronous MVP with later migration.
+- Clarified that `catalog()` should be backed by a Go-side catalog service/data model and only adapted into JavaScript.
+- Expanded the error model with JS-visible error classes/codes for selector, prepare, browser/CDP, and artifact failures, with support for both thrown errors and collected batch failures.
+- Added a maintainer-clarifications section answering what preflight is for, how `directReactGlobal` differs from selector/probe APIs, and what parallelization is realistic with CDP.
+- Updated tasks to include Promise-first APIs, Go-side catalog service, async integration tests, and typed error handling.
+
+### Decisions
+- Promise support is required from day one.
+- Preflight primarily checks selector/probe readiness before expensive extraction, especially missing selectors.
+- `directReactGlobal` is a prepare/rendering mode, not a selector mode.
+- Parallelism should be target/page-level with explicit concurrency limits; per-page CDP operations should be treated as mostly serialized.
+
+
+## 2026-04-24 — Expand implementation task plan
+
+### Updated
+- Replaced the short TODO list in `tasks.md` with a phased implementation plan from ticket hygiene through lazy verbs, service extraction, Promise-first JS module, Go-side catalog service, built-in catalog verbs, and final docs/validation.
+- Added explicit commit checkpoints at the end of major phases so implementation can proceed in reviewable intervals.
+
+### Phase sequence
+1. Stabilize existing dsl/jsverbs prototype.
+2. Add lazy repository-scanned `css-visual-diff verbs` command tree.
+3. Extract reusable browser/page/inspect/preflight services.
+4. Implement Promise-first `require("css-visual-diff")` native module.
+5. Implement Go-side catalog service and JS adapter.
+6. Add built-in catalog verbs and examples.
+7. Finish docs, migration notes, and validation.

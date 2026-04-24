@@ -12,10 +12,14 @@ Topics:
 DocType: index
 Intent: long-term
 Owners: []
-RelatedFiles: []
+RelatedFiles:
+    - Path: design/01-goja-javascript-api-analysis-design-and-implementation-guide.md
+      Note: Primary design guide, now updated with repository-scanned jsverbs CLI architecture.
+    - Path: reference/01-implementation-research-diary.md
+      Note: Research diary for the update pass and evidence from Discord/loupedeck/go-go-goja.
 ExternalSources: []
-Summary: ""
-LastUpdated: 2026-04-24T01:03:31.159056817-04:00
+Summary: "Design and implementation workspace for the css-visual-diff Goja/jsverbs API, including repository-scanned JavaScript verbs exposed as CLI commands."
+LastUpdated: 2026-04-24T13:00:00-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
@@ -23,3 +27,5 @@ WhenToUse: ""
 # Design Goja JavaScript API for programmable visual catalog workflows
 
 Document workspace for CSSVD-GOJA-JS-API.
+
+Current focus: productize the existing `internal/cssvisualdiff/dsl` Goja/jsverbs prototype into a repository-scanned `css-visual-diff verbs ...` command surface, while adding a coherent `require("css-visual-diff")` module for programmable browser/page/preflight/inspect/catalog workflows.

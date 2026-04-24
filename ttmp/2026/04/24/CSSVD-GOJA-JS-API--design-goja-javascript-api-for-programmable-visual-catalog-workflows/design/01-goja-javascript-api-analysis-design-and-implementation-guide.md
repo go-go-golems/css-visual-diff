@@ -23,9 +23,23 @@ RelatedFiles:
       Note: Current YAML schema for targets, sections, styles, output, and prepare.
     - Path: cmd/css-visual-diff/main.go
       Note: Current Cobra/Glazed CLI command wiring.
+    - Path: internal/cssvisualdiff/dsl/host.go
+      Note: Current embedded jsverbs host; scans only embedded scripts and registers generated commands at startup.
+    - Path: internal/cssvisualdiff/dsl/registrar.go
+      Note: Current native Goja modules (`diff`, `report`) and the thin-adapter pattern already in this repository.
+    - Path: internal/cssvisualdiff/dsl/scripts/compare.js
+      Note: Current annotated `__verb__` script proving jsverbs command metadata already works for css-visual-diff.
+    - Path: /home/manuel/code/wesen/corporate-headquarters/loupedeck/cmd/loupedeck/cmds/verbs/bootstrap.go
+      Note: Reference implementation for repository discovery, embedded builtins, jsverbs scanning, require-loader setup, and duplicate verb detection.
+    - Path: /home/manuel/code/wesen/corporate-headquarters/loupedeck/cmd/loupedeck/cmds/verbs/command.go
+      Note: Reference implementation for lazy dynamic verbs command registration and custom runtime invoker wiring.
+    - Path: /home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/jsverbs/command.go
+      Note: Upstream jsverbs command-description and pluggable invoker API.
+    - Path: /home/manuel/code/wesen/corporate-headquarters/go-go-goja/pkg/jsverbs/model.go
+      Note: Upstream jsverbs registry, scan options, verb model, sections, field metadata, and diagnostics.
 ExternalSources: []
-Summary: Intern-facing architecture and implementation guide for adding a Goja-powered JavaScript API to css-visual-diff.
-LastUpdated: 2026-04-24T01:03:55.022529011-04:00
+Summary: Intern-facing architecture and implementation guide for adding and productizing a Goja/jsverbs JavaScript API to css-visual-diff, including repository-scanned scripts exposed as CLI verbs.
+LastUpdated: 2026-04-24T13:00:00-04:00
 WhatFor: "Use this before implementing a Goja JavaScript scripting layer for css-visual-diff."
 WhenToUse: "When designing or implementing programmable catalog workflows, batch inspection, selector preflight, or scriptable visual regression operations."
 ---
@@ -666,7 +680,16 @@ type InspectAllResult = {
 
 ## 11. Catalog API
 
-The catalog API should manage manifest and report generation.
+The catalog API should manage manifest and report generation, and it should be implemented on the Go side as a real service rather than as JavaScript-only helper code. JavaScript scripts should call `cvd.catalog(...)`, but the object behind it should be backed by Go structs and writers so manifests, indexes, path normalization, timestamps, schema versions, and future report formats stay consistent across CLI modes and JS verbs.
+
+Recommended split:
+
+```text
+internal/cssvisualdiff/service/catalog_service.go   # owns manifest/index data model and writers
+internal/cssvisualdiff/dsl/catalog_adapter.go       # adapts Go catalog service to goja values/promises
+```
+
+The JS layer may provide small ergonomic wrappers, but the durable catalog model belongs in Go.
 
 ```ts
 type CatalogOptions = {
@@ -856,18 +879,43 @@ Strict CI:
 await page.inspectAll(probes, { failOnMissing: true })
 ```
 
-Missing selector errors should be structured:
+Missing selector errors should be structured, and the API may either return them in exploratory result objects or throw them in strict paths. Define JS-visible error types early so scripts can distinguish authoring mistakes from browser/process failures.
 
 ```ts
-class SelectorError extends Error {
+class CvdError extends Error {
+  code: string
+  cause?: unknown
+  details?: any
+}
+
+class SelectorError extends CvdError {
+  code: "selector_missing" | "selector_hidden" | "selector_invalid"
   name: string
   selector: string
-  source: "style" | "section" | "flag" | "root"
+  source: "style" | "section" | "flag" | "root" | "probe"
   url: string
   targetName: string
   hint?: string
 }
+
+class PrepareError extends CvdError {
+  code: "prepare_failed" | "prepare_timeout" | "prepare_invalid"
+  targetName: string
+  prepareType: string
+}
+
+class BrowserError extends CvdError {
+  code: "browser_start_failed" | "navigation_failed" | "cdp_failed" | "timeout"
+}
+
+class ArtifactError extends CvdError {
+  code: "artifact_write_failed" | "artifact_exists" | "artifact_invalid"
+  path?: string
+  artifact?: string
+}
 ```
+
+Implementation note: Go adapters should throw with `vm.NewGoError(err)` or a helper that constructs one of the JS error classes and attaches `code`/`details`. Do not throw anonymous strings. For batch APIs, use options such as `failOnMissing` and `failFast` to decide whether structured failures are collected or thrown.
 
 Example message:
 
@@ -1009,16 +1057,9 @@ await page.preflight(probes)
 await page.inspectAll(probes, options)
 ```
 
-If the project does not yet have Promise support wired into Goja, start with synchronous calls:
+Promises should be part of the API from the first implementation. Upstream `go-go-goja` already supports waiting for Promises returned by jsverb functions through `registry.InvokeInRuntime(...)`; native modules that create Promises must settle them through the runtime owner thread. Even if the underlying chromedp operation blocks in Go, the JavaScript contract should be Promise-based so scripts do not need a later migration.
 
-```js
-const browser = cvd.browser()
-const page = browser.page(url, { viewport })
-page.prepare(spec)
-const preflight = page.preflight(probes)
-```
-
-The API can become Promise-based later. The important part is the object model.
+Implementation rule: every browser/page/catalog operation that can touch I/O, CDP, files, or timers returns a Promise in JavaScript. Pure object builders can stay synchronous.
 
 ### Phase 4: catalog helper
 
@@ -1144,7 +1185,7 @@ Guardrail: implement the minimum useful set first: `browser`, `page.prepare`, `p
 
 ### Risk: ambiguous async behavior
 
-Guardrail: if Promise support is not already standard in the runtime, start with synchronous methods and document that clearly. Do not fake async with inconsistent behavior.
+Guardrail: Promise support is required from the beginning. Every I/O, CDP, browser, file, and catalog-write operation should return a real Promise, and native module code must settle those promises on the go-go-goja runtime owner thread. Do not ship a synchronous API shape that would need to be broken later.
 
 ### Risk: scripts become unreproducible
 
@@ -1169,7 +1210,570 @@ A first successful implementation should satisfy these criteria:
 9. Documentation includes one complete runnable example.
 10. Missing selectors never look like timeouts; they are structured status or clear errors.
 
-## 22. Final recommendation
+## 22. Research update: what must change after studying the current implementation and nearby jsverbs systems
+
+The original version of this document was directionally correct about the desired **Browser / Page / Probe / Catalog** abstraction, but it under-described an important implementation reality: `css-visual-diff` already has a first-generation Goja/jsverbs surface. The implementation plan should therefore stop sounding like a greenfield Goja feature and instead describe a **productization and expansion** of the existing `internal/cssvisualdiff/dsl` package.
+
+The research pass looked at three concrete systems:
+
+1. the current `css-visual-diff` codebase,
+2. the newer `js-discord-bot` helper-verb design/diary,
+3. the implemented loupedeck jsverbs CLI cutover and upstream `go-go-goja/pkg/jsverbs` APIs.
+
+The main conclusion is:
+
+```text
+Do not build a separate ad hoc script runner.
+Promote the existing embedded dsl/jsverbs host into a repository-scanned, lazy `verbs` command tree,
+and add the Browser/Page/Catalog native module surface behind those verbs.
+```
+
+### 22.1 What already exists and should be preserved
+
+The current repository already has these working pieces:
+
+| Existing file | What it proves | Keep / change |
+|---|---|---|
+| `internal/cssvisualdiff/dsl/host.go` | `jsverbs.ScanFS(...)`, shared sections, `engine.NewBuilder()`, caller-owned runtime invoker, and `registry.InvokeInRuntime(...)` already work. | Keep the runtime/invoker idea, but generalize scanning beyond embedded scripts. |
+| `internal/cssvisualdiff/dsl/registrar.go` | Native modules can expose Go services to JS. Current modules are `diff` and `report`. | Keep the thin native-module adapter pattern, but add a real `css-visual-diff` module. |
+| `internal/cssvisualdiff/dsl/scripts/compare.js` | Annotated `__verb__` scripts already become CLI commands with flags and shared sections. | Keep as a starter built-in verb, but move user-facing verbs under a `verbs` subtree. |
+| `cmd/css-visual-diff/main.go` | The root command currently builds the script host eagerly and adds generated script commands directly to the root command. | Replace eager root-level injection with lazy dynamic command registration. |
+
+This means the implementation plan should remove any wording that suggests we first need to prove Goja, `require()`, or `__verb__` scanning in this repository. That proof already exists. The new work is to make it scalable, discoverable, repository-backed, and powerful enough for visual catalog workflows.
+
+### 22.2 What should be updated in the design
+
+#### Update 1: distinguish two JavaScript surfaces
+
+The document should describe two related but different JavaScript surfaces:
+
+1. **Native module API**: `require("css-visual-diff")`, used by scripts to open browsers, prepare pages, preflight probes, inspect artifacts, and write catalogs.
+2. **CLI verb API**: annotated `__verb__(...)` scripts scanned from embedded and filesystem repositories and exposed as `css-visual-diff verbs ...` commands with Glazed/Cobra flags.
+
+The old design focuses almost entirely on the native module API. The missing half is the CLI product surface that lets users place workflow scripts in repositories and invoke them without writing Go or touching the main command tree.
+
+Recommended mental model:
+
+```text
+JavaScript script file
+  declares __verb__("catalog-page", { fields: ... })
+  calls require("css-visual-diff")
+        ↓
+jsverbs scanner
+  extracts command metadata and flags
+        ↓
+css-visual-diff verbs catalog page --url ... --out-dir ...
+  creates a css-visual-diff-owned Goja runtime
+  registers native modules
+  invokes the selected JS function
+```
+
+#### Update 2: make repository scanning a first-class phase
+
+The design currently says to add example scripts under `examples/scripts`, but it does not specify how the CLI discovers user scripts. That should be expanded into a full repository model borrowed from loupedeck and the Discord helper-verbs design.
+
+Recommended command shape:
+
+```text
+css-visual-diff verbs --help
+css-visual-diff verbs list
+css-visual-diff verbs catalog inspect-page --url http://localhost:7070 --selector '#root' --out-dir ./artifacts
+css-visual-diff verbs catalog pyxis-baseline --repository /path/to/project --base-url http://localhost:7070 --out-dir ./various/prototype-baseline
+```
+
+Recommended source layout:
+
+```text
+css-visual-diff repo:
+  internal/cssvisualdiff/dsl/scripts/        # embedded built-in verbs, current location
+
+user/project repo:
+  css-visual-diff/verbs/                     # read-only / normal workflow verbs
+    catalog/
+      inspect-page.js
+      build-baseline.js
+      compare-storybook.js
+  css-visual-diff/verbs-rw/                  # optional mutating verbs if ever needed
+```
+
+Recommended repository sources, in precedence order:
+
+1. embedded built-in repository,
+2. app config repositories,
+3. environment repositories, for example `CSS_VISUAL_DIFF_VERB_REPOSITORIES`,
+4. repeated CLI `--repository` or `--verb-repository` flags.
+
+Use the loupedeck implementation as the concrete pattern: normalize paths, dedupe repositories, scan embedded and filesystem repositories with `jsverbs.ScanFS` / `jsverbs.ScanDir`, reject duplicate full verb paths, and set `require()` global folders so scripts can use relative helpers.
+
+#### Update 3: use a lazy `verbs` subtree, not eager root command injection
+
+The current `main.go` eagerly builds `dsl.NewHost()`, calls `host.Commands()`, and injects generated commands directly into the root command. That was good for a first prototype, but it has three product problems:
+
+- repository scanning cost is paid even when the user only asks for `run`, `inspect`, or `--help`,
+- generated script commands are mixed with built-in commands at the top level,
+- filesystem scan errors can break unrelated CLI usage.
+
+The updated design should require a lazy subtree:
+
+```go
+func NewLazyVerbsCommand() *cobra.Command {
+    return &cobra.Command{
+        Use:                "verbs",
+        Short:              "Run annotated css-visual-diff workflow verbs",
+        DisableFlagParsing: true,
+        Args:               cobra.ArbitraryArgs,
+        RunE: func(cmd *cobra.Command, args []string) error {
+            bootstrap, err := verbcli.DiscoverBootstrapFromCommand(cmd)
+            if err != nil { return err }
+            resolved, err := verbcli.NewCommand(bootstrap)
+            if err != nil { return err }
+            adoptHelpAndOutput(cmd, resolved)
+            resolved.SetArgs(args)
+            return resolved.ExecuteContext(cmd.Context())
+        },
+    }
+}
+```
+
+This mirrors the loupedeck and Discord helper-verbs direction and makes dynamic verbs feel like a real product namespace.
+
+#### Update 4: replace the greenfield `internal/cssvisualdiff/js` package name with a clearer split
+
+The current document proposes:
+
+```text
+internal/cssvisualdiff/js/
+```
+
+After reviewing the current code, that is too vague and conflicts with the existing `dsl` package. A better split is:
+
+```text
+internal/cssvisualdiff/dsl/              # reusable JS runtime/module host code
+  codec.go
+  registrar.go                          # grows require("css-visual-diff") or delegates to module package
+  sections.go
+  scripts/compare.js                    # embedded built-ins
+
+internal/cssvisualdiff/verbcli/          # CLI product layer for repository-scanned verbs
+  bootstrap.go                          # repositories, config/env/CLI discovery, embedded repo
+  command.go                            # lazy/dynamic Cobra command tree
+  invoker.go                            # custom jsverbs invoker and output handling
+  runtime_factory.go                    # creates go-go-goja runtime per invocation
+
+internal/cssvisualdiff/service/          # Go service layer with no goja dependency
+  browser_service.go
+  inspect_service.go
+  prepare_service.go
+  preflight_service.go
+  catalog_service.go
+```
+
+If the team prefers keeping all JS code under `dsl`, then `verbcli` can be `internal/cssvisualdiff/dsl/verbcli`, but the service/adapters/CLI boundaries should remain explicit.
+
+#### Update 5: describe jsverbs fields as the flag API for catalog scripts
+
+The design should show how catalog workflow scripts expose flags. Example:
+
+```js
+__package__({
+  name: "catalog",
+  parents: ["catalog"],
+  short: "Programmable visual catalog workflows"
+});
+
+__section__("target", {
+  title: "Target",
+  fields: {
+    url: { type: "string", required: true, help: "Page URL to inspect" },
+    waitMs: { type: "int", default: 0, help: "Wait after navigation" },
+    width: { type: "int", default: 1280, help: "Viewport width" },
+    height: { type: "int", default: 720, help: "Viewport height" }
+  }
+});
+
+__section__("output", {
+  title: "Output",
+  fields: {
+    outDir: { type: "string", required: true, help: "Artifact directory" },
+    artifacts: { type: "choice", choices: ["css-only", "png-only", "bundle"], default: "bundle" },
+    failOnMissing: { type: "bool", default: false }
+  }
+});
+
+function inspectPage(target, output, selector) {
+  const cvd = require("css-visual-diff");
+  const browser = cvd.browser();
+  const page = browser.page(target.url, {
+    viewport: { width: target.width, height: target.height },
+    waitMs: target.waitMs,
+  });
+
+  const probes = [{ name: "selected", selector }];
+  const preflight = page.preflight(probes);
+  if (output.failOnMissing) preflight.assertAll();
+
+  const result = page.inspectAll(preflight.ok(), {
+    outDir: output.outDir,
+    artifacts: output.artifacts,
+    failOnMissing: output.failOnMissing,
+  });
+
+  browser.close();
+  return result.summary || result;
+}
+
+__verb__("inspect-page", {
+  short: "Inspect one page selector and write css-visual-diff artifacts",
+  fields: {
+    target: { bind: "target" },
+    output: { bind: "output" },
+    selector: { argument: true, required: true, help: "CSS selector to inspect" }
+  }
+});
+```
+
+That scanned script should become an operator command like:
+
+```bash
+css-visual-diff verbs catalog inspect-page \
+  --url http://localhost:7070/standalone/public/shows.html \
+  --width 920 \
+  --height 1660 \
+  --out-dir various/prototype-baseline/artifacts/public-shows \
+  '#root > div > main'
+```
+
+This is the missing bridge between the JS API design and “exposed as CLI verbs with flags that can easily be invoked”.
+
+### 22.3 What should be expanded
+
+#### Expand service extraction around inspect, preflight, and prepared pages
+
+The current `modes.Inspect(...)` owns the entire operation: load config, create browser, create page, navigate, prepare, build requests, write artifacts, write index. For scripts, that is too coarse. Extract the reusable pieces so CLI modes and JS verbs share one implementation.
+
+Add service functions with these contracts:
+
+```go
+type BrowserService struct { ... }
+type PageService struct { ... }
+
+type ProbeSpec struct {
+    Name       string
+    Selector   string
+    Props      []string
+    Attributes []string
+    Source     string
+    Required   bool
+}
+
+type SelectorStatus struct {
+    Name     string
+    Selector string
+    Exists   bool
+    Visible  bool
+    Bounds   *Bounds
+    Error    string
+}
+
+type InspectAllOptions struct {
+    OutDir        string
+    Artifacts     []string
+    PreparedHTML  string
+    FailOnMissing bool
+    Overwrite     bool
+}
+
+func LoadAndPreparePage(ctx context.Context, browser *driver.Browser, target config.Target) (*driver.Page, error)
+func PreparePage(ctx context.Context, page *driver.Page, target config.Target, prepare *config.PrepareSpec) error
+func PreflightProbes(ctx context.Context, page *driver.Page, probes []ProbeSpec) ([]SelectorStatus, error)
+func InspectPreparedPage(ctx context.Context, page *driver.Page, target config.Target, probes []ProbeSpec, opts InspectAllOptions) (InspectAllResult, error)
+```
+
+The design should explicitly say that the existing `modes.Inspect(...)` becomes a thin caller of these services rather than staying the only place artifact writing works.
+
+#### Expand native module scope from `diff`/`report` to `css-visual-diff`
+
+Keep `require("diff")` and `require("report")` as compatibility or low-level modules if useful, but add a coherent public module:
+
+```js
+const cvd = require("css-visual-diff");
+```
+
+Minimum exports:
+
+- `browser(options?)`,
+- `loadConfig(path)`,
+- `targetFromConfig(config, side)`,
+- `probesFromConfig(config, options?)`,
+- `catalog(options)`,
+- `mkdir/readJson/writeJson/writeMarkdown` if scripts need convenience IO.
+
+This keeps workflow scripts readable and avoids forcing users to know the internal `diff` and `report` module split.
+
+#### Expand output handling for generated commands
+
+The implementation should decide how a script return value maps to CLI output. Reuse upstream jsverbs behavior:
+
+- `output: "glaze"`: objects become rows, arrays become many rows, primitives become `{ value: ... }`,
+- `output: "text"`: strings and bytes are written directly, other values fall back to pretty JSON.
+
+For catalog verbs, default to structured rows for summaries and write large artifacts to files. Do not print huge manifests or binary-ish data to stdout.
+
+### 22.4 What should be removed or de-emphasized
+
+#### Remove the assumption that Promise support is unavailable
+
+The earlier plan says “If the project does not yet have Promise support wired into Goja, start with synchronous calls.” That is now rejected. Upstream `go-go-goja` documents jsverbs Promise handling: if a verb returns a `Promise`, `InvokeInRuntime(...)` waits for fulfillment/rejection through the runtime owner. The updated design should require Promise-returning JS methods from the first implementation.
+
+Better wording:
+
+> Browser/page/catalog operations return Promises from day one. The Go side may block internally on chromedp or filesystem work, but the JavaScript contract is asynchronous and any native-module Promise must settle through the go-go-goja runtime owner thread.
+
+#### Remove root-level generated command injection as the target product shape
+
+The current implementation adds generated script commands directly to the root. The design should call that a prototype only. The product shape should be:
+
+```text
+css-visual-diff verbs ...
+```
+
+Keep the built-in `run`, `inspect`, `compare`, `llm-review`, and single-artifact commands as stable root commands. Keep dynamic user scripts under `verbs`.
+
+#### Remove broad generic helpers from the MVP
+
+The top-level export list in the original design includes `parallel`, `glob`, server helpers, timers, and file helpers. Those are useful, but they are not necessary for the first implementation. The revised MVP should be stricter:
+
+1. repository-scanned jsverbs command tree,
+2. `require("css-visual-diff")`,
+3. browser/page prepare/preflight/inspectAll,
+4. catalog manifest/index,
+5. YAML interop helpers.
+
+Add generic convenience helpers only after real catalog scripts prove they need them.
+
+### 22.5 What should be improved in the current implementation before adding more API
+
+#### Improvement 1: stop writing generated artifacts under `internal/cssvisualdiff/dsl`
+
+A repository scan found many `css-visual-diff-compare-*` PNG artifact directories under `internal/cssvisualdiff/dsl`. That is a code hygiene problem: test/manual outputs should not live beside runtime source and embedded scripts.
+
+The implementation should:
+
+- default script output directories to `os.MkdirTemp(...)` or a configurable output root,
+- add ignore rules for generated `css-visual-diff-compare-*` directories,
+- move/remove existing generated artifacts from the source package if they are not intentional fixtures,
+- make tests use `t.TempDir()`.
+
+#### Improvement 2: make scan errors local to the `verbs` subtree
+
+With a lazy `verbs` command, malformed user scripts should break `css-visual-diff verbs ...`, not `css-visual-diff inspect ...` or `css-visual-diff run ...`. This is especially important once filesystem repositories are supported.
+
+#### Improvement 3: add duplicate command path detection
+
+Repository-scanned verbs need deterministic collision handling. If two scripts declare the same full path, fail with an error that includes both sources:
+
+```text
+duplicate jsverb path "catalog inspect-page" from builtin:scripts/inspect-page.js and /repo/css-visual-diff/verbs/catalog/inspect-page.js
+```
+
+Do not silently pick one.
+
+#### Improvement 4: expose shared sections intentionally
+
+The existing `targets`, `viewport`, and `output` sections are useful. For visual catalog work, add or revise sections such as:
+
+- `target`: URL, wait, viewport, root selector,
+- `prepare`: prepare type, wait expression, after wait,
+- `artifacts`: bundle/css-only/png-only, fail-on-missing, overwrite,
+- `catalog`: title, out dir, artifact root, index name.
+
+Shared sections are part of the flag UX; they should be documented and stable.
+
+## 23. Updated implementation plan after research
+
+The implementation plan should be reordered. The next useful milestone is not “add a Goja module skeleton”; it is “turn the existing skeleton into a repository-scanned verbs product”.
+
+### Phase A: clean up and stabilize the existing dsl prototype
+
+- Keep `internal/cssvisualdiff/dsl/host.go` tests passing.
+- Move generated artifact directories out of `internal/cssvisualdiff/dsl` if they are not intentional fixtures.
+- Rename or document current built-in verbs so users understand `script compare region` and `script compare brief`.
+- Confirm `go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff` is green.
+
+### Phase B: add `internal/cssvisualdiff/verbcli`
+
+Implement the loupedeck-style dynamic command layer:
+
+- `Bootstrap` and `Repository` structs,
+- embedded built-in repository,
+- config/env/CLI repository discovery,
+- `jsverbs.ScanFS` and `jsverbs.ScanDir`,
+- duplicate full-path detection,
+- lazy `css-visual-diff verbs` Cobra command,
+- generated command tests and help-output tests.
+
+### Phase C: move dynamic script commands under `verbs`
+
+- Stop injecting `host.Commands()` directly into the root command.
+- Add `rootCmd.AddCommand(verbcli.NewLazyCommand(...))`.
+- Preserve built-in root commands unchanged.
+- Document migration from any existing root-level script commands to `css-visual-diff verbs script compare region ...`.
+
+### Phase D: extract inspect/preflight services
+
+- Refactor `modes.Inspect(...)` so browser/page setup, prepare, preflight, and artifact writing can be called from both CLI and JS.
+- Add service tests for missing selectors and CSS-only vs bundle behavior.
+- Make `inspectAll` operate on a prepared page without reloading for each probe.
+
+### Phase E: add the coherent `require("css-visual-diff")` module
+
+- Keep current `diff` and `report` modules if needed.
+- Add public Browser/Page/Catalog wrappers.
+- Convert JS lowerCamel options to Go structs.
+- Use `vm.NewGoError(err)` for thrown errors; avoid `panic(vm.ToValue(err.Error()))` when wrapping Go errors.
+- Add runtime integration tests that `require("css-visual-diff")` and execute a tiny HTTP-page catalog script.
+
+### Phase F: add real catalog verbs
+
+Add built-in verbs that demonstrate the final product shape:
+
+```text
+css-visual-diff verbs catalog inspect-page
+css-visual-diff verbs catalog inspect-config
+css-visual-diff verbs catalog build-manifest
+css-visual-diff verbs compare region
+css-visual-diff verbs compare brief
+```
+
+Then add an external example repository that simulates the Pyxis workflow and proves that repository-scanned scripts can be invoked with flags.
+
+### Phase G: documentation and acceptance
+
+Repository docs should include:
+
+- `docs/js-api.md` for the native module,
+- `docs/js-verbs.md` for script annotations, repository discovery, and flag generation,
+- `examples/verbs/README.md`,
+- a runnable catalog script with command examples.
+
+Acceptance should now include:
+
+1. `css-visual-diff verbs --help` does not scan arbitrary user repositories until the subtree is invoked.
+2. Built-in verbs are always available.
+3. A filesystem repository can define a `__verb__` script and expose it as a CLI command with flags.
+4. Duplicate verb paths fail clearly.
+5. A verb can call `require("css-visual-diff")` and run preflight plus `inspectAll` on a local test page.
+6. Existing `run`, `inspect`, `compare`, and root help behavior remain unchanged.
+7. No generated artifacts are written under source packages by default.
+
+## 24. Maintainer clarifications and answers
+
+These notes capture follow-up design decisions and clarify terminology that can otherwise be confusing.
+
+### 24.1 Promises are required from day one
+
+The API should not start synchronous and migrate later. Use Promises immediately for:
+
+- `cvd.browser(...)`,
+- `browser.page(...)` / `browser.newPage(...)`,
+- `page.goto(...)`,
+- `page.prepare(...)`,
+- `page.preflight(...)`,
+- `page.inspect(...)` / `page.inspectAll(...)`,
+- `catalog.writeManifest(...)`,
+- `catalog.writeIndex(...)`.
+
+The Go implementation can internally block on chromedp/file operations, but the goja adapter should expose Promise-returning methods and settle them through the runtime owner pattern. This keeps scripts idiomatic and avoids an API break.
+
+### 24.2 Catalog belongs on the Go side
+
+The catalog API should not be just a JS convenience object. It should be backed by Go services that own:
+
+- manifest schema and schema version,
+- path and slug normalization,
+- artifact root handling,
+- target/result/failure/preflight records,
+- summary calculation,
+- markdown/HTML index rendering,
+- JSON writing,
+- future compatibility with non-JS CLI modes.
+
+JavaScript should orchestrate catalog construction; Go should implement the durable data model and writers.
+
+### 24.3 What is preflight for?
+
+Preflight is primarily a selector validation pass. It answers: “If I run expensive artifact extraction now, which probes will definitely fail because their selectors are missing, hidden, or malformed?”
+
+It should check at least:
+
+- selector matches an element,
+- optional visibility / non-zero bounds,
+- optional root containment,
+- basic bounds/text metadata for diagnostics.
+
+Preflight is useful because `chromedp.Screenshot(selector, ...)` and other selector-backed operations can otherwise fail late, fail opaquely, or appear as timeouts. It lets catalog scripts choose policy:
+
+```js
+const preflight = await page.preflight(probes)
+
+// authoring mode: skip missing selectors and write a report
+const result = await page.inspectAll(preflight.ok(), { failOnMissing: false })
+
+// CI mode: throw a structured SelectorError
+preflight.assertAll()
+```
+
+So yes: the most important purpose is checking for missing selectors, but the richer goal is structured probe readiness before screenshots/CSS/DOM artifacts.
+
+### 24.4 What is `directReactGlobal` for compared to selectors?
+
+Selectors identify elements that already exist in a loaded page. They answer: “Which DOM node should I inspect or screenshot?”
+
+`directReactGlobal` is a prepare mode. It creates the DOM to inspect by mounting a React component exposed on `window` into a controlled root. It answers: “Before I inspect anything, how do I render this component fixture into the page?”
+
+In other words:
+
+```text
+prepare/directReactGlobal -> render or reshape the page
+selector/probe            -> choose elements inside the prepared page
+inspect/preflight         -> validate/extract artifacts from those elements
+```
+
+Typical use cases:
+
+- Prototype HTML exports that expose `window.React`, `window.ReactDOM`, and `window.SomeComponent` but do not have a Storybook route for every component state.
+- Component fixtures where the script wants to render one component with explicit props, width, min height, and background.
+- Visual catalog baselines where a component should be isolated from the surrounding app shell.
+
+A normal `script` prepare mutates an already loaded page. `directReactGlobal` is more specialized: it replaces/sets up a capture root and renders a named global React component into it.
+
+### 24.5 What can actually be parallelized?
+
+Do not assume that operations inside one chromedp page can run in parallel. A single page/target CDP session is effectively serialized for most useful actions: navigate, evaluate, screenshot, get box model, and write artifacts must be coordinated. Within one prepared page, `inspectAll` should usually run probe extraction in a deterministic sequence, or at most use very small internal parallelism for non-CDP file/format work after data is captured.
+
+Useful parallelism is mostly at coarser boundaries:
+
+1. **Across independent targets/pages**: multiple browser pages or browser contexts can process different catalog targets concurrently, with a configurable worker limit.
+2. **Across independent browser instances**: useful for isolation, but heavier.
+3. **Across CPU/file post-processing**: writing JSON/Markdown, rendering indexes, diffing already-captured images, and building summaries can overlap after CDP data is collected.
+4. **Across preflight batches only if implemented as one page evaluation**: rather than many concurrent CDP calls, evaluate all selector checks in one JS expression inside the page.
+
+Recommended API shape:
+
+```js
+await cvd.mapTargets(targets, { concurrency: 2 }, async (target) => {
+  const page = await browser.page(target.url, { viewport: target.viewport })
+  await page.prepare(target.prepare)
+  const preflight = await page.preflight(target.probes) // internally one batched evaluate if possible
+  const result = await page.inspectAll(preflight.ok(), { outDir: catalog.artifactDir(target.slug) })
+  await page.close()
+  return result
+})
+```
+
+Avoid exposing a generic `parallel()` helper as a central primitive in the MVP. Instead expose target-level concurrency with explicit limits, because browser/CDP resources are the bottleneck and scripts need guardrails.
+
+## 25. Final recommendation
 
 The right abstraction is not “JavaScript that runs YAML.” The right abstraction is a programmable workbench:
 
