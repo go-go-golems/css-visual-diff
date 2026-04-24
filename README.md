@@ -34,6 +34,67 @@ GOWORK=off go run ./cmd/css-visual-diff compare --help
 GOWORK=off go run ./cmd/css-visual-diff chromedp-probe --help
 ```
 
+## JavaScript verbs and programmable catalogs
+
+`css-visual-diff` can scan annotated JavaScript files and expose them as CLI verbs under the lazy `verbs` namespace:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff verbs --help
+GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-page --help
+```
+
+Built-in workflow verbs include:
+
+```bash
+# Compare one region through the script-backed compare workflow.
+GOWORK=off go run ./cmd/css-visual-diff verbs script compare region \
+  --leftUrl http://localhost:3000/original \
+  --rightUrl http://localhost:3000/react \
+  --leftSelector '#cta' \
+  --outDir /tmp/cssvd-compare
+
+# Inspect one URL/selector into a Go-backed catalog manifest and index.
+GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-page \
+  http://127.0.0.1:8767/ '#cta' /tmp/cssvd-page \
+  --slug cta \
+  --artifacts css-json \
+  --output json
+
+# Inspect selectors from an existing YAML config into a catalog.
+GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-config \
+  examples/pyxis-atoms-prototype-vs-storybook.yaml react /tmp/cssvd-config \
+  --artifacts css-json \
+  --output json
+```
+
+External verb repositories can be supplied at runtime:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs examples catalog inspect-page \
+  http://127.0.0.1:8767/ '#cta' /tmp/cssvd-example \
+  --output json
+```
+
+JavaScript verbs can use the Promise-first native module:
+
+```js
+const cvd = require("css-visual-diff")
+const browser = await cvd.browser()
+const page = await browser.page(url, { viewport: { width: 1280, height: 720 } })
+const statuses = await page.preflight([{ name: "cta", selector: "#cta" }])
+const result = await page.inspectAll([{ name: "cta", selector: "#cta", props: ["color"] }], {
+  outDir: "/tmp/cssvd/artifacts/cta",
+  artifacts: "css-json",
+})
+```
+
+See:
+
+- [`docs/js-api.md`](docs/js-api.md) for `require("css-visual-diff")`, Promise behavior, preflight, prepare modes, typed errors, catalog APIs, and concurrency guidance.
+- [`docs/js-verbs.md`](docs/js-verbs.md) for `__verb__`, repositories, generated flags, output modes, duplicate command paths, and migration notes.
+
+Migration note: generated JavaScript commands are intentionally no longer injected at the CLI root. Use `css-visual-diff verbs ...` so repository scan errors and duplicate script command paths remain scoped to the verbs subtree.
+
 ## Run co-located configs from a directory
 
 You can keep small comparison configs next to the component or page they cover and

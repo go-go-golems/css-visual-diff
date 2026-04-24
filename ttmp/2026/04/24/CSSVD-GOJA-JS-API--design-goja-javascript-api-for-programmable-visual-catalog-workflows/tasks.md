@@ -94,11 +94,11 @@ Goal: prove the full workflow as operator-facing commands with flags.
 
 Goal: make the feature understandable and safe to use.
 
-- [ ] Add `docs/js-api.md` for `require("css-visual-diff")`.
-- [ ] Add `docs/js-verbs.md` for `__verb__`, repositories, generated flags, output modes, and duplicate command paths.
-- [ ] Update README with `css-visual-diff verbs ...` examples and migration note for prior root-level generated script commands.
-- [ ] Document preflight, `directReactGlobal`, Promise behavior, error types, and target-level concurrency guidance.
-- [ ] Run `go test ./...`.
-- [ ] Run relevant CLI smoke tests.
-- [ ] Update ticket changelog and diary.
-- [ ] Commit final docs/validation.
+- [x] Add `docs/js-api.md` for `require("css-visual-diff")`.
+- [x] Add `docs/js-verbs.md` for `__verb__`, repositories, generated flags, output modes, and duplicate command paths.
+- [x] Update README with `css-visual-diff verbs ...` examples and migration note for prior root-level generated script commands.
+- [x] Document preflight, `directReactGlobal`, Promise behavior, error types, and target-level concurrency guidance.
+- [x] Run `go test ./...`.
+- [x] Run relevant CLI smoke tests.
+- [x] Update ticket changelog and diary.
+- [x] Commit final docs/validation.

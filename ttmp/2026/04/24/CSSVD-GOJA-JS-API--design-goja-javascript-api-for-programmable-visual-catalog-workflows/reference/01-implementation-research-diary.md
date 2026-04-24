@@ -649,3 +649,44 @@ go test ./...
 ```
 
 All tests passed.
+
+## Implementation Step 14: write final JS API / jsverbs docs and run final validation
+
+I completed the documentation phase by adding user-facing docs for both layers of the new system.
+
+### What I changed
+
+- Added `docs/js-api.md` for the native module:
+  - `cvd.browser`,
+  - browser/page lifecycle,
+  - `page.goto`, `page.prepare`, `page.preflight`, `page.inspect`, `page.inspectAll`,
+  - artifact formats,
+  - `cvd.catalog`,
+  - `cvd.loadConfig`,
+  - typed errors,
+  - target/page-level concurrency guidance.
+- Added `docs/js-verbs.md` for repository-scanned commands:
+  - `css-visual-diff verbs ...`,
+  - repository discovery sources,
+  - `__package__`, `__section__`, `__verb__`,
+  - generated fields/flags,
+  - binding modes,
+  - output modes,
+  - built-in catalog command examples,
+  - duplicate verb path errors,
+  - migration from earlier root-level generated command injection.
+- Updated `README.md` with a concise JavaScript verbs / programmable catalogs section and links to both docs.
+
+### Final validation plan
+
+I ran the final validation set after the docs update:
+
+```bash
+go test ./...
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/006-binary-help-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/007-binary-js-api-success-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/008-binary-js-api-typed-error-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/009-binary-catalog-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/010-binary-built-in-catalog-inspect-page-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/011-binary-built-in-catalog-inspect-config-smoke.sh
+```

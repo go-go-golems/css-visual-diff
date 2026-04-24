@@ -275,3 +275,14 @@
 - Ran `scripts/011-binary-built-in-catalog-inspect-config-smoke.sh`.
 - Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - Ran `go test ./...`.
+
+
+## 2026-04-24 — Phase 7 docs and final validation
+
+### Added
+- Added `docs/js-api.md` documenting `require("css-visual-diff")`, browser/page methods, preflight, prepare modes, inspect artifacts, catalog API, YAML config loading, typed JS errors, and concurrency guidance.
+- Added `docs/js-verbs.md` documenting repository-scanned verbs, `__verb__` metadata, generated flags, binding modes, output modes, built-in catalog commands, duplicate path errors, and migration to the `verbs` namespace.
+- Updated `README.md` with `css-visual-diff verbs ...` examples, built-in catalog command examples, external repository usage, and the root-command migration note.
+
+### Validation
+- Ran final Go tests and binary smoke scripts for help, JS API success, typed errors, catalog service, built-in `inspect-page`, and built-in `inspect-config`.
