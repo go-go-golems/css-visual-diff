@@ -97,5 +97,16 @@
 - Ran `go run ./cmd/css-visual-diff verbs --help` and `go run ./cmd/css-visual-diff verbs script compare region --help` to verify lazy command generation and generated flags.
 
 ### Follow-up
-- App-config repository discovery is still outstanding.
-- Full Phase 2 is not closed until the lazy verbs CLI commit is made and config discovery is either implemented or intentionally deferred.
+- App-config repository discovery was implemented in the next Phase 2 follow-up commit.
+
+
+## 2026-04-24 — Phase 2 app-config repository discovery
+
+### Changed
+- Added css-visual-diff app-config repository discovery to `internal/cssvisualdiff/verbcli/bootstrap.go`.
+- Config files can declare `verbs.repositories` with `name`, `path`, and optional `enabled: false`.
+- Config repositories are loaded after embedded built-ins and before environment/CLI repositories.
+- Added a unit test for relative config repository paths and disabled entries.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.

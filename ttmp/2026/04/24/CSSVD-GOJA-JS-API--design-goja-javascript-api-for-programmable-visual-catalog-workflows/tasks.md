@@ -26,7 +26,7 @@ Goal: make the current embedded-script prototype clean and safe to build on befo
 Goal: make JS verbs a first-class CLI namespace and stop injecting generated script commands at the root.
 
 - [x] Add `internal/cssvisualdiff/verbcli/bootstrap.go` with `Bootstrap`, `Repository`, embedded repository, path normalization, env/CLI repository discovery, and duplicate repository dedupe.
-- [ ] Add app-config repository discovery.
+- [x] Add app-config repository discovery.
 - [x] Add `jsverbs.ScanFS`/`ScanDir` repository scanning with `IncludePublicFunctions=false`.
 - [x] Add duplicate full verb path detection with useful source paths.
 - [x] Add `internal/cssvisualdiff/verbcli/command.go` with lazy Cobra command registration modeled after loupedeck.

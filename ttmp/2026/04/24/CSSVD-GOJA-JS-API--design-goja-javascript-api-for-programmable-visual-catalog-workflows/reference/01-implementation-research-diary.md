@@ -243,4 +243,42 @@ The tests passed and the help output now shows root-level `verbs` plus generated
 
 ### Follow-up
 
-App-config repository discovery remains outstanding. The current implementation covers embedded, environment, and CLI repositories, which is enough to establish the lazy command shape and filesystem scanning path.
+App-config repository discovery remained outstanding immediately after this step. The initial implementation covered embedded, environment, and CLI repositories, which was enough to establish the lazy command shape and filesystem scanning path.
+
+## Implementation Step 3: add app-config repository discovery
+
+I completed the remaining repository-discovery gap in Phase 2 by adding app-config support. The implementation mirrors the loupedeck approach but uses the `css-visual-diff` app name.
+
+### What I changed
+
+- Added app-config structs to `internal/cssvisualdiff/verbcli/bootstrap.go`:
+  - `appConfig`,
+  - `verbsConfig`,
+  - `repositorySpec`.
+- Added `loadConfigRepositories(...)` using Glazed config plans for:
+  - system app config,
+  - XDG app config,
+  - home app config.
+- Added `loadRepositoriesFromConfigFile(...)` to parse:
+
+```yaml
+verbs:
+  repositories:
+    - name: local
+      path: ./verbs
+    - name: disabled
+      path: ./disabled
+      enabled: false
+```
+
+- Config repositories are loaded after the embedded built-in repository and before environment/CLI repositories.
+- Added a unit test for relative config paths and disabled repositories.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/verbcli/bootstrap.go internal/cssvisualdiff/verbcli/command_test.go
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+```
+
+Tests passed.

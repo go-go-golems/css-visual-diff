@@ -1,6 +1,7 @@
 package verbcli
 
 import (
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,8 +11,10 @@ import (
 
 	noderequire "github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
+	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
 	"github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -44,6 +47,20 @@ type DiscoveredVerb struct {
 	Verb       *jsverbs.VerbSpec
 }
 
+type appConfig struct {
+	Verbs verbsConfig `yaml:"verbs"`
+}
+
+type verbsConfig struct {
+	Repositories []repositorySpec `yaml:"repositories"`
+}
+
+type repositorySpec struct {
+	Name    string `yaml:"name,omitempty"`
+	Path    string `yaml:"path"`
+	Enabled *bool  `yaml:"enabled,omitempty"`
+}
+
 func DiscoverBootstrap(args []string) (Bootstrap, []string, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -63,6 +80,14 @@ func DiscoverBootstrap(args []string) (Bootstrap, []string, error) {
 func discoverBootstrap(cwd string, cliRepos []Repository) (Bootstrap, error) {
 	repositories := []Repository{builtinRepository()}
 	seen := map[string]struct{}{repositoryIdentity(builtinRepository()): {}}
+
+	configRepos, err := loadConfigRepositories(context.Background())
+	if err != nil {
+		return Bootstrap{}, err
+	}
+	for _, repo := range configRepos {
+		appendRepository(&repositories, seen, repo)
+	}
 
 	envRepos, err := repositoriesFromEnv(cwd)
 	if err != nil {
@@ -104,6 +129,60 @@ func repositoryIdentity(repo Repository) string {
 		return "embedded:" + repo.Name + ":" + repo.EmbeddedAt
 	}
 	return "path:" + filepath.Clean(repo.RootDir)
+}
+
+func loadConfigRepositories(ctx context.Context) ([]Repository, error) {
+	plan := glazedconfig.NewPlan(
+		glazedconfig.WithLayerOrder(glazedconfig.LayerSystem, glazedconfig.LayerUser),
+		glazedconfig.WithDedupePaths(),
+	).Add(
+		glazedconfig.SystemAppConfig("css-visual-diff").Named("system-app-config"),
+		glazedconfig.XDGAppConfig("css-visual-diff").Named("xdg-app-config"),
+		glazedconfig.HomeAppConfig("css-visual-diff").Named("home-app-config"),
+	)
+
+	files, _, err := plan.Resolve(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("resolve css-visual-diff app config: %w", err)
+	}
+
+	ret := []Repository{}
+	for _, file := range files {
+		repos, err := loadRepositoriesFromConfigFile(file.Path)
+		if err != nil {
+			return nil, err
+		}
+		ret = append(ret, repos...)
+	}
+	return ret, nil
+}
+
+func loadRepositoriesFromConfigFile(path string) ([]Repository, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read app config %s: %w", path, err)
+	}
+	cfg := &appConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("parse app config %s: %w", path, err)
+	}
+	baseDir := filepath.Dir(path)
+	ret := []Repository{}
+	for _, spec := range cfg.Verbs.Repositories {
+		if spec.Enabled != nil && !*spec.Enabled {
+			continue
+		}
+		normalized, err := normalizeFilesystemRepositoryPath(spec.Path, baseDir)
+		if err != nil {
+			return nil, fmt.Errorf("config repository %q in %s: %w", spec.Path, path, err)
+		}
+		name := strings.TrimSpace(spec.Name)
+		if name == "" {
+			name = filepath.Base(normalized)
+		}
+		ret = append(ret, Repository{Name: name, Source: "config", SourceRef: path, RootDir: normalized})
+	}
+	return ret, nil
 }
 
 func repositoriesFromEnv(cwd string) ([]Repository, error) {

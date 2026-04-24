@@ -40,6 +40,31 @@ __verb__("region", {
 	require.Contains(t, err.Error(), `duplicate jsverb path "script compare region"`)
 }
 
+func TestLoadRepositoriesFromConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	repoDir := filepath.Join(dir, "verbs")
+	disabledDir := filepath.Join(dir, "disabled")
+	require.NoError(t, os.MkdirAll(repoDir, 0o755))
+	require.NoError(t, os.MkdirAll(disabledDir, 0o755))
+	configPath := filepath.Join(dir, "config.yaml")
+	writeFile(t, configPath, `
+verbs:
+  repositories:
+    - name: local
+      path: ./verbs
+    - name: disabled
+      path: ./disabled
+      enabled: false
+`)
+
+	repos, err := loadRepositoriesFromConfigFile(configPath)
+	require.NoError(t, err)
+	require.Len(t, repos, 1)
+	require.Equal(t, "local", repos[0].Name)
+	require.Equal(t, "config", repos[0].Source)
+	require.Equal(t, repoDir, repos[0].RootDir)
+}
+
 func TestFilesystemRepositoryVerbExecutes(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "hello.js"), `
