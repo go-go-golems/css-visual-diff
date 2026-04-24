@@ -775,3 +775,55 @@ go test ./...
 ```
 
 All passed locally. The important regression check is the `CI=true` targeted run, which exercises the same allocator branch GitHub Actions should take.
+
+## Implementation Step 17: fix remaining dependency-scanning CI failures
+
+After pushing the Chrome sandbox fix, the `golang-pipeline` test job passed, but dependency scanning still failed in two jobs.
+
+### govulncheck failure
+
+`govulncheck` reported standard-library vulnerabilities in Go `1.26.1`:
+
+- `GO-2026-4947` in `crypto/x509`, fixed in `1.26.2`,
+- `GO-2026-4946` in `crypto/x509`, fixed in `1.26.2`,
+- `GO-2026-4870` in `crypto/tls`, fixed in `1.26.2`,
+- `GO-2026-4866` in `crypto/x509`, fixed in `1.26.2`,
+- `GO-2026-4865` in `html/template`, fixed in `1.26.2`.
+
+Because the workflow uses `actions/setup-go` with `go-version-file: go.mod`, I bumped the module directive from:
+
+```text
+go 1.26.1
+```
+
+to:
+
+```text
+go 1.26.2
+```
+
+### gosec failure
+
+`gosec` reported `G104` for ignored `exports.Set(...)` errors in `internal/cssvisualdiff/dsl/registrar.go`. I changed those calls to assign to `_`, matching the style already used elsewhere in the Goja adapter:
+
+```go
+_ = exports.Set("compareRegion", ...)
+_ = exports.Set("agentBrief", ...)
+_ = exports.Set("renderAgentBrief", ...)
+```
+
+### Validation
+
+```bash
+go test ./...
+CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+govulncheck ./...
+gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=ttmp ./...
+```
+
+Local results:
+
+- `go test ./...`: passed,
+- CI-mode targeted browser tests: passed,
+- `govulncheck ./...`: `No vulnerabilities found`,
+- `gosec ...`: `Issues: 0`.

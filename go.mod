@@ -1,6 +1,6 @@
 module github.com/go-go-golems/css-visual-diff
 
-go 1.26.1
+go 1.26.2
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20250803210736-d308e07a266d

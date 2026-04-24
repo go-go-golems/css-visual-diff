@@ -312,3 +312,16 @@
 - Ran `go test ./internal/cssvisualdiff/driver ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - Ran `CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - Ran `go test ./...`.
+
+
+## 2026-04-24 — CI fix follow-up: govulncheck and gosec
+
+### Fixed
+- Bumped the Go toolchain directive from `go 1.26.1` to `go 1.26.2` so GitHub Actions uses the standard-library release containing fixes for the reported `crypto/x509`, `crypto/tls`, and `html/template` vulnerabilities.
+- Handled `goja.Object.Set` return values in the DSL runtime registrar to satisfy gosec `G104`.
+
+### Validation
+- Ran `go test ./...`.
+- Ran `CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `govulncheck ./...` (`No vulnerabilities found`).
+- Ran `gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=ttmp ./...` (`Issues: 0`).
