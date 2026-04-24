@@ -24,6 +24,13 @@ func registerCVDModule(ctx *engine.RuntimeModuleContext, reg *noderequire.Regist
 			}
 			return wrapCatalog(ctx, vm, catalog), nil
 		})
+		_ = exports.Set("loadConfig", func(path string) goja.Value {
+			return promiseValue(ctx, vm, "css-visual-diff.loadConfig", func() (any, error) {
+				return config.Load(path)
+			}, func(vm *goja.Runtime, value any) goja.Value {
+				return vm.ToValue(lowerConfig(value.(*config.Config)))
+			})
+		})
 		_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
 			return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {
 				return service.NewBrowserService(ctx.Context)

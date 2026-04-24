@@ -83,7 +83,7 @@ Goal: keep catalog manifests and indexes durable, typed, and usable from both JS
 Goal: prove the full workflow as operator-facing commands with flags.
 
 - [x] Add built-in `catalog inspect-page` verb.
-- [ ] Add built-in `catalog inspect-config` or YAML interop verb.
+- [x] Add built-in `catalog inspect-config` or YAML interop verb.
 - [x] Add built-in `compare region` / `compare brief` verbs under the new `verbs` namespace, replacing root-level generated command usage.
 - [x] Add external example repository under `examples/verbs/` or documented fixture demonstrating repository scanning.
 - [x] Add command examples for authoring mode (`failOnMissing=false`) and CI mode (`failOnMissing=true`).

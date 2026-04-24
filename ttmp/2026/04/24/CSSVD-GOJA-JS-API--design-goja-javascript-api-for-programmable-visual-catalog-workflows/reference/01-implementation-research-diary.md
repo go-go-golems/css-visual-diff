@@ -615,3 +615,37 @@ The binary smoke covered three cases:
 ### Notes
 
 `catalog inspect-config` / YAML interop remains the next Phase 6 item. The built-in `catalog inspect-page` command proves the core operator-facing catalog workflow independently of YAML.
+
+## Implementation Step 13: add YAML config interop with `catalog inspect-config`
+
+I completed the remaining Phase 6 item by adding YAML config interop for catalog workflows.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/dsl/config_adapter.go`.
+- Exposed `cvd.loadConfig(path)` from `require("css-visual-diff")` as a Promise-returning native helper backed by Go `config.Load`.
+- Converted loaded configs to lowerCamel JavaScript objects:
+  - `wait_ms` -> `waitMs`,
+  - `root_selector` -> `rootSelector`,
+  - `selector_original` -> `selectorOriginal`,
+  - `selector_react` -> `selectorReact`,
+  - prepare timing and script fields to lowerCamel.
+- Added built-in command:
+
+```bash
+css-visual-diff verbs catalog inspect-config <configPath> <side> <outDir> [flags]
+```
+
+- `inspect-config` derives probes from `styles` first and falls back to `sections` when no styles exist.
+- It records preflight statuses, writes inspect artifacts for selectors that exist, records failures for missing selectors, and writes the Go-side catalog manifest/index.
+- Added `scripts/011-binary-built-in-catalog-inspect-config-smoke.sh`.
+
+### Validation
+
+```bash
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/011-binary-built-in-catalog-inspect-config-smoke.sh
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.

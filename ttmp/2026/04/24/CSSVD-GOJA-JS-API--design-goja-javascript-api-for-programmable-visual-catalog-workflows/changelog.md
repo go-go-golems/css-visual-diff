@@ -261,3 +261,17 @@
 
 ### Remaining Phase 6 work
 - Add the YAML/config interop verb (`catalog inspect-config`) or equivalent `cvd.loadConfig(...)` helpers.
+
+
+## 2026-04-24 — Phase 6 completion: YAML config interop catalog verb
+
+### Added
+- Added `cvd.loadConfig(path)` as a Promise-returning native module helper backed by Go `config.Load`.
+- Added lowerCamel config conversion for metadata, targets, prepare specs, sections, styles, output, and modes.
+- Added embedded built-in `verbs catalog inspect-config` to inspect the `original` or `react` side of a css-visual-diff YAML config into a catalog.
+- Added `scripts/011-binary-built-in-catalog-inspect-config-smoke.sh` to validate `inspect-config` through the compiled binary.
+
+### Validation
+- Ran `scripts/011-binary-built-in-catalog-inspect-config-smoke.sh`.
+- Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
