@@ -348,3 +348,30 @@ All tests passed.
 ### Follow-up
 
 The next remaining Phase 3 item is extracting prepared-page inspect/artifact writing into a service API.
+
+## Implementation Step 6: add browser/page service shell
+
+I added a small browser/page service shell as another incremental Phase 3 step. The goal was to create the Go-side shape that the future JS `browser()` / `page()` adapter can wrap, without yet extracting the entire inspect artifact pipeline.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/service/browser.go` with:
+  - `BrowserService`,
+  - `PageService`,
+  - `NewBrowserService`,
+  - `LoadAndPreparePage`.
+- Updated `modes.Inspect(...)` to use `service.LoadAndPreparePage(...)` for viewport, navigation, wait, and prepare.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/service/browser.go internal/cssvisualdiff/modes/inspect.go
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Follow-up
+
+The browser/page service is intentionally minimal. The next substantial extraction is still `InspectPreparedPage` / `InspectAll`, which will move artifact writing and inspect batching out of `modes.Inspect(...)`.

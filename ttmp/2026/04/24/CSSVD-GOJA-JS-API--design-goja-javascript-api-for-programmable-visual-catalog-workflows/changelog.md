@@ -139,3 +139,14 @@
 ### Validation
 - Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff`.
 - Ran `go test ./...`.
+
+
+## 2026-04-24 — Phase 3 browser/page service shell
+
+### Changed
+- Added `internal/cssvisualdiff/service/browser.go` with initial `BrowserService`, `PageService`, and `LoadAndPreparePage` helpers.
+- Routed `modes.Inspect(...)` page setup through `service.LoadAndPreparePage(...)` while preserving CLI behavior.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff`.
+- Ran `go test ./...`.

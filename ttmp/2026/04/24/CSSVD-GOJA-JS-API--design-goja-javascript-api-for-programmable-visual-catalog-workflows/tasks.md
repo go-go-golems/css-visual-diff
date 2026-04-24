@@ -41,7 +41,7 @@ Goal: make JS verbs a first-class CLI namespace and stop injecting generated scr
 
 Goal: make browser operations callable from both existing CLI modes and JS modules without duplicating chromedp/artifact logic.
 
-- [ ] Add service types for `BrowserService`, `PageService`, `ProbeSpec`, `SelectorStatus`, `InspectAllOptions`, and `InspectAllResult`.
+- [ ] Add service types for `BrowserService`, `PageService`, `ProbeSpec`, `SelectorStatus`, `InspectAllOptions`, and `InspectAllResult` (browser/page/probe/status done; inspect option/result types still pending).
 - [x] Extract prepare logic so `script` and `directReactGlobal` can be called against an already-created page.
 - [x] Extract style evaluation service shared by CSS diff and inspect paths.
 - [x] Extract batched preflight service that checks selectors in one page evaluation where possible.

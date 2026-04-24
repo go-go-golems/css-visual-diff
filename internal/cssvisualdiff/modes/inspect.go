@@ -115,16 +115,7 @@ func Inspect(ctx context.Context, cfg *config.Config, opts InspectOptions) (Insp
 	}
 	defer page.Close()
 
-	if err := page.SetViewport(target.Viewport.Width, target.Viewport.Height); err != nil {
-		return InspectResult{}, err
-	}
-	if err := page.Goto(target.URL); err != nil {
-		return InspectResult{}, err
-	}
-	if target.WaitMS > 0 {
-		page.Wait(time.Duration(target.WaitMS) * time.Millisecond)
-	}
-	if err := prepareTarget(page, target); err != nil {
+	if err := service.LoadAndPreparePage(page, target); err != nil {
 		return InspectResult{}, err
 	}
 
