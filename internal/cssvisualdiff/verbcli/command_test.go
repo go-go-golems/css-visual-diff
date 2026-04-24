@@ -24,6 +24,11 @@ func TestNewCommandIncludesBuiltinVerbs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.Equal(t, "region", found.Name())
+
+	found, _, err = cmd.Find([]string{"catalog", "inspect-page"})
+	require.NoError(t, err)
+	require.NotNil(t, found)
+	require.Equal(t, "inspect-page", found.Name())
 }
 
 func TestDuplicateVerbPathsReturnError(t *testing.T) {

@@ -568,3 +568,50 @@ All tests passed.
 ### Notes
 
 The initial catalog index is Markdown-only. The service data model is versioned and should be stable enough for built-in catalog verbs in the next phase. If we later add richer HTML reports, they should be additional writers using the same `CatalogManifest` model.
+
+## Implementation Step 12: add built-in `catalog inspect-page` and example repository
+
+I started Phase 6 by turning the lower-level JS API and catalog service into an operator-facing built-in command.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/dsl/scripts/catalog.js`.
+- The embedded built-in command is available as:
+
+```bash
+css-visual-diff verbs catalog inspect-page <url> <selector> <outDir> [flags]
+```
+
+- The implementation uses:
+  - `cvd.catalog(...)`,
+  - `cvd.browser()`,
+  - `browser.page(...)`,
+  - `page.preflight(...)`,
+  - `page.inspect(...)`,
+  - `catalog.recordPreflight(...)`,
+  - `catalog.addResult(...)`,
+  - `catalog.addFailure(...)`,
+  - `catalog.writeManifest()`,
+  - `catalog.writeIndex()`.
+- Added authoring-mode selector-miss handling: by default, missing selectors are recorded as catalog failures and returned as structured rows without failing the command.
+- Added CI-mode selector-miss handling: with `--failOnMissing`, the command writes manifest/index and exits non-zero.
+- Added `examples/verbs/catalog-inspect-page.js` and `examples/verbs/README.md` as an external repository example with command examples.
+- Added `scripts/010-binary-built-in-catalog-inspect-page-smoke.sh`.
+
+### Validation
+
+```bash
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/010-binary-built-in-catalog-inspect-page-smoke.sh
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go test ./...
+```
+
+The binary smoke covered three cases:
+
+1. successful `#cta` inspection that writes `computed-css.json`, `manifest.json`, and `index.md`,
+2. authoring-mode missing selector (`failOnMissing=false`) that returns `ok=false` but exits zero,
+3. CI-mode missing selector (`--failOnMissing`) that writes manifest/index and exits non-zero.
+
+### Notes
+
+`catalog inspect-config` / YAML interop remains the next Phase 6 item. The built-in `catalog inspect-page` command proves the core operator-facing catalog workflow independently of YAML.

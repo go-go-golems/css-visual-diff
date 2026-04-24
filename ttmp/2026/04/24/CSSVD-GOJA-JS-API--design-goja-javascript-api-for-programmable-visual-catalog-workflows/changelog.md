@@ -241,3 +241,23 @@
 - Ran `scripts/009-binary-catalog-smoke.sh`.
 - Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - Ran `go test ./...`.
+
+
+## 2026-04-24 — Phase 6 partial: built-in catalog inspect-page verb and examples
+
+### Added
+- Added embedded built-in `verbs catalog inspect-page` in `internal/cssvisualdiff/dsl/scripts/catalog.js`.
+- The verb uses the Promise-first `require("css-visual-diff")` API and Go-side catalog service to inspect one URL/selector, write artifacts, record preflight, write `manifest.json`, and write `index.md`.
+- Added authoring-mode behavior (`failOnMissing=false`) that records selector misses and returns a structured row without failing.
+- Added CI-mode behavior (`--failOnMissing`) that writes manifest/index and then exits non-zero on selector misses.
+- Added `examples/verbs/catalog-inspect-page.js` as an external repository-scanned verb example.
+- Added `examples/verbs/README.md` with success, authoring-mode, and CI-mode command examples.
+- Added `scripts/010-binary-built-in-catalog-inspect-page-smoke.sh` to validate the built-in verb with the compiled binary against a local HTTP fixture.
+
+### Validation
+- Ran `scripts/010-binary-built-in-catalog-inspect-page-smoke.sh`.
+- Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
+
+### Remaining Phase 6 work
+- Add the YAML/config interop verb (`catalog inspect-config`) or equivalent `cvd.loadConfig(...)` helpers.
