@@ -212,3 +212,16 @@
 ### Validation
 - Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - Ran `go test ./...`.
+
+
+## 2026-04-24 — Retroactive replay scripts and binary smoke scripts
+
+### Added
+- Added `scripts/001-phase1-dsl-temp-artifacts-test.sh` through `scripts/008-binary-js-api-typed-error-smoke.sh` under this ticket.
+- The scripts replay the main validation steps used during Phases 1–4, including targeted Go test suites, the full `go test ./...`, compiled-binary help smoke, compiled-binary JS API success smoke, and compiled-binary typed-error smoke.
+
+### Validation
+- Ran the compiled-binary smoke scripts:
+  - `scripts/006-binary-help-smoke.sh`
+  - `scripts/007-binary-js-api-success-smoke.sh`
+  - `scripts/008-binary-js-api-typed-error-smoke.sh`

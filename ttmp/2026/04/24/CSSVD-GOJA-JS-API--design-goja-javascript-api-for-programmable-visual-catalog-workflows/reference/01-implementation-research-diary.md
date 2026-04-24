@@ -488,3 +488,30 @@ All tests passed.
 ### Notes
 
 The Phase 4 module is now complete enough for repository-scanned scripts to drive browser/page/preflight/inspect workflows with Promise-first semantics and JS-idiomatic result shapes. The next planned phase is the Go-side catalog service and a `cvd.catalog(...)` adapter.
+
+## Implementation Step 10: preserve replay scripts for validations and smoke tests
+
+After the Phase 4 binary-smoke discussion, I added ticket-local replay scripts under `scripts/` with numeric prefixes. These capture both the historical validation commands and the newer compiled-binary smoke checks so future reviewers can retrace what was run.
+
+### Scripts added
+
+- `001-phase1-dsl-temp-artifacts-test.sh`
+- `002-phase2-lazy-verbs-cli-tests.sh`
+- `003-phase3-service-extraction-tests.sh`
+- `004-phase4-promise-module-tests.sh`
+- `005-full-test-suite.sh`
+- `006-binary-help-smoke.sh`
+- `007-binary-js-api-success-smoke.sh`
+- `008-binary-js-api-typed-error-smoke.sh`
+
+### Validation
+
+I re-ran the three compiled-binary scripts immediately after writing them:
+
+```bash
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/006-binary-help-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/007-binary-js-api-success-smoke.sh
+ttmp/2026/04/24/CSSVD-GOJA-JS-API--design-goja-javascript-api-for-programmable-visual-catalog-workflows/scripts/008-binary-js-api-typed-error-smoke.sh
+```
+
+All three passed.
