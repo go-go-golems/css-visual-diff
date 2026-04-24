@@ -12,6 +12,7 @@ Commands:
 - screenshot
 - css-md
 Flags:
+- config-dir
 - section
 - style
 - selector
@@ -90,6 +91,19 @@ css-visual-diff css-md \
   --props height,padding,background-color,border-radius \
   --output-file /tmp/probe.md
 ```
+
+## Running Co-Located Configs
+
+When each component or page has its own small config file, use the existing `run` command with `--config-dir` instead of creating a separate discovery command:
+
+```bash
+css-visual-diff run --config-dir web/packages/pyxis-components/src --dry-run
+css-visual-diff run --config-dir web/packages/pyxis-components/src --modes capture,cssdiff,pixeldiff,html-report
+```
+
+The scan looks for files named `*.css-visual-diff.yml` or `*.css-visual-diff.yaml`. It does not load arbitrary YAML files, and it skips common generated/vendor directories such as `node_modules`, `.git`, `dist`, `build`, and `.css-visual-diff`.
+
+For one-off work, keep using explicit `--config path/to/file.yaml`.
 
 ## Future Region Format
 

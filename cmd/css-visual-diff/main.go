@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -37,6 +39,7 @@ type RunCommand struct {
 
 type RunSettings struct {
 	Config             string   `glazed:"config"`
+	ConfigDir          string   `glazed:"config-dir"`
 	Modes              string   `glazed:"modes"`
 	DryRun             bool     `glazed:"dry-run"`
 	PixelDiffThreshold int      `glazed:"pixeldiff-threshold"`
@@ -55,6 +58,12 @@ func NewRunCommand() (*RunCommand, error) {
 				"config",
 				fields.TypeString,
 				fields.WithHelp("Path to css-visual-diff YAML config"),
+			),
+			fields.New(
+				"config-dir",
+				fields.TypeString,
+				fields.WithDefault(""),
+				fields.WithHelp("Directory to scan for *.css-visual-diff.yml/.yaml configs and run each one"),
 			),
 			fields.New(
 				"modes",
@@ -106,13 +115,44 @@ func (c *RunCommand) RunIntoGlazeProcessor(
 	if err := vals.DecodeSectionInto(schema.DefaultSlug, settings); err != nil {
 		return err
 	}
-	if settings.Config == "" {
-		return fmt.Errorf("--config is required")
-	}
-
-	cfg, err := config.Load(settings.Config)
+	configPaths, err := resolveRunConfigPaths(settings)
 	if err != nil {
 		return err
+	}
+
+	for _, configPath := range configPaths {
+		if err := runOneConfig(ctx, gp, settings, configPath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func resolveRunConfigPaths(settings *RunSettings) ([]string, error) {
+	if settings.Config == "" && settings.ConfigDir == "" {
+		return nil, fmt.Errorf("--config or --config-dir is required")
+	}
+	if settings.Config != "" && settings.ConfigDir != "" {
+		return nil, fmt.Errorf("use either --config or --config-dir, not both")
+	}
+	if settings.Config != "" {
+		return []string{settings.Config}, nil
+	}
+	paths, err := discoverRunConfigFiles(settings.ConfigDir)
+	if err != nil {
+		return nil, err
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no *.css-visual-diff.yml/.yaml configs found under %s", settings.ConfigDir)
+	}
+	return paths, nil
+}
+
+func runOneConfig(ctx context.Context, gp middlewares.Processor, settings *RunSettings, configPath string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return fmt.Errorf("%s: %w", configPath, err)
 	}
 
 	modesRaw := settings.Modes
@@ -122,7 +162,7 @@ func (c *RunCommand) RunIntoGlazeProcessor(
 
 	modesList, err := runner.NormalizeModes(modesRaw)
 	if err != nil {
-		return err
+		return fmt.Errorf("%s: %w", configPath, err)
 	}
 
 	runOptions := runner.RunOptions{
@@ -135,42 +175,81 @@ func (c *RunCommand) RunIntoGlazeProcessor(
 			ProfileRegistries: settings.ProfileRegistries,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: %w", configPath, err)
 		}
 		defer bootstrapResult.Close()
 		runOptions.AIClient = llm.NewImageQuestionClient(bootstrapResult)
 	}
 
 	result, err := runner.Run(ctx, cfg, modesList, settings.DryRun, runOptions)
-	if err != nil && settings.DryRun {
-		return err
-	}
-
 	for _, r := range result.Results {
 		row := types.NewRow(
+			types.MRP("config", configPath),
 			types.MRP("mode", r.Mode),
 			types.MRP("status", r.Status),
 			types.MRP("message", r.Message),
 		)
-		if err := gp.AddRow(ctx, row); err != nil {
-			return err
+		if rowErr := gp.AddRow(ctx, row); rowErr != nil {
+			return rowErr
 		}
+	}
+	if err != nil {
+		return fmt.Errorf("%s: %w", configPath, err)
 	}
 
 	if !settings.DryRun {
 		if containsMode(modesList, "capture") {
-			if err := emitCoverageRows(ctx, gp, cfg.Output.Dir); err != nil {
+			if err := emitCoverageRows(ctx, gp, configPath, cfg.Output.Dir); err != nil {
 				return err
 			}
 		}
 		if containsMode(modesList, "story-discovery") {
-			if err := emitStoryRows(ctx, gp, cfg.Output.Dir); err != nil {
+			if err := emitStoryRows(ctx, gp, configPath, cfg.Output.Dir); err != nil {
 				return err
 			}
 		}
 	}
 
-	return err
+	return nil
+}
+
+func discoverRunConfigFiles(root string) ([]string, error) {
+	var paths []string
+	if err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if path != root && shouldSkipConfigScanDir(d.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if isRunConfigFileName(d.Name()) {
+			paths = append(paths, path)
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	sort.Strings(paths)
+	return paths, nil
+}
+
+func shouldSkipConfigScanDir(name string) bool {
+	switch name {
+	case ".git", ".hg", ".svn", "node_modules", "vendor", "dist", "build", ".next", ".turbo", "coverage", ".css-visual-diff":
+		return true
+	default:
+		return false
+	}
+}
+
+func isRunConfigFileName(name string) bool {
+	if name == ".css-visual-diff.yml" || name == ".css-visual-diff.yaml" {
+		return false
+	}
+	return strings.HasSuffix(name, ".css-visual-diff.yml") || strings.HasSuffix(name, ".css-visual-diff.yaml")
 }
 
 func joinModes(modes []string) string {
@@ -194,7 +273,7 @@ func containsMode(modesList []string, value string) bool {
 	return false
 }
 
-func emitCoverageRows(ctx context.Context, gp middlewares.Processor, outDir string) error {
+func emitCoverageRows(ctx context.Context, gp middlewares.Processor, configPath, outDir string) error {
 	data, err := os.ReadFile(filepath.Join(outDir, "capture.json"))
 	if err != nil {
 		return err
@@ -204,6 +283,7 @@ func emitCoverageRows(ctx context.Context, gp middlewares.Processor, outDir stri
 		return err
 	}
 	row := types.NewRow(
+		types.MRP("config", configPath),
 		types.MRP("type", "coverage"),
 		types.MRP("total", capture.Coverage.Total),
 		types.MRP("original_missing", capture.Coverage.OriginalMissing),
@@ -214,7 +294,7 @@ func emitCoverageRows(ctx context.Context, gp middlewares.Processor, outDir stri
 	return gp.AddRow(ctx, row)
 }
 
-func emitStoryRows(ctx context.Context, gp middlewares.Processor, outDir string) error {
+func emitStoryRows(ctx context.Context, gp middlewares.Processor, configPath, outDir string) error {
 	data, err := os.ReadFile(filepath.Join(outDir, "stories.json"))
 	if err != nil {
 		return err
@@ -225,6 +305,7 @@ func emitStoryRows(ctx context.Context, gp middlewares.Processor, outDir string)
 	}
 	for _, entry := range stories.Entries {
 		row := types.NewRow(
+			types.MRP("config", configPath),
 			types.MRP("type", "story"),
 			types.MRP("id", entry.ID),
 			types.MRP("title", entry.Title),

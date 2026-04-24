@@ -34,6 +34,28 @@ GOWORK=off go run ./cmd/css-visual-diff compare --help
 GOWORK=off go run ./cmd/css-visual-diff chromedp-probe --help
 ```
 
+## Run co-located configs from a directory
+
+You can keep small comparison configs next to the component or page they cover and
+run all of them through the existing `run` verb:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config-dir web/packages/pyxis-components/src \
+  --dry-run
+```
+
+`--config-dir` scans recursively for:
+
+```text
+*.css-visual-diff.yml
+*.css-visual-diff.yaml
+```
+
+It intentionally does not load every YAML file, and it skips common generated/vendor
+directories such as `node_modules`, `.git`, `dist`, `build`, and `.css-visual-diff`.
+Use explicit `--config path/to/file.yaml` when you want to run one config file.
+
 ## Inspect one side before comparing
 
 When tuning a `*.css-visual-diff.yml` file, first inspect one side and one selector

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -45,6 +46,43 @@ func TestNewLLMReviewCommandIncludesProfileFlags(t *testing.T) {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("expected flag %q", name)
 		}
+	}
+}
+
+func TestDiscoverRunConfigFilesFindsCoLocatedConfigs(t *testing.T) {
+	root := t.TempDir()
+	writeTestFile(t, filepath.Join(root, "Button", "button-primary.css-visual-diff.yml"), "metadata: {}\n")
+	writeTestFile(t, filepath.Join(root, "Badge", "badge.css-visual-diff.yaml"), "metadata: {}\n")
+	writeTestFile(t, filepath.Join(root, "plain.yaml"), "metadata: {}\n")
+	writeTestFile(t, filepath.Join(root, ".css-visual-diff.yml"), "project: {}\n")
+	writeTestFile(t, filepath.Join(root, "node_modules", "ignored.css-visual-diff.yml"), "metadata: {}\n")
+
+	paths, err := discoverRunConfigFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 discovered configs, got %d: %#v", len(paths), paths)
+	}
+	joined := strings.Join(paths, "\n")
+	for _, want := range []string{"badge.css-visual-diff.yaml", "button-primary.css-visual-diff.yml"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("expected discovered paths to contain %q, got:\n%s", want, joined)
+		}
+	}
+}
+
+func TestResolveRunConfigPathsScansConfigDir(t *testing.T) {
+	root := t.TempDir()
+	writeRunConfig(t, filepath.Join(root, "Button", "button.css-visual-diff.yml"), "button-run", filepath.Join(root, "out", "button"))
+	writeRunConfig(t, filepath.Join(root, "Badge", "badge.css-visual-diff.yaml"), "badge-run", filepath.Join(root, "out", "badge"))
+
+	paths, err := resolveRunConfigPaths(&RunSettings{ConfigDir: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(paths) != 2 {
+		t.Fatalf("expected 2 config paths, got %d: %#v", len(paths), paths)
 	}
 }
 
@@ -113,8 +151,37 @@ func TestRunCommandIncludesAIReviewProfileFlags(t *testing.T) {
 	}
 }
 
+func writeRunConfig(t *testing.T, path, slug, outDir string) {
+	t.Helper()
+	writeTestFile(t, path, fmt.Sprintf(`
+metadata:
+  slug: %s
+original:
+  name: original
+  url: http://example.com/original
+  wait_ms: 0
+  viewport: { width: 1280, height: 720 }
+react:
+  name: react
+  url: http://example.com/react
+  wait_ms: 0
+  viewport: { width: 1280, height: 720 }
+sections: []
+styles: []
+output:
+  dir: %s
+  write_json: true
+  write_markdown: true
+  write_pngs: true
+modes: [capture]
+`, slug, outDir))
+}
+
 func writeTestFile(t *testing.T, path string, content string) {
 	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatalf("create test dir for %s: %v", path, err)
+	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write test file %s: %v", path, err)
 	}
