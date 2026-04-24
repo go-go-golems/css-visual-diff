@@ -203,29 +203,36 @@ func repositoriesFromEnv(cwd string) ([]Repository, error) {
 
 func repositoriesFromArgs(args []string, cwd string) ([]Repository, []string, error) {
 	paths := []string{}
-	remaining := []string{}
-	for i := 0; i < len(args); i++ {
-		arg := args[i]
+	remainingStart := 0
+	for remainingStart < len(args) {
+		arg := args[remainingStart]
 		switch {
+		case arg == "--":
+			remainingStart++
+			goto done
 		case arg == "--"+RepositoryFlag || arg == "--"+VerbRepositoryFlag:
-			if i+1 >= len(args) {
+			if remainingStart+1 >= len(args) {
 				return nil, nil, fmt.Errorf("%s requires a value", arg)
 			}
-			paths = append(paths, args[i+1])
-			i++
+			paths = append(paths, args[remainingStart+1])
+			remainingStart += 2
 		case strings.HasPrefix(arg, "--"+RepositoryFlag+"="):
 			paths = append(paths, strings.TrimPrefix(arg, "--"+RepositoryFlag+"="))
+			remainingStart++
 		case strings.HasPrefix(arg, "--"+VerbRepositoryFlag+"="):
 			paths = append(paths, strings.TrimPrefix(arg, "--"+VerbRepositoryFlag+"="))
+			remainingStart++
 		default:
-			remaining = append(remaining, arg)
+			goto done
 		}
 	}
+
+done:
 	repos, err := repositoriesFromCLIPaths(paths, cwd)
 	if err != nil {
 		return nil, nil, err
 	}
-	return repos, remaining, nil
+	return repos, append([]string{}, args[remainingStart:]...), nil
 }
 
 func repositoriesFromCLIPaths(paths []string, cwd string) ([]Repository, error) {

@@ -64,6 +64,9 @@ type InspectResult struct {
 
 func InspectPreparedPage(page *driver.Page, target config.Target, side string, requests []InspectRequest, opts InspectAllOptions) (InspectResult, error) {
 	result := InspectResult{OutputDir: opts.OutDir}
+	if opts.OutputFile != "" && len(requests) != 1 {
+		return result, fmt.Errorf("outputFile requires exactly one inspect request, got %d", len(requests))
+	}
 	for _, req := range requests {
 		destDir := opts.OutDir
 		if opts.OutputFile == "" && len(requests) > 1 {

@@ -827,3 +827,55 @@ Local results:
 - CI-mode targeted browser tests: passed,
 - `govulncheck ./...`: `No vulnerabilities found`,
 - `gosec ...`: `Issues: 0`.
+
+## Implementation Step 18: address PR review comments
+
+Codex left three inline review comments on PR #2. I addressed all three.
+
+### 1. Reject `outputFile` with multiple inspect requests
+
+Problem: `service.InspectPreparedPage` accepted multiple requests plus `OutputFile`, which meant every request wrote to the same file path and earlier artifacts could be overwritten.
+
+Fix:
+
+- Added pre-loop validation in `InspectPreparedPage`:
+
+```go
+if opts.OutputFile != "" && len(requests) != 1 {
+    return result, fmt.Errorf("outputFile requires exactly one inspect request, got %d", len(requests))
+}
+```
+
+- Added `TestInspectPreparedPageRejectsOutputFileWithMultipleRequests`.
+
+### 2. Stop hijacking verb-level `--repository` flags
+
+Problem: `repositoriesFromArgs` stripped `--repository` and `--verb-repository` anywhere in the arg list before the generated verb command could parse its own flags. That meant a user-defined verb flag named `repository` could never receive its value.
+
+Fix:
+
+- Changed bootstrap parsing to consume repository flags only from the leading bootstrap prefix.
+- Parsing stops at the first non-bootstrap argument.
+- `--` is honored and removed as a bootstrap delimiter.
+- Added tests for both prefix-only parsing and `--` pass-through.
+
+### 3. Include all records in `catalog.manifest()`
+
+Problem: `catalog.manifest()` returned only metadata, targets, and summary, while `writeManifest()` persisted preflights, results, and failures too.
+
+Fix:
+
+- Added lowerCamel conversion for manifest `preflights`, `results`, and `failures`.
+- Extended the repository-scanned catalog verb integration test to assert in-memory manifest record counts.
+
+### Validation
+
+```bash
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff
+go test ./...
+CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+govulncheck ./...
+gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=ttmp ./...
+```
+
+All passed locally.

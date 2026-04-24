@@ -325,3 +325,18 @@
 - Ran `CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - Ran `govulncheck ./...` (`No vulnerabilities found`).
 - Ran `gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=ttmp ./...` (`Issues: 0`).
+
+
+## 2026-04-24 — PR review feedback fixes
+
+### Fixed
+- `service.InspectPreparedPage` now rejects `OutputFile` unless exactly one inspect request is provided, preventing multi-probe `inspectAll(..., { outputFile })` calls from overwriting the same file repeatedly.
+- `verbcli.repositoriesFromArgs` now only consumes `--repository` / `--verb-repository` flags from the bootstrap prefix and honors `--`, so verb-level `--repository` flags are passed through to generated commands instead of being hijacked by bootstrap discovery.
+- `catalog.manifest()` now includes lowerCamel `preflights`, `results`, and `failures`, matching the records persisted by `writeManifest()`.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
+- Ran `CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `govulncheck ./...`.
+- Ran `gosec -exclude=G101,G304,G301,G306,G204 -exclude-dir=.history -exclude-dir=ttmp ./...`.

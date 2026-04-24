@@ -180,10 +180,11 @@ async function catalogSmoke(outDir) {
   catalog.addTarget(target);
   catalog.recordPreflight(target, [{ name: "root", selector: "#root", exists: true, visible: true, textStart: "Ready" }]);
   catalog.addResult(target, { outputDir: catalog.artifactDir(target.slug), results: [{ metadata: { name: "root", selector: "#root", createdAt: "2026-04-24T00:00:00Z" }, style: { exists: true, computed: { color: "rgb(0, 0, 0)" } } }] });
+  const inMemoryManifest = catalog.manifest();
   const manifestPath = await catalog.writeManifest();
   const indexPath = await catalog.writeIndex();
   const summary = catalog.summary();
-  return { manifestPath, indexPath, targetCount: summary.targetCount, resultCount: summary.resultCount, artifactDir: catalog.artifactDir(target.slug) };
+  return { manifestPath, indexPath, targetCount: summary.targetCount, resultCount: summary.resultCount, preflightRecordCount: inMemoryManifest.preflights.length, manifestResultCount: inMemoryManifest.results.length, failureRecordCount: inMemoryManifest.failures.length, artifactDir: catalog.artifactDir(target.slug) };
 }
 __verb__("catalogSmoke", {
   parents: ["custom"],
@@ -217,6 +218,9 @@ __verb__("catalogSmoke", {
 	require.Equal(t, filepath.Join(outDir, "index.md"), row["indexPath"])
 	require.EqualValues(t, 1, row["targetCount"])
 	require.EqualValues(t, 1, row["resultCount"])
+	require.EqualValues(t, 1, row["preflightRecordCount"])
+	require.EqualValues(t, 1, row["manifestResultCount"])
+	require.EqualValues(t, 0, row["failureRecordCount"])
 	require.Equal(t, filepath.Join(outDir, "artifacts", "demo-target"), row["artifactDir"])
 	manifestBytes, err := os.ReadFile(filepath.Join(outDir, "manifest.json"))
 	require.NoError(t, err)

@@ -15,6 +15,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestInspectPreparedPageRejectsOutputFileWithMultipleRequests(t *testing.T) {
+	_, err := InspectPreparedPage(nil, config.Target{}, "script", []InspectRequest{
+		{Name: "one", Selector: "#one"},
+		{Name: "two", Selector: "#two"},
+	}, InspectAllOptions{OutDir: t.TempDir(), OutputFile: filepath.Join(t.TempDir(), "computed-css.json"), Format: InspectFormatCSSJSON})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "outputFile requires exactly one inspect request")
+}
+
 func TestInspectPreparedPageWritesArtifactsWithoutReloadingPerProbe(t *testing.T) {
 	var hits int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

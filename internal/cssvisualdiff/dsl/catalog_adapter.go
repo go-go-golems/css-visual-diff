@@ -250,6 +250,9 @@ func lowerCatalogManifest(manifest service.CatalogManifest) map[string]any {
 		"createdAt":     manifest.CreatedAt.Format(time.RFC3339Nano),
 		"updatedAt":     manifest.UpdatedAt.Format(time.RFC3339Nano),
 		"targets":       lowerCatalogTargets(manifest.Targets),
+		"preflights":    lowerCatalogPreflightRecords(manifest.Preflights),
+		"results":       lowerCatalogResultRecords(manifest.Results),
+		"failures":      lowerCatalogFailureRecords(manifest.Failures),
 		"summary":       lowerCatalogSummary(manifest.Summary),
 	}
 }
@@ -274,6 +277,14 @@ func lowerCatalogTarget(target service.CatalogTargetRecord) map[string]any {
 	}
 }
 
+func lowerCatalogPreflightRecords(records []service.CatalogPreflightRecord) []map[string]any {
+	ret := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		ret = append(ret, lowerCatalogPreflightRecord(record))
+	}
+	return ret
+}
+
 func lowerCatalogPreflightRecord(record service.CatalogPreflightRecord) map[string]any {
 	return map[string]any{
 		"target":     lowerCatalogTarget(record.Target),
@@ -282,12 +293,28 @@ func lowerCatalogPreflightRecord(record service.CatalogPreflightRecord) map[stri
 	}
 }
 
+func lowerCatalogResultRecords(records []service.CatalogResultRecord) []map[string]any {
+	ret := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		ret = append(ret, lowerCatalogResultRecord(record))
+	}
+	return ret
+}
+
 func lowerCatalogResultRecord(record service.CatalogResultRecord) map[string]any {
 	return map[string]any{
 		"target":     lowerCatalogTarget(record.Target),
 		"result":     lowerInspectResult(record.Result),
 		"recordedAt": record.RecordedAt.Format(time.RFC3339Nano),
 	}
+}
+
+func lowerCatalogFailureRecords(records []service.CatalogFailureRecord) []map[string]any {
+	ret := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		ret = append(ret, lowerCatalogFailureRecord(record))
+	}
+	return ret
 }
 
 func lowerCatalogFailureRecord(record service.CatalogFailureRecord) map[string]any {
