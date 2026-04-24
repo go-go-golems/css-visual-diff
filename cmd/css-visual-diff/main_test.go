@@ -4,11 +4,40 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 )
+
+func TestInspectCommandNoArgsShowsHelp(t *testing.T) {
+	cmd := newInspectCommand()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected inspect with no args to show help without error, got %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "Usage:") || !strings.Contains(got, "--config") || !strings.Contains(got, "--side") {
+		t.Fatalf("expected help output with usage/config/side, got:\n%s", got)
+	}
+}
+
+func TestInspectArtifactCommandNoArgsShowsHelp(t *testing.T) {
+	cmd := newInspectArtifactCommand("screenshot", "Capture one inspected selector as a PNG file", "png")
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("expected screenshot with no args to show help without error, got %v", err)
+	}
+	if got := out.String(); !strings.Contains(got, "Usage:") || !strings.Contains(got, "--output-file") {
+		t.Fatalf("expected help output with usage/output-file, got:\n%s", got)
+	}
+}
 
 func TestNewLLMReviewCommandIncludesProfileFlags(t *testing.T) {
 	cmd := newLLMReviewCommand()

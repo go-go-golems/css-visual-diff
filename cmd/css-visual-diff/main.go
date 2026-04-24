@@ -332,8 +332,10 @@ type inspectSettings struct {
 func newInspectCommand() *cobra.Command {
 	settings := &inspectSettings{}
 	cmd := &cobra.Command{
-		Use:   "inspect",
-		Short: "Inspect one side of a css-visual-diff config and write screenshot/HTML/CSS artifacts",
+		Use:           "inspect",
+		Short:         "Inspect one side of a css-visual-diff config and write screenshot/HTML/CSS artifacts",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInspectCommand(cmd, settings, "")
 		},
@@ -348,10 +350,16 @@ func newInspectCommand() *cobra.Command {
 func newInspectArtifactCommand(name, short, format string) *cobra.Command {
 	settings := &inspectSettings{Format: format}
 	cmd := &cobra.Command{
-		Use:   name,
-		Short: short,
+		Use:           name,
+		Short:         short,
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !inspectHasAnyInput(settings) {
+				return cmd.Help()
+			}
 			if settings.OutputFile == "" {
+				_ = cmd.Help()
 				return fmt.Errorf("--output-file is required")
 			}
 			return runInspectCommand(cmd, settings, format)
@@ -359,7 +367,6 @@ func newInspectArtifactCommand(name, short, format string) *cobra.Command {
 	}
 	addInspectFlags(cmd, settings, true)
 	cmd.Flags().StringVar(&settings.OutputFile, "output-file", "", "Output file path")
-	_ = cmd.MarkFlagRequired("output-file")
 	return cmd
 }
 
@@ -376,16 +383,22 @@ func addInspectFlags(cmd *cobra.Command, settings *inspectSettings, singleFile b
 	}
 	cmd.Flags().StringVar(&settings.Props, "props", "", "Comma-delimited CSS properties to capture (defaults to style props or a small inspect set)")
 	cmd.Flags().StringVar(&settings.Attrs, "attrs", "id,class", "Comma-delimited attributes to capture in computed CSS artifacts")
-	_ = cmd.MarkFlagRequired("config")
-	_ = cmd.MarkFlagRequired("side")
 }
 
 func runInspectCommand(cmd *cobra.Command, settings *inspectSettings, forcedFormat string) error {
-	if settings.Config == "" {
-		return fmt.Errorf("--config is required")
+	if !inspectHasAnyInput(settings) {
+		return cmd.Help()
 	}
-	if settings.Side == "" {
-		return fmt.Errorf("--side is required")
+	if settings.Config == "" || settings.Side == "" {
+		_ = cmd.Help()
+		var missing []string
+		if settings.Config == "" {
+			missing = append(missing, "--config")
+		}
+		if settings.Side == "" {
+			missing = append(missing, "--side")
+		}
+		return fmt.Errorf("missing required flag(s): %s", strings.Join(missing, ", "))
 	}
 	cfg, err := config.Load(settings.Config)
 	if err != nil {
@@ -423,6 +436,10 @@ func runInspectCommand(cmd *cobra.Command, settings *inspectSettings, forcedForm
 		fmt.Fprintf(cmd.OutOrStdout(), "output_dir\t%s\n", result.OutputDir)
 	}
 	return nil
+}
+
+func inspectHasAnyInput(settings *inspectSettings) bool {
+	return settings.Config != "" || settings.Side != "" || settings.Root || settings.Section != "" || settings.Style != "" || settings.Selector != "" || settings.AllSections || settings.AllStyles || settings.Props != "" || settings.Attrs != "id,class" || settings.Out != "" || settings.OutputFile != ""
 }
 
 type compareSettings struct {
