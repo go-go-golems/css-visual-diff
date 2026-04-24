@@ -1,257 +1,227 @@
-# CSS Visual Diff
+# css-visual-diff
 
-A CLI tool for pixel-perfect visual comparison of web page elements with AI-powered analysis.
+`css-visual-diff` is a Go CLI for comparing rendered HTML/CSS across two browser targets.
+It is being rebuilt from the proven `sbcap` comparison engine and now uses a standard
+`go-go-golems` project layout.
 
-## Overview
+## Current shape
 
-CSS Visual Diff captures screenshots of specific elements from two different URLs, generates visual diffs, extracts comprehensive CSS information, and uses a visual LLM to analyze the differences. Perfect for iterative design work, visual regression testing, and understanding CSS changes.
+The live tool now centers on:
 
-## Features
+- browser-driven capture via `chromedp`
+- element-level compare workflows
+- computed CSS diffs
+- matched-style / cascade inspection
+- pixel diff artifacts
 
-- **Pixel-Perfect Rendering** - Uses real Chromium browser via Playwright for accurate rendering
-- **Flexible Selectors** - Compare elements with different CSS selectors across pages
-- **Visual Diff Generation** - Side-by-side comparison with pixel-level difference highlighting
-- **CSS Extraction** - Captures both computed styles and matching CSS rules
-- **AI Analysis** - GPT-4 vision model provides detailed insights about differences
-- **Comprehensive Output** - Screenshots, diffs, CSS data, and analysis reports
+The previous Python prototype has been preserved under:
 
-## Installation
+- `legacy/python-prototype/`
 
-### Prerequisites
-
-- Python 3.11+
-- pip3
-
-### Setup
+## Development
 
 ```bash
-# Install Python dependencies
-sudo pip3 install playwright pillow openai click
-
-# Install Playwright browsers
-playwright install chromium
+GOWORK=off go mod tidy
+GOWORK=off go test ./...
+GOWORK=off go build ./cmd/css-visual-diff
 ```
 
-## Usage
-
-### Basic Command
+## CLI
 
 ```bash
-python3 src/cli.py \
-  --url1 https://example.com/page1 \
-  --selector1 ".header-nav" \
-  --url2 https://example.com/page2 \
-  --selector2 ".navigation-header" \
-  --question "What are the main visual differences and what CSS changes caused them?"
+GOWORK=off go run ./cmd/css-visual-diff --help
+GOWORK=off go run ./cmd/css-visual-diff compare --help
+GOWORK=off go run ./cmd/css-visual-diff chromedp-probe --help
 ```
 
-### Options
+## Run co-located configs from a directory
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `--url1` | Yes | First URL to compare |
-| `--selector1` | Yes | CSS selector for element in first URL |
-| `--url2` | Yes | Second URL to compare |
-| `--selector2` | Yes | CSS selector for element in second URL |
-| `--question` | Yes | Question to ask the LLM about the comparison |
-| `--output-dir` | No | Output directory (default: `./output_TIMESTAMP`) |
-| `--threshold` | No | Pixel difference threshold 0-255 (default: 30) |
-| `--model` | No | LLM model to use (default: `gpt-4.1-mini`) |
-| `--no-analysis` | No | Skip LLM analysis (only capture and diff) |
-
-### Examples
-
-#### Compare Navigation Headers
+You can keep small comparison configs next to the component or page they cover and
+run all of them through the existing `run` verb:
 
 ```bash
-python3 src/cli.py \
-  --url1 file:///path/to/page1.html \
-  --selector1 ".header-nav" \
-  --url2 file:///path/to/page2.html \
-  --selector2 ".navigation-header" \
-  --question "What are the visual differences in the navigation header? Focus on colors, spacing, and typography."
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config-dir web/packages/pyxis-components/src \
+  --dry-run
 ```
 
-#### Compare Buttons
+`--config-dir` scans recursively for:
+
+```text
+*.css-visual-diff.yml
+*.css-visual-diff.yaml
+```
+
+It intentionally does not load every YAML file, and it skips common generated/vendor
+directories such as `node_modules`, `.git`, `dist`, `build`, and `.css-visual-diff`.
+Use explicit `--config path/to/file.yaml` when you want to run one config file.
+
+## Inspect one side before comparing
+
+When tuning a `*.css-visual-diff.yml` file, first inspect one side and one selector
+before running a full comparison. This helps verify that the URL, viewport, prepare
+hook, root selector, section selector, and CSS probe selector are correct.
+
+A config can contain many screenshot regions under `sections` and many computed-CSS
+probes under `styles`. Inspect a named CSS probe and write a bundle of artifacts:
 
 ```bash
-python3 src/cli.py \
-  --url1 https://staging.example.com \
-  --selector1 ".btn-primary" \
-  --url2 https://production.example.com \
-  --selector2 ".button-primary" \
-  --question "What are the exact differences in button styling? Compare padding, colors, and border-radius."
+GOWORK=off go run ./cmd/css-visual-diff inspect \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side react \
+  --style button-primary \
+  --out /tmp/css-visual-diff-inspect/button-primary
 ```
 
-#### Compare Pricing Tables
+The bundle contains:
+
+```text
+metadata.json
+screenshot.png
+prepared.html
+computed-css.json
+computed-css.md
+inspect.json
+```
+
+For tight selector-tuning loops, use the single-artifact verbs:
 
 ```bash
-python3 src/cli.py \
-  --url1 https://example.com/pricing-old \
-  --selector1 ".pricing-card" \
-  --url2 https://example.com/pricing-new \
-  --selector2 ".price-box" \
-  --question "Which pricing table design is more effective for conversion and why?"
+# Check the crop/element screenshot.
+GOWORK=off go run ./cmd/css-visual-diff screenshot \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side react \
+  --style button-primary \
+  --output-file /tmp/button-primary.png
+
+# Check computed CSS in human-readable Markdown.
+GOWORK=off go run ./cmd/css-visual-diff css-md \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side react \
+  --style button-primary \
+  --output-file /tmp/button-primary-css.md
+
+# Debug prepared DOM/root output.
+GOWORK=off go run ./cmd/css-visual-diff html \
+  --config examples/pyxis-atoms-prototype-vs-storybook.yaml \
+  --side original \
+  --root \
+  --output-file /tmp/original-root.html
 ```
 
-## Output Files
+Available single-artifact verbs are `screenshot`, `css-md`, `css-json`, `html`, and
+`inspect-json`. They share the same selector flags as `inspect`: `--root`,
+`--section`, `--style`, or `--selector`.
 
-Each comparison generates:
+## Prepared targets
 
-| File | Description |
-|------|-------------|
-| `url1_screenshot.png` | Screenshot of element from first URL |
-| `url2_screenshot.png` | Screenshot of element from second URL |
-| `url1_css_data.json` | Complete CSS information for first element |
-| `url2_css_data.json` | Complete CSS information for second element |
-| `diff_comparison.png` | Side-by-side comparison with diff visualization |
-| `diff_only.png` | Standalone diff highlighting changes in red |
-| `analysis_report.md` | LLM analysis of the differences |
-| `summary.json` | Machine-readable summary of the comparison |
+Some design sources do not render the comparison target directly. They may open a
+pan/zoom design canvas, prototype shell, or development board first. Config-driven
+runs can now prepare each target after navigation and before capture/CSS analysis.
 
-## CSS Data Structure
+Minimal script prepare:
 
-The CSS data JSON files contain:
-
-```json
-{
-  "url": "https://example.com",
-  "selector": ".header-nav",
-  "computed_styles": {
-    "background": "linear-gradient(...)",
-    "padding": "20px 30px",
-    "font-size": "24px",
-    ...
-  },
-  "matching_rules": [
-    {
-      "selector": ".header-nav",
-      "cssText": "background: ...; padding: ...;",
-      "href": "https://example.com/styles.css"
-    }
-  ],
-  "bounding_box": {
-    "x": 20,
-    "y": 20,
-    "width": 1240,
-    "height": 68
-  },
-  "element_html": "<nav class=\"header-nav\">...</nav>"
-}
+```yaml
+original:
+  name: prototype
+  url: http://localhost:7070/Pyxis%20Public%20Site.html
+  wait_ms: 1000
+  viewport: { width: 1200, height: 2200 }
+  root_selector: "#capture-root"
+  prepare:
+    type: script
+    wait_for: "window.React && window.ReactDOM && window.PPXDesktop"
+    script: |
+      document.body.innerHTML = '<div id="capture-root"></div>';
+      document.body.style.margin = '0';
+      document.body.style.background = '#fff';
+      const root = document.getElementById('capture-root');
+      root.style.width = '920px';
+      ReactDOM.createRoot(root).render(React.createElement(PPXDesktop, { page: 'shows' }));
+    after_wait_ms: 1000
 ```
 
-## Testing
+Convenience React-global prepare:
 
-Run the comprehensive test suite:
+```yaml
+original:
+  name: prototype
+  url: http://localhost:7070/Pyxis%20Public%20Site.html
+  viewport: { width: 1200, height: 2200 }
+  prepare:
+    type: direct-react-global
+    wait_for: "window.React && window.ReactDOM && window.PPXDesktop"
+    component: PPXDesktop
+    props: { page: shows }
+    root_selector: "#capture-root"
+    width: 920
+    background: "#fff"
+```
+
+When `root_selector` is set, capture mode uses an element screenshot for the full
+baseline PNG instead of a browser full-page screenshot. This avoids including
+prototype shell or design-canvas chrome in the exported baseline.
+
+Optional capture artifacts and validation:
+
+```yaml
+sections:
+  - name: full
+    selector_original: "#capture-root"
+    selector_react: "[data-page='shows']"
+    expect_text_original:
+      includes: ["ppxis", "Upcoming shows", "Instagram"]
+      excludes: ["01 · Desktop", "Poster-grid shell"]
+    expect_png_original:
+      width: 920
+      min_height: 1700
+      top_strip_near: { rgb: [255, 255, 255], tolerance: 8 }
+      top_strip_not_near: { rgb: [240, 238, 233], tolerance: 8 }
+
+output:
+  dir: ./out/pyxis-public-shows
+  write_json: true
+  write_markdown: true
+  write_pngs: true
+  write_prepared_html: true
+  write_inspect_json: true
+  validate_pngs: true
+```
+
+To generate a static artifact browser for the run, include `html-report` after the
+modes that produce artifacts:
 
 ```bash
-cd tests
-./run_tests.sh
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config examples/pyxis-public-shows.yaml \
+  --modes capture,cssdiff,matched-styles,pixeldiff,html-report
 ```
 
-This will:
-1. Compare navigation headers across test pages
-2. Compare card widgets with different selectors
-3. Compare pricing tables
-4. Compare button elements
-5. Generate a comprehensive test report
+The report is written to:
 
-Test results are saved to `tests/results/` with subdirectories for each test case.
+```text
+<output.dir>/index.html
+```
 
-## Use Cases
+### Prototype-only inspection
 
-### Visual Regression Testing
-
-Compare elements across different versions or environments to detect unintended changes:
+The current config shape still requires both `original` and `react` targets because
+`css-visual-diff` is a comparator. To inspect only a prototype/export target, point
+both targets at the same URL and use the same prepare hook, then run only capture and
+report modes:
 
 ```bash
-python3 src/cli.py \
-  --url1 https://staging.myapp.com \
-  --selector1 ".checkout-form" \
-  --url2 https://production.myapp.com \
-  --selector2 ".checkout-form" \
-  --question "Are there any visual differences in the checkout form?"
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config examples/pyxis-prototype-only.yaml \
+  --modes capture,html-report
 ```
 
-### Design System Consistency
+In that workflow the second target is just a mirror so the report renderer can reuse
+its existing two-column UI. Do not interpret pixel diffs from a prototype-only run.
+Use it to validate the prepared DOM, PNGs, prepared HTML, inspect JSON, and capture
+validation before comparing against Storybook.
 
-Verify components match design specifications:
-
-```bash
-python3 src/cli.py \
-  --url1 https://design-system.myapp.com/button \
-  --selector1 ".btn-example" \
-  --url2 https://myapp.com/dashboard \
-  --selector2 ".dashboard-button" \
-  --question "Does the dashboard button match the design system specifications?"
-```
-
-### Iterating to Pixel-Perfect
-
-Compare your implementation against a reference design:
-
-```bash
-python3 src/cli.py \
-  --url1 file:///path/to/reference.html \
-  --selector1 ".hero-section" \
-  --url2 file:///path/to/implementation.html \
-  --selector2 ".hero" \
-  --question "What CSS changes are needed to match the reference design exactly?"
-```
-
-### A/B Testing Analysis
-
-Understand visual differences between variants:
-
-```bash
-python3 src/cli.py \
-  --url1 https://myapp.com/variant-a \
-  --selector1 ".cta-button" \
-  --url2 https://myapp.com/variant-b \
-  --selector2 ".cta-button" \
-  --question "Which button design is more visually prominent and likely to convert better?"
-```
-
-## Architecture
-
-The tool consists of four main modules:
-
-1. **browser_capture.py** - Browser automation for element capture and CSS extraction
-2. **image_diff.py** - Visual diff generation with pixel-level comparison
-3. **llm_analysis.py** - AI-powered analysis using OpenAI's vision API
-4. **cli.py** - Command-line interface and orchestration
-
-## Requirements
-
-- Python 3.11+
-- Playwright (with Chromium)
-- Pillow (PIL)
-- OpenAI Python SDK
-- Click
-
-## Environment Variables
-
-Set `OPENAI_API_KEY` for LLM analysis:
-
-```bash
-export OPENAI_API_KEY="your-api-key-here"
-```
-
-## Limitations
-
-- Requires internet connection for LLM analysis
-- LLM analysis incurs API costs (typically 2000-4000 tokens per comparison)
-- Screenshots are limited to visible viewport (use `--viewport-size` if needed)
-- CORS restrictions may prevent CSS extraction from external stylesheets
-
-## License
-
-MIT
-
-## Contributing
-
-Contributions welcome! Please open an issue or pull request.
-
-## Support
-
-For issues or questions, please open a GitHub issue.
+Validation is intentionally layered: inspect DOM text/selectors first, then PNG
+structure and color-strip statistics. Use human visual review or `understand_image`
+for semantic questions such as cutoff/footer visibility; OCR should be a later
+fallback, not the first validation tool.

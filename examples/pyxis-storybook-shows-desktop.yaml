@@ -1,0 +1,109 @@
+metadata:
+  slug: pyxis-storybook-shows-desktop
+  title: Pyxis Shows desktop — prototype vs user-site Storybook
+  description: Compare PPXDesktop shows page against the pyxis-user-site Storybook ShowsDesktop story.
+
+original:
+  name: pyxis-prototype-shows-desktop
+  url: http://localhost:7070/Pyxis%20Public%20Site.html
+  wait_ms: 1000
+  viewport:
+    width: 1200
+    height: 2200
+  prepare:
+    type: direct-react-global
+    wait_for: "window.React && window.ReactDOM && window.PPXDesktop"
+    wait_for_timeout_ms: 30000
+    component: PPXDesktop
+    props:
+      page: shows
+    root_selector: "#capture-root"
+    width: 920
+    background: "#fff"
+    after_wait_ms: 1000
+
+react:
+  name: pyxis-user-site-storybook-shows-desktop
+  url: http://localhost:6007/iframe.html?id=public-site-pages--shows-desktop&viewMode=story
+  wait_ms: 3000
+  viewport:
+    width: 1200
+    height: 2200
+  root_selector: "[data-story-frame='pyxis-page-shell']"
+
+sections:
+  - name: full
+    selector_original: "#capture-root"
+    selector_react: "[data-story-frame='pyxis-page-shell']"
+    expect_text_original:
+      includes: ["ppxis", "Upcoming shows", "Instagram"]
+      excludes: ["01 · Desktop", "Poster-grid shell"]
+    expect_text_react:
+      includes: ["pyxis", "shows", "Archive", "Book"]
+    expect_png_original:
+      width: 920
+      min_height: 1700
+    expect_png_react:
+      min_width: 900
+      min_height: 500
+
+  - name: nav
+    selector_original: "#capture-root nav"
+    selector_react: "[data-region='nav'] nav"
+
+  - name: main
+    selector_original: "#capture-root main"
+    selector_react: "[data-region='main']"
+    expect_text_original:
+      includes: ["Upcoming shows"]
+    expect_text_react:
+      includes: ["shows"]
+
+  - name: footer
+    selector_original: "#capture-root footer"
+    selector_react: "[data-region='footer'] footer"
+
+  - name: shows-content
+    selector_original: "#capture-root main"
+    selector_react: "[data-page='shows']"
+
+styles:
+  - name: shell
+    selector_original: "#capture-root"
+    selector_react: "[data-story-frame='pyxis-page-shell']"
+    include_bounds: true
+    props: [width, min-height, background-color, color, font-family, font-size, line-height]
+
+  - name: nav
+    selector_original: "#capture-root nav"
+    selector_react: "[data-region='nav'] nav"
+    include_bounds: true
+    props: [height, padding, background-color, border-bottom-color, font-family, font-size]
+
+  - name: main
+    selector_original: "#capture-root main"
+    selector_react: "[data-region='main']"
+    include_bounds: true
+    props: [width, max-width, padding, margin, background-color, font-family, font-size]
+
+  - name: footer
+    selector_original: "#capture-root footer"
+    selector_react: "[data-region='footer'] footer"
+    include_bounds: true
+    props: [padding, background-color, border-top-color, font-family, font-size]
+
+output:
+  dir: ./out/pyxis-storybook-shows-desktop
+  write_json: true
+  write_markdown: true
+  write_pngs: true
+  write_prepared_html: true
+  write_inspect_json: true
+  validate_pngs: true
+
+modes:
+  - capture
+  - cssdiff
+  - matched-styles
+  - pixeldiff
+  - html-report

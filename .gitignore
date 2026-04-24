@@ -1,49 +1,27 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
 *.so
-.Python
-env/
-venv/
-ENV/
-build/
-develop-eggs/
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
 dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+/css-visual-diff
+css-visual-diff-compare-*
+**/css-visual-diff-compare-*
 
-# Playwright
-.playwright/
-
-# Output directories
-output_*/
-tests/results/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Environment
+# misc files and directories
 .env
-.env.local
+.envrc
+.history
 
-# Logs
-*.log
+# Generated visual-diff example artifacts
+examples/out/
