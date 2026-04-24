@@ -9,8 +9,8 @@ require (
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/geppetto v0.11.16
 	github.com/go-go-golems/glazed v1.2.3
-	github.com/go-go-golems/go-go-goja v0.4.10
-	github.com/go-go-golems/pinocchio v0.0.0
+	github.com/go-go-golems/go-go-goja v0.4.11
+	github.com/go-go-golems/pinocchio v0.10.16
 	github.com/rs/zerolog v1.35.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -156,7 +156,3 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
-
-replace github.com/go-go-golems/pinocchio => ../pinocchio
-
-replace github.com/go-go-golems/geppetto => ../geppetto

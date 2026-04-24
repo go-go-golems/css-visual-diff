@@ -64,6 +64,9 @@ release:
 bump-glazed:
 	GOWORK=off go get github.com/go-go-golems/glazed@latest
 	GOWORK=off go get github.com/go-go-golems/clay@latest
+	GOWORK=off go get github.com/go-go-golems/pinocchio@latest
+	GOWORK=off go get github.com/go-go-golems/geppetto@latest
+	GOWORK=off go get github.com/go-go-golems/go-go-goja@latest
 	GOWORK=off go mod tidy
 
 CSS_VISUAL_DIFF_BINARY=$(shell which css-visual-diff)
