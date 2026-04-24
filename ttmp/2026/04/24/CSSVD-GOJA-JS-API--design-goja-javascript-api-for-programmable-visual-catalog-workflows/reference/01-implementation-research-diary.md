@@ -320,3 +320,31 @@ This is only the initial Phase 3 extraction. Remaining Phase 3 work:
 - extract prepared-page inspect/artifact service,
 - add no-reload-per-probe tests,
 - keep CLI behavior unchanged while making service APIs available to JS adapters.
+
+## Implementation Step 5: extract prepare service
+
+I continued Phase 3 by moving prepare behavior into the service package. This makes `script` and `directReactGlobal` prepare available to the future JS page adapter without requiring it to import the CLI-oriented `modes` package.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/service/prepare.go` with:
+  - `PrepareTarget`,
+  - `RunScriptPrepare`,
+  - `RunDirectReactGlobalPrepare`,
+  - `BuildDirectReactGlobalScript`,
+  - `DirectReactGlobalPrepareResult`.
+- Replaced `internal/cssvisualdiff/modes/prepare.go` with thin compatibility wrappers so existing modes and tests keep their old function names.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/service/prepare.go internal/cssvisualdiff/modes/prepare.go
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Follow-up
+
+The next remaining Phase 3 item is extracting prepared-page inspect/artifact writing into a service API.

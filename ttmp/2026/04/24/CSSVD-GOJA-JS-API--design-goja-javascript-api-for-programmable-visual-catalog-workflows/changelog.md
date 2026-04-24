@@ -127,3 +127,15 @@
 
 ### Follow-up
 - Full Phase 3 still needs prepare-service extraction plus `InspectPreparedPage` / `InspectAll` service extraction.
+
+
+## 2026-04-24 — Phase 3 prepare service extraction
+
+### Changed
+- Added `internal/cssvisualdiff/service/prepare.go` with exported `PrepareTarget`, `RunScriptPrepare`, `RunDirectReactGlobalPrepare`, and `BuildDirectReactGlobalScript`.
+- Replaced `internal/cssvisualdiff/modes/prepare.go` implementation with compatibility wrappers around the new service package.
+- Preserved existing prepare tests in `modes` while making prepare available to future JS adapters.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/modes ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
