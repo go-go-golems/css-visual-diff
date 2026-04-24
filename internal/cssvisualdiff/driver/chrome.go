@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/emulation"
@@ -23,9 +24,41 @@ type Page struct {
 	cancel context.CancelFunc
 }
 
+func chromeAllocatorOptions() []chromedp.ExecAllocatorOption {
+	opts := []chromedp.ExecAllocatorOption{
+		chromedp.Headless,
+		chromedp.NoFirstRun,
+		chromedp.NoDefaultBrowserCheck,
+	}
+	if shouldDisableChromeSandbox() {
+		log.Debug().Msg("css-visual-diff chromedp: disabling Chrome sandbox")
+		opts = append(opts, chromedp.NoSandbox)
+	}
+	return opts
+}
+
+func shouldDisableChromeSandbox() bool {
+	if value, ok := os.LookupEnv("CSS_VISUAL_DIFF_CHROME_NO_SANDBOX"); ok {
+		return envBool(value)
+	}
+	if envBool(os.Getenv("CI")) || envBool(os.Getenv("GITHUB_ACTIONS")) {
+		return true
+	}
+	return os.Geteuid() == 0
+}
+
+func envBool(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1", "t", "true", "y", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 func NewBrowser(parent context.Context) (*Browser, error) {
 	log.Info().Msg("css-visual-diff chromedp: initializing browser")
-	allocCtx, allocCancel := chromedp.NewExecAllocator(parent, chromedp.Headless, chromedp.NoFirstRun, chromedp.NoDefaultBrowserCheck)
+	allocCtx, allocCancel := chromedp.NewExecAllocator(parent, chromeAllocatorOptions()...)
 	browserCtx, browserCancel := chromedp.NewContext(allocCtx)
 	log.Info().Msg("css-visual-diff chromedp: browser context created")
 	return &Browser{

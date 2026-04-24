@@ -298,3 +298,17 @@
 - Dry-run upload via `remarquee upload md --dry-run` succeeded.
 - Actual cloud upload failed repeatedly with rmapi/reMarkable cloud `request failed with status 400`, including via `remarquee upload md`, `remarquee cloud put`, direct `rmapi put`, and the legacy uploader script.
 - Existing remote folder `/ai/2026/04/24/CSSVD-GOJA-JS-API` is readable, but create/upload operations currently fail.
+
+
+## 2026-04-24 — CI fix: Chrome sandbox in GitHub Actions
+
+### Fixed
+- Fixed GitHub Actions unit test failures where Chromium crashed with `No usable sandbox!` on `ubuntu-latest`.
+- `driver.NewBrowser` now includes `chromedp.NoSandbox` automatically when running under `CI=true`, `GITHUB_ACTIONS=true`, or as root.
+- Added `CSS_VISUAL_DIFF_CHROME_NO_SANDBOX` as an explicit override for local/CI environments.
+- Added driver tests for the sandbox environment override parsing.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/driver ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go test ./...`.

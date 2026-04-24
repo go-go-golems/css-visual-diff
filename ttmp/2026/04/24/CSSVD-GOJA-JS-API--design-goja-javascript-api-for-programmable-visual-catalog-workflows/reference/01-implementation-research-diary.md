@@ -731,3 +731,47 @@ failed to upload file [...pdf]: request failed with status 400
 ```
 
 `remarquee status`, `remarquee cloud account --non-interactive`, and `remarquee cloud ls /ai/2026/04/24/CSSVD-GOJA-JS-API --long --non-interactive` succeeded, so read/auth status appears available, but cloud mutation/upload is currently failing.
+
+## Implementation Step 16: fix GitHub Actions Chrome sandbox failure
+
+The PR CI failed in the `run unit tests` job with Chromium aborting before tests could run browser-backed flows:
+
+```text
+FATAL:content/browser/zygote_host/zygote_host_impl_linux.cc:128] No usable sandbox!
+If you want to live dangerously and need an immediate workaround, you can try using --no-sandbox.
+```
+
+This affected browser-backed tests such as:
+
+- `TestPreflightProbesReportsExistingMissingAndInvalid`,
+- `TestRepositoryVerbUsesPromiseFirstCVDModule`,
+- `TestCVDModuleExposesLowerCamelGotoInspectAndTypedErrors`.
+
+### Root cause
+
+GitHub Actions `ubuntu-latest` can run Chrome/Chromium in an environment where the normal Linux sandbox is unavailable. Our `driver.NewBrowser` allocator used headless Chrome but did not pass `--no-sandbox`.
+
+### Fix
+
+I updated `internal/cssvisualdiff/driver/chrome.go` so allocator options are built by a helper:
+
+- default options remain headless / no-first-run / no-default-browser-check,
+- `chromedp.NoSandbox` is added when:
+  - `CI=true`,
+  - `GITHUB_ACTIONS=true`,
+  - running as root,
+  - or `CSS_VISUAL_DIFF_CHROME_NO_SANDBOX=true` is explicitly set.
+- `CSS_VISUAL_DIFF_CHROME_NO_SANDBOX=false` explicitly disables the no-sandbox override, even in CI.
+
+I added `internal/cssvisualdiff/driver/chrome_test.go` to cover the environment override behavior and boolean parsing.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/driver/chrome.go internal/cssvisualdiff/driver/chrome_test.go
+go test ./internal/cssvisualdiff/driver ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+CI=true go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go test ./...
+```
+
+All passed locally. The important regression check is the `CI=true` targeted run, which exercises the same allocator branch GitHub Actions should take.
