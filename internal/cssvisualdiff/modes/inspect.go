@@ -311,6 +311,12 @@ func writeInspectArtifacts(page *driver.Page, target config.Target, side string,
 		return artifact, err
 	}
 
+	if inspectFormatRequiresExistingSelector(format) {
+		if err := ensureInspectSelectorExists(page, req); err != nil {
+			return artifact, err
+		}
+	}
+
 	if format == InspectFormatBundle || format == InspectFormatHTML {
 		htmlPath := filepath.Join(outDir, "prepared.html")
 		if err := writePreparedHTML(page, req.Selector, htmlPath); err != nil {
@@ -352,8 +358,38 @@ func writeInspectArtifacts(page *driver.Page, target config.Target, side string,
 	return artifact, nil
 }
 
+func inspectFormatRequiresExistingSelector(format string) bool {
+	switch format {
+	case InspectFormatBundle, InspectFormatPNG, InspectFormatHTML, InspectFormatInspectJSON:
+		return true
+	default:
+		return false
+	}
+}
+
+func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
+	style, err := evaluateStyle(page, config.StyleSpec{
+		Selector:      req.Selector,
+		Props:         []string{},
+		Attributes:    []string{},
+		IncludeBounds: true,
+	})
+	if err != nil {
+		return fmt.Errorf("preflight selector %q for %s %q: %w", req.Selector, req.Source, req.Name, err)
+	}
+	if !style.Exists {
+		return fmt.Errorf("%s %q selector did not match: %s", req.Source, req.Name, req.Selector)
+	}
+	return nil
+}
+
 func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata InspectMetadata, format, path string) (InspectArtifactResult, error) {
 	artifact := InspectArtifactResult{Metadata: metadata}
+	if inspectFormatRequiresExistingSelector(format) {
+		if err := ensureInspectSelectorExists(page, req); err != nil {
+			return artifact, err
+		}
+	}
 	switch format {
 	case InspectFormatPNG:
 		if err := page.Screenshot(req.Selector, path); err != nil {
