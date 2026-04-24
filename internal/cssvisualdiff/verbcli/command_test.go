@@ -3,12 +3,16 @@ package verbcli
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	glazerunner "github.com/go-go-golems/glazed/pkg/cmds/runner"
+	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,8 +102,87 @@ __verb__("hello", {
 	require.Contains(t, out.String(), "hello Manuel")
 }
 
+func TestRepositoryVerbUsesPromiseFirstCVDModule(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" style="color: rgb(255, 0, 0)">Book</button></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "inspect.js"), `
+async function inspect(url, outDir) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  try {
+    const page = await browser.page(url, { viewport: { width: 400, height: 300 } });
+    const probes = [{ name: "cta", selector: "#cta", props: ["color"] }];
+    const statuses = await page.preflight(probes);
+    const result = await page.inspectAll(probes, { outDir, artifacts: "css-json" });
+    await page.close();
+    return { exists: statuses[0].Exists, count: result.Results.length, outputDir: result.OutputDir };
+  } finally {
+    await browser.close();
+  }
+}
+__verb__("inspect", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true },
+    outDir: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL, "outDir": outDir},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, true, row["exists"])
+	require.EqualValues(t, 1, row["count"])
+	require.Equal(t, outDir, row["outputDir"])
+	_, err = os.Stat(filepath.Join(outDir, "computed-css.json"))
+	require.NoError(t, err)
+}
+
 func writeFile(t *testing.T, path string, content string) {
 	t.Helper()
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+}
+
+func rowToMap(row types.Row) map[string]interface{} {
+	ret := map[string]interface{}{}
+	for pair := row.Oldest(); pair != nil; pair = pair.Next() {
+		ret[pair.Key] = pair.Value
+	}
+	return ret
+}
+
+type captureProcessor struct {
+	rows []types.Row
+}
+
+func (c *captureProcessor) AddRow(_ context.Context, row types.Row) error {
+	c.rows = append(c.rows, row)
+	return nil
+}
+
+func (c *captureProcessor) Close(context.Context) error {
+	return nil
 }

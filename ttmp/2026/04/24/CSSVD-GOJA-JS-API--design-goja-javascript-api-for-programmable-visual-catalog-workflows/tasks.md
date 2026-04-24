@@ -56,14 +56,14 @@ Goal: make browser operations callable from both existing CLI modes and JS modul
 
 Goal: expose the Go services to repository-scanned scripts through a stable async JS API.
 
-- [ ] Add native module registration for `require("css-visual-diff")`.
-- [ ] Implement Promise-returning `cvd.browser(options?)`.
-- [ ] Implement Promise-returning `browser.page(url, options?)`, `browser.newPage(options?)`, and `browser.close()`.
-- [ ] Implement Promise-returning `page.goto`, `page.prepare`, `page.preflight`, `page.inspect`, `page.inspectAll`, and `page.close`.
+- [x] Add native module registration for `require("css-visual-diff")`.
+- [x] Implement Promise-returning `cvd.browser(options?)` MVP.
+- [x] Implement Promise-returning `browser.page(url, options?)`, `browser.newPage(options?)`, and `browser.close()` MVP.
+- [ ] Implement Promise-returning `page.goto`, `page.prepare`, `page.preflight`, `page.inspect`, `page.inspectAll`, and `page.close` (prepare/preflight/inspectAll/close done; goto and single inspect pending).
 - [ ] Implement lowerCamel JS option/result codecs with validation errors.
 - [ ] Implement JS-visible error classes/codes: `CvdError`, `SelectorError`, `PrepareError`, `BrowserError`, `ArtifactError`.
-- [ ] Ensure native promises settle through the go-go-goja runtime owner thread.
-- [ ] Add runtime integration tests for `require("css-visual-diff")` and one async verb using a tiny HTTP page.
+- [x] Ensure native promises settle through the go-go-goja runtime owner thread.
+- [x] Add runtime integration tests for `require("css-visual-diff")` and one async verb using a tiny HTTP page.
 - [ ] Run `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
 - [ ] Commit Phase 4 Promise-first JS module.
 

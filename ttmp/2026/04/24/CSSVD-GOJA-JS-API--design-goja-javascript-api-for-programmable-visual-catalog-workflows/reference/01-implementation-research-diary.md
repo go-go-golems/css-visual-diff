@@ -411,3 +411,42 @@ All tests passed.
 ### Notes
 
 Some older private helpers still exist in `modes` for compatibility with other mode code paths. The important architectural boundary is now in place: prepared-page inspect and artifact extraction can be called from `service` without going through `modes.Inspect(...)`.
+
+## Implementation Step 8: add Promise-first `require("css-visual-diff")` MVP
+
+I started Phase 4 by adding the first public native module shape. The goal was not to finish the full polished JS API, but to prove the important contract: repository-scanned async jsverbs can `require("css-visual-diff")`, await browser/page operations, preflight selectors, and write inspect artifacts through the Go service layer.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/dsl/cvd_module.go`.
+- Registered `require("css-visual-diff")` from the existing runtime registrar.
+- Added a `promiseValue(...)` helper that:
+  - creates a Goja Promise on the VM goroutine,
+  - runs Go work in a goroutine,
+  - resolves/rejects through `ctx.Owner.Post(...)` on the runtime owner thread.
+- Added Promise-returning MVP methods:
+  - `cvd.browser()`
+  - `browser.newPage()`
+  - `browser.page(url, options)`
+  - `browser.close()`
+  - `page.prepare(spec)`
+  - `page.preflight(probes)`
+  - `page.inspectAll(probes, options)`
+  - `page.close()`
+- Added a repository-scanned async verb integration test in `internal/cssvisualdiff/verbcli/command_test.go`.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/dsl/cvd_module.go internal/cssvisualdiff/dsl/registrar.go internal/cssvisualdiff/verbcli/command_test.go
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go test ./...
+```
+
+All tests passed.
+
+### Caveats / follow-up
+
+- This is an MVP. Some JS-visible result objects still expose Go exported field names (`Results`, `OutputDir`, `Exists`) rather than lowerCamel fields. The lowerCamel result codec task remains open.
+- `page.goto` and single `page.inspect` are not implemented yet.
+- JS-visible typed error classes are not implemented yet; current errors reject promises with Go errors.

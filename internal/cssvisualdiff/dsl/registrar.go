@@ -48,6 +48,8 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 		})
 	})
 
+	registerCVDModule(ctx, reg)
+
 	reg.RegisterNativeModule("report", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		exports.Set("agentBrief", func(raw map[string]interface{}) (interface{}, error) {

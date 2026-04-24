@@ -166,3 +166,28 @@
 
 ### Phase status
 - Phase 3 service extraction is functionally complete for the planned Browser/Page, prepare, preflight, style, and inspect artifact service layers.
+
+
+## 2026-04-24 — Phase 4 Promise-first css-visual-diff module MVP
+
+### Changed
+- Added native module registration for `require("css-visual-diff")`.
+- Added Promise-returning MVP methods:
+  - `cvd.browser()`
+  - `browser.newPage()`
+  - `browser.page(url, options)`
+  - `browser.close()`
+  - `page.prepare(spec)`
+  - `page.preflight(probes)`
+  - `page.inspectAll(probes, options)`
+  - `page.close()`
+- Added runtime-owner promise settlement helper so native module operations resolve/reject through the go-go-goja runtime owner thread.
+- Added a repository-scanned async verb integration test that uses `require("css-visual-diff")`, opens a browser/page, preflights `#cta`, writes CSS inspect artifacts, and returns a structured row.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go test ./...`.
+
+### Follow-up
+- JS result objects currently expose Go exported field names in some paths (`Results`, `OutputDir`, `Exists`); lowerCamel result codecs remain to be implemented.
+- `page.goto`, single `page.inspect`, and JS-visible typed error classes remain pending.
