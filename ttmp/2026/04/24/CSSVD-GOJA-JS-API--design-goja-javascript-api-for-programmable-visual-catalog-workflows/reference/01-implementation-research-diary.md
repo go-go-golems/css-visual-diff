@@ -205,3 +205,42 @@ go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff
 ```
 
 Both package tests passed.
+
+## Implementation Step 2: add initial lazy `verbs` CLI
+
+I started Phase 2 by turning the current embedded script prototype into a lazy `css-visual-diff verbs` subtree. The goal of this step was to stop registering generated script commands at the root and create a product namespace that can later scan external repositories.
+
+### What I changed
+
+- Added `internal/cssvisualdiff/verbcli/bootstrap.go`:
+  - built-in embedded repository from `internal/cssvisualdiff/dsl/scripts`,
+  - environment repository discovery via `CSS_VISUAL_DIFF_VERB_REPOSITORIES`,
+  - CLI repository discovery via `--repository` and `--verb-repository`,
+  - path normalization and dedupe,
+  - `jsverbs.ScanFS` / `ScanDir`,
+  - `IncludePublicFunctions=false`,
+  - duplicate full verb path detection.
+- Added `internal/cssvisualdiff/verbcli/command.go`:
+  - lazy Cobra `verbs` command,
+  - generated Glazed commands from jsverbs metadata,
+  - runtime invoker per command.
+- Added `internal/cssvisualdiff/verbcli/runtime_factory.go`.
+- Exported dsl helpers in `internal/cssvisualdiff/dsl/host.go` for embedded scripts, shared section registration, and runtime factory construction.
+- Updated `cmd/css-visual-diff/main.go` to remove eager `dsl.NewHost().Commands()` root injection and add `verbcli.NewLazyCommand()`.
+- Added `internal/cssvisualdiff/verbcli/command_test.go` for built-in command registration, duplicate detection, and filesystem verb execution.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/dsl/host.go internal/cssvisualdiff/verbcli/*.go cmd/css-visual-diff/main.go
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff
+go run ./cmd/css-visual-diff --help
+go run ./cmd/css-visual-diff verbs --help
+go run ./cmd/css-visual-diff verbs script compare region --help
+```
+
+The tests passed and the help output now shows root-level `verbs` plus generated flags under `verbs script compare region`.
+
+### Follow-up
+
+App-config repository discovery remains outstanding. The current implementation covers embedded, environment, and CLI repositories, which is enough to establish the lazy command shape and filesystem scanning path.

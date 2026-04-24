@@ -2,6 +2,7 @@ package dsl
 
 import (
 	"context"
+	"io/fs"
 
 	noderequire "github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/glazed/pkg/cmds"
@@ -20,20 +21,32 @@ func NewHost() (*Host, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := registerSharedSections(registry); err != nil {
+	if err := RegisterSharedSections(registry); err != nil {
 		return nil, err
 	}
 
-	factory, err := engine.NewBuilder().
-		WithRequireOptions(noderequire.WithLoader(registry.RequireLoader())).
-		WithModules(engine.DefaultRegistryModules()).
-		WithRuntimeModuleRegistrars(newRuntimeRegistrar()).
-		Build()
+	factory, err := NewRuntimeFactory(registry)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Host{registry: registry, factory: factory}, nil
+}
+
+func EmbeddedScriptsFS() (fs.FS, string) {
+	return embeddedScripts, "scripts"
+}
+
+func RegisterSharedSections(registry *jsverbs.Registry) error {
+	return registerSharedSections(registry)
+}
+
+func NewRuntimeFactory(registry *jsverbs.Registry, opts ...engine.Option) (*engine.Factory, error) {
+	builder := engine.NewBuilder(opts...).
+		WithRequireOptions(noderequire.WithLoader(registry.RequireLoader())).
+		WithModules(engine.DefaultRegistryModules()).
+		WithRuntimeModuleRegistrars(newRuntimeRegistrar())
+	return builder.Build()
 }
 
 func (h *Host) Commands() ([]cmds.Command, error) {

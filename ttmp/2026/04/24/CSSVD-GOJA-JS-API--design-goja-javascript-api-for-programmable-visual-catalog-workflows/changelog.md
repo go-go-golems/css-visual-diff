@@ -80,3 +80,22 @@
 ### Validation
 - Ran `gofmt -w internal/cssvisualdiff/dsl/host_test.go`.
 - Ran `go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff`.
+
+
+## 2026-04-24 — Phase 2 initial lazy verbs CLI implementation
+
+### Changed
+- Added `internal/cssvisualdiff/verbcli` with repository bootstrap, embedded built-in scripts repository, environment/CLI repository discovery, jsverbs scanning, duplicate verb path detection, and per-invocation runtime ownership.
+- Exported small dsl helpers so the new verb CLI can reuse embedded scripts, shared sections, and runtime module registration without duplicating the existing dsl host.
+- Replaced eager root-level generated script command registration in `cmd/css-visual-diff/main.go` with a lazy `css-visual-diff verbs` subtree.
+- Preserved current built-in script verbs under `css-visual-diff verbs script compare ...`.
+- Added tests for built-in command registration, duplicate verb path errors, and executing a filesystem repository text verb through the custom invoker.
+
+### Validation
+- Ran `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- Ran `go run ./cmd/css-visual-diff --help` to verify root help lists `verbs` without eager generated commands.
+- Ran `go run ./cmd/css-visual-diff verbs --help` and `go run ./cmd/css-visual-diff verbs script compare region --help` to verify lazy command generation and generated flags.
+
+### Follow-up
+- App-config repository discovery is still outstanding.
+- Full Phase 2 is not closed until the lazy verbs CLI commit is made and config discovery is either implemented or intentionally deferred.

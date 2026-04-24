@@ -16,10 +16,10 @@ import (
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/doc"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/llm"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/runner"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/verbcli"
 	"github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/fields"
@@ -331,18 +331,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	host, err := dsl.NewHost()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating script host: %v\n", err)
-		os.Exit(1)
-	}
-
-	scriptCommands, err := host.Commands()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error building script commands: %v\n", err)
-		os.Exit(1)
-	}
-
 	rootCmd := &cobra.Command{
 		Use:   "css-visual-diff",
 		Short: "Compare rendered HTML/CSS across browser targets",
@@ -383,13 +371,7 @@ func main() {
 	rootCmd.AddCommand(newCompareCommand())
 	rootCmd.AddCommand(newLLMReviewCommand())
 	rootCmd.AddCommand(newChromedpProbeCommand())
-	if err := cli.AddCommandsToRootCommand(rootCmd, scriptCommands, nil, cli.WithParserConfig(cli.CobraParserConfig{
-		ShortHelpSections: []string{schema.DefaultSlug},
-		MiddlewaresFunc:   cli.CobraCommandDefaultMiddlewares,
-	})); err != nil {
-		fmt.Fprintf(os.Stderr, "Error registering script commands: %v\n", err)
-		os.Exit(1)
-	}
+	rootCmd.AddCommand(verbcli.NewLazyCommand())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

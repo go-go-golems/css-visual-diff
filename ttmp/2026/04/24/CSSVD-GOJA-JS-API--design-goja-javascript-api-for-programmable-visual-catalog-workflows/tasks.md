@@ -25,16 +25,17 @@ Goal: make the current embedded-script prototype clean and safe to build on befo
 
 Goal: make JS verbs a first-class CLI namespace and stop injecting generated script commands at the root.
 
-- [ ] Add `internal/cssvisualdiff/verbcli/bootstrap.go` with `Bootstrap`, `Repository`, embedded repository, path normalization, config/env/CLI repository discovery, and duplicate repository dedupe.
-- [ ] Add `jsverbs.ScanFS`/`ScanDir` repository scanning with `IncludePublicFunctions=false`.
-- [ ] Add duplicate full verb path detection with useful source paths.
-- [ ] Add `internal/cssvisualdiff/verbcli/command.go` with lazy Cobra command registration modeled after loupedeck.
-- [ ] Add `internal/cssvisualdiff/verbcli/invoker.go` or equivalent custom invoker that creates a css-visual-diff-owned runtime per invocation.
-- [ ] Preserve embedded built-in verbs under `css-visual-diff verbs ...`.
-- [ ] Remove eager `dsl.NewHost().Commands()` root-level injection from `cmd/css-visual-diff/main.go`.
-- [ ] Add tests for built-in verbs help, filesystem repository scanning, duplicate path errors, and generated command execution.
-- [ ] Run `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
-- [ ] Commit Phase 2 lazy verbs CLI.
+- [x] Add `internal/cssvisualdiff/verbcli/bootstrap.go` with `Bootstrap`, `Repository`, embedded repository, path normalization, env/CLI repository discovery, and duplicate repository dedupe.
+- [ ] Add app-config repository discovery.
+- [x] Add `jsverbs.ScanFS`/`ScanDir` repository scanning with `IncludePublicFunctions=false`.
+- [x] Add duplicate full verb path detection with useful source paths.
+- [x] Add `internal/cssvisualdiff/verbcli/command.go` with lazy Cobra command registration modeled after loupedeck.
+- [x] Add `internal/cssvisualdiff/verbcli/invoker.go` or equivalent custom invoker that creates a css-visual-diff-owned runtime per invocation.
+- [x] Preserve embedded built-in verbs under `css-visual-diff verbs ...`.
+- [x] Remove eager `dsl.NewHost().Commands()` root-level injection from `cmd/css-visual-diff/main.go`.
+- [x] Add tests for built-in verbs help, filesystem repository scanning, duplicate path errors, and generated command execution.
+- [x] Run `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff`.
+- [x] Commit initial Phase 2 lazy verbs CLI.
 
 ## Phase 3 — Extract reusable browser/page/inspect/preflight services
 
