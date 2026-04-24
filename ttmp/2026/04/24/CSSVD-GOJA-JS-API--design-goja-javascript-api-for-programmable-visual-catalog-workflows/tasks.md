@@ -15,11 +15,11 @@
 
 Goal: make the current embedded-script prototype clean and safe to build on before changing command UX.
 
-- [ ] Remove ignored generated `internal/cssvisualdiff/dsl/css-visual-diff-compare-*` artifact directories from the working tree.
-- [ ] Confirm `.gitignore` continues to ignore generated `css-visual-diff-compare-*` output directories.
-- [ ] Ensure dsl tests use temp output directories and do not write under source packages.
-- [ ] Run `go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff`.
-- [ ] Commit Phase 1 cleanup separately from later CLI restructuring.
+- [x] Remove ignored generated `internal/cssvisualdiff/dsl/css-visual-diff-compare-*` artifact directories from the working tree.
+- [x] Confirm `.gitignore` continues to ignore generated `css-visual-diff-compare-*` output directories.
+- [x] Ensure dsl tests use temp output directories and do not write under source packages.
+- [x] Run `go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff`.
+- [x] Commit Phase 1 cleanup separately from later CLI restructuring.
 
 ## Phase 2 — Add lazy repository-scanned `css-visual-diff verbs` command tree
 

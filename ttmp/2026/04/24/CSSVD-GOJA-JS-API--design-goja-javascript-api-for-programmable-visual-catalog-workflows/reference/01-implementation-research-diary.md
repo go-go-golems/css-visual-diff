@@ -184,3 +184,24 @@ I updated the main design guide accordingly:
 
 - `docmgr` in this working directory resolves to the parent workspace config rooted at `hair-booking/ttmp`, not the local `css-visual-diff/ttmp`. Because the user explicitly gave the local ticket path, I updated the local ticket files directly instead of using `docmgr` commands.
 - A broad `find ... -exec sed ...` command printed binary PNG output from generated artifact directories under `internal/cssvisualdiff/dsl`; this accidentally confirmed the artifact hygiene issue but produced noisy terminal output.
+
+## Implementation Step 1: stabilize dsl tests and remove generated source-tree artifacts
+
+After creating the phased task plan, I started with Phase 1 because it is the safest prerequisite: the existing dsl tests were writing generated compare PNG directories into `internal/cssvisualdiff/dsl` whenever no `outDir` was supplied. Those directories are ignored by `.gitignore`, but they still polluted the working tree and made file inspection noisy.
+
+### What I changed
+
+- Updated `internal/cssvisualdiff/dsl/host_test.go` so both embedded compare command invocations pass explicit temporary output directories using `t.TempDir()`.
+- Removed ignored `internal/cssvisualdiff/dsl/css-visual-diff-compare-*` directories from the working tree.
+- Confirmed `.gitignore` ignores generated `css-visual-diff-compare-*` directories.
+- Marked the relevant Phase 1 tasks complete in `tasks.md`.
+- Added a changelog entry for the cleanup.
+
+### Validation
+
+```bash
+gofmt -w internal/cssvisualdiff/dsl/host_test.go
+go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff
+```
+
+Both package tests passed.

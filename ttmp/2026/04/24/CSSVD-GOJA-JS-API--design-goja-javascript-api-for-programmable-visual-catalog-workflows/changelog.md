@@ -68,3 +68,15 @@
 5. Implement Go-side catalog service and JS adapter.
 6. Add built-in catalog verbs and examples.
 7. Finish docs, migration notes, and validation.
+
+
+## 2026-04-24 — Phase 1 dsl artifact cleanup
+
+### Changed
+- Updated `internal/cssvisualdiff/dsl/host_test.go` so embedded compare verb tests write PNG/output artifacts into `t.TempDir()` instead of the source package directory.
+- Removed ignored generated `internal/cssvisualdiff/dsl/css-visual-diff-compare-*` directories from the working tree.
+- Verified `.gitignore` ignores generated `css-visual-diff-compare-*` output directories.
+
+### Validation
+- Ran `gofmt -w internal/cssvisualdiff/dsl/host_test.go`.
+- Ran `go test ./internal/cssvisualdiff/dsl ./cmd/css-visual-diff`.
