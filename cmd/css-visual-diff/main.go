@@ -12,6 +12,7 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/doc"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/llm"
@@ -23,6 +24,8 @@ import (
 	"github.com/go-go-golems/glazed/pkg/cmds/logging"
 	"github.com/go-go-golems/glazed/pkg/cmds/schema"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	"github.com/go-go-golems/glazed/pkg/help"
+	help_cmd "github.com/go-go-golems/glazed/pkg/help/cmd"
 	"github.com/go-go-golems/glazed/pkg/middlewares"
 	"github.com/go-go-golems/glazed/pkg/types"
 	"github.com/spf13/cobra"
@@ -266,6 +269,13 @@ func main() {
 	}
 	setDefaultFlagValue(rootCmd, "log-level", "error")
 	setDefaultFlagValue(rootCmd, "log-format", "text")
+
+	helpSystem := help.NewHelpSystem()
+	if err := doc.AddDocToHelpSystem(helpSystem); err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading help docs: %v\n", err)
+		os.Exit(1)
+	}
+	help_cmd.SetupCobraRootCommand(helpSystem, rootCmd)
 
 	cobraRunCmd, err := cli.BuildCobraCommand(runCmd, cli.WithParserConfig(cli.CobraParserConfig{
 		ShortHelpSections: []string{schema.DefaultSlug},
