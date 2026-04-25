@@ -344,43 +344,43 @@ Goal: provide the simple path as a deliberately opinionated collect-then-compare
 
 ### Implementation tasks
 
-- [ ] Implement `cvd.compare.region({ left, right, name?, threshold?, inspect?, outDir? })` as:
+- [x] Implement `cvd.compare.region({ left, right, name?, threshold?, inspect?, outDir? })` as:
   1. collect left locator,
   2. collect right locator,
   3. compare selections,
   4. return `cvd.selectionComparison` handle.
-- [ ] Require strict locator handles for `left` and `right`.
-- [ ] Use `inspect: "rich"` by default.
-- [ ] Use a sensible default threshold.
-- [ ] Do not accept loose `{ page, selector }` objects as the primary API.
-- [ ] Provide tailored error messages that tell users to call `page.locator(selector)`.
-- [ ] Ensure comparing two locators on different pages does not deadlock; collect each side under its page's `runExclusive` without nested locks.
-- [ ] Ensure comparing two locators on the same page is serialized and deterministic.
+- [x] Require strict locator handles for `left` and `right`.
+- [x] Use `inspect: "rich"` by default.
+- [x] Use a sensible default threshold.
+- [x] Do not accept loose `{ page, selector }` objects as the primary API.
+- [x] Provide tailored error messages that tell users to call `page.locator(selector)`.
+- [x] Ensure comparing two locators on different pages does not deadlock; collect each side under its page's `runExclusive` without nested locks.
+- [x] Ensure comparing two locators on the same page is serialized and deterministic.
 
 ### Tests
 
-- [ ] Add JS API tests for `cvd.compare.region(...)`.
-- [ ] Test successful one-call comparison.
-- [ ] Test same-page comparison.
-- [ ] Test separate-page comparison.
-- [ ] Test raw object rejection.
-- [ ] Test default rich inspection can be queried after the comparison.
-- [ ] Test artifact writing from the returned comparison handle.
+- [x] Add JS API tests for `cvd.compare.region(...)`.
+- [x] Test successful one-call comparison.
+- [x] Test same-page comparison.
+- [x] Test separate-page comparison.
+- [x] Test raw object rejection.
+- [x] Test default rich inspection can be queried after the comparison.
+- [x] Test artifact writing from the returned comparison handle.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` to present `cvd.compare.region(...)` as the first low-effort comparison API.
-- [ ] Explain that it is equivalent to collect-left, collect-right, compare-selections.
-- [ ] Include one short example and one expanded equivalent primitive example.
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` to present `cvd.compare.region(...)` as the first low-effort comparison API.
+- [x] Explain that it is equivalent to collect-left, collect-right, compare-selections.
+- [x] Include one short example and one expanded equivalent primitive example.
 
 ### Real smoke script
 
-- [ ] Add `scripts/006-js-compare-region-smoke.sh`.
-- [ ] Script should run a repository-scanned JS verb using only `cvd.compare.region(...)`.
-- [ ] Script should serve two local fixture pages with a known visual/style difference.
-- [ ] Script should assert JSON output includes `changedPercent`, `styles`, and `bounds` summaries.
-- [ ] Script should assert selected artifacts exist.
-- [ ] Record smoke output in the diary.
+- [x] Add `scripts/006-js-compare-region-smoke.sh`.
+- [x] Script should run a repository-scanned JS verb using only `cvd.compare.region(...)`.
+- [x] Script should serve two local fixture pages with a known visual/style difference.
+- [x] Script should assert JSON output includes `changedPercent`, `styles`, and `bounds` summaries.
+- [x] Script should assert selected artifacts exist.
+- [x] Record smoke output in the diary.
 
 ---
 
@@ -390,7 +390,7 @@ Goal: make the public JS API coherent and explicit. Since backward compatibility
 
 ### Implementation tasks
 
-- [ ] Decide final canonical namespaces and update module exports accordingly:
+- [x] Decide final canonical namespaces and update module exports accordingly:
   - `cvd.collect.selection`,
   - `cvd.compare.selections`,
   - `cvd.compare.region`,
@@ -400,32 +400,32 @@ Goal: make the public JS API coherent and explicit. Since backward compatibility
   - `cvd.catalog.create`,
   - `cvd.config.load`,
   - future `cvd.job.fromConfig`.
-- [ ] Remove or hide public exposure of ambiguous old top-level names if they are not intentionally retained.
-- [ ] Keep `require("diff")` and `require("report")` internal only, or remove them once built-in scripts no longer need them.
-- [ ] Update error messages to reference canonical names only.
-- [ ] Update examples under `examples/verbs/` to use canonical names.
+- [x] Remove or hide public exposure of ambiguous old top-level names if they are not intentionally retained.
+- [x] Keep `require("diff")` and `require("report")` internal only, or remove them once built-in scripts no longer need them.
+- [x] Update error messages to reference canonical names only.
+- [x] Update examples under `examples/verbs/` to use canonical names.
 
 ### Tests
 
-- [ ] Update jsapi tests to use canonical names.
-- [ ] Update verbcli tests/examples to use canonical names.
-- [ ] Add tests that internal helper modules are not documented or not user-facing, depending on final implementation.
+- [x] Update jsapi tests to use canonical names.
+- [x] Update verbcli tests/examples to use canonical names.
+- [x] Add tests that internal helper modules are not documented or not user-facing, depending on final implementation.
 
 ### JavaScript API reference update
 
-- [ ] Rewrite `internal/cssvisualdiff/doc/topics/javascript-api.md` around the canonical namespace map.
-- [ ] Remove compatibility-alias language.
-- [ ] Add a “quick path vs primitive path” section:
+- [x] Rewrite `internal/cssvisualdiff/doc/topics/javascript-api.md` around the canonical namespace map.
+- [x] Remove compatibility-alias language.
+- [x] Add a “quick path vs primitive path” section:
   - quick: `cvd.compare.region`,
   - primitive: `locator.collect` + `cvd.compare.selections`.
 
 ### Real smoke script
 
-- [ ] Add `scripts/007-canonical-api-surface-smoke.sh`.
-- [ ] Script should run `css-visual-diff help javascript-api` and assert canonical names appear.
-- [ ] Script should run a JS verb using canonical names only.
-- [ ] Script should fail if examples still use internal `require("diff")` or `require("report")` public patterns.
-- [ ] Record smoke output in the diary.
+- [x] Add `scripts/007-canonical-api-surface-smoke.sh`.
+- [x] Script should run `css-visual-diff help javascript-api` and assert canonical names appear.
+- [x] Script should run a JS verb using canonical names only.
+- [x] Script should fail if examples still use internal `require("diff")` or `require("report")` public patterns.
+- [x] Record smoke output in the diary.
 
 ---
 
@@ -435,32 +435,32 @@ Goal: make built-in JS verbs prove the public API is sufficient.
 
 ### Implementation tasks
 
-- [ ] Rewrite `internal/cssvisualdiff/dsl/scripts/compare.js` to use `require("css-visual-diff")` public primitives.
-- [ ] Implement `script compare region` using `cvd.compare.region(...)`.
-- [ ] Implement `script compare brief` using the returned comparison object's report/summary APIs.
-- [ ] Remove direct use of internal `require("diff").compareRegion` from built-in scripts.
-- [ ] Decide whether internal `require("diff")` remains only for legacy private tests or is removed.
-- [ ] Ensure generated command fields still map cleanly to the new public API concepts.
+- [x] Rewrite `internal/cssvisualdiff/dsl/scripts/compare.js` to use `require("css-visual-diff")` public primitives.
+- [x] Implement `script compare region` using `cvd.compare.region(...)`.
+- [x] Implement `script compare brief` using the returned comparison object's report/summary APIs.
+- [x] Remove direct use of internal `require("diff").compareRegion` from built-in scripts.
+- [x] Decide whether internal `require("diff")` remains only for legacy private tests or is removed.
+- [x] Ensure generated command fields still map cleanly to the new public API concepts.
 
 ### Tests
 
-- [ ] Update `internal/cssvisualdiff/dsl/host_test.go` for new output shape if intentionally changed.
-- [ ] Update `internal/cssvisualdiff/verbcli/command_test.go` for canonical public API usage.
-- [ ] Add regression tests for `verbs script compare region` artifact output.
-- [ ] Add regression tests for `verbs script compare brief` text output.
+- [x] Update `internal/cssvisualdiff/dsl/host_test.go` for new output shape if intentionally changed.
+- [x] Update `internal/cssvisualdiff/verbcli/command_test.go` for canonical public API usage.
+- [x] Add regression tests for `verbs script compare region` artifact output.
+- [x] Add regression tests for `verbs script compare brief` text output.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-verbs.md` to explain that built-in compare verbs are ordinary examples of the public JS API.
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` to link from `cvd.compare.region` to the built-in verb example.
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-verbs.md` to explain that built-in compare verbs are ordinary examples of the public JS API.
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` to link from `cvd.compare.region` to the built-in verb example.
 
 ### Real smoke script
 
-- [ ] Add `scripts/008-built-in-compare-dogfood-smoke.sh`.
-- [ ] Script should run `css-visual-diff verbs script compare region` against two local pages.
-- [ ] Script should verify artifacts and output fields.
-- [ ] Script should run `css-visual-diff verbs script compare brief` and assert meaningful text output.
-- [ ] Record smoke output in the diary.
+- [x] Add `scripts/008-built-in-compare-dogfood-smoke.sh`.
+- [x] Script should run `css-visual-diff verbs script compare region` against two local pages.
+- [x] Script should verify artifacts and output fields.
+- [x] Script should run `css-visual-diff verbs script compare brief` and assert meaningful text output.
+- [x] Record smoke output in the diary.
 
 ---
 

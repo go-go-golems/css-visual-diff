@@ -54,6 +54,16 @@
   - added `scripts/004-js-collected-selection-smoke.sh` and `scripts/005-js-selection-comparison-smoke.sh`,
   - marked Phases 4 and 5 complete in `tasks.md`.
 - Validation for Phases 4 and 5 passed with focused verbcli integration tests, both ticket smoke scripts, embedded help checks, and `go test ./... -count=1`.
+- Implemented Phases 6 through 8 in commit `88ddac5`:
+  - added `cvd.compare.region({ left, right, ... })` as the opinionated low-effort collect/screenshot/compare API,
+  - added canonical namespace wiring for `cvd.snapshot.page`, `cvd.diff.structural`, `cvd.image.diff`, `cvd.catalog.create`, and `cvd.config.load`,
+  - updated examples, built-in catalog scripts, and tests to use canonical names,
+  - rewrote built-in `script compare region` and `script compare brief` to dogfood public `require("css-visual-diff")` primitives,
+  - removed built-in compare usage of internal `require("diff")` and `require("report")`,
+  - updated embedded API/verbs/tutorial docs,
+  - added `scripts/006-js-compare-region-smoke.sh`, `scripts/007-canonical-api-surface-smoke.sh`, and `scripts/008-built-in-compare-dogfood-smoke.sh`,
+  - marked Phases 6, 7, and 8 complete in `tasks.md`.
+- Validation for Phases 6 through 8 passed with focused package tests, all three new ticket smoke scripts, embedded help checks, and `go test ./... -count=1`.
 
 ## Key decision
 

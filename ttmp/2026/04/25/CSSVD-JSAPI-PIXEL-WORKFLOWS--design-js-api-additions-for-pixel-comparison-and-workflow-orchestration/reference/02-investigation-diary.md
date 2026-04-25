@@ -17,16 +17,33 @@ RelatedFiles:
         Phase 2 embedded JavaScript API reference update for structural vs image diff concepts (commit 6ca2498)
         Phase 3 embedded JavaScript API reference update for SelectionComparison concepts (commit 29c8aca)
         Phases 4-5 embedded JS API reference updates for real collect/compare handles (commit 5c76cd7)
+        Phases 6-8 embedded API docs for compare.region
+    - Path: internal/cssvisualdiff/doc/topics/javascript-verbs.md
+      Note: Phase 8 verbs docs explain built-ins as public API dogfood (commit 88ddac5)
+    - Path: internal/cssvisualdiff/dsl/host_test.go
+      Note: Phase 8 built-in compare regression test for new public API-backed output shape (commit 88ddac5)
+    - Path: internal/cssvisualdiff/dsl/scripts/catalog.js
+      Note: Phase 7 built-in catalog scripts use canonical catalog.create/config.load namespaces (commit 88ddac5)
+    - Path: internal/cssvisualdiff/dsl/scripts/compare.js
+      Note: Phase 8 built-in compare verbs dogfood public cvd.compare.region API (commit 88ddac5)
     - Path: internal/cssvisualdiff/jsapi/collect.go
       Note: Phases 4-5 Goja collected selection API handle and cvd.collect namespace (commit 5c76cd7)
     - Path: internal/cssvisualdiff/jsapi/compare.go
-      Note: Phase 5 Goja selection comparison API handle and cvd.compare.selections namespace (commit 5c76cd7)
+      Note: |-
+        Phase 5 Goja selection comparison API handle and cvd.compare.selections namespace (commit 5c76cd7)
+        Phase 6 cvd.compare.region implementation and selection comparison artifact helpers (commit 88ddac5)
+    - Path: internal/cssvisualdiff/jsapi/diff.go
+      Note: Phase 7 canonical cvd.diff.structural and cvd.image.diff namespaces (commit 88ddac5)
     - Path: internal/cssvisualdiff/jsapi/locator.go
       Note: Phase 4 locator.collect method wiring (commit 5c76cd7)
     - Path: internal/cssvisualdiff/jsapi/module.go
-      Note: Phases 4-5 module export installation for collect/compare APIs (commit 5c76cd7)
+      Note: |-
+        Phases 4-5 module export installation for collect/compare APIs (commit 5c76cd7)
+        Phase 7 canonical catalog.create/config.load namespace wiring (commit 88ddac5)
     - Path: internal/cssvisualdiff/jsapi/proxy.go
       Note: Proxy property support and then-safe promise assimilation for Go-backed handles (commit 5c76cd7)
+    - Path: internal/cssvisualdiff/jsapi/snapshot.go
+      Note: Phase 7 canonical cvd.snapshot.page namespace (commit 88ddac5)
     - Path: internal/cssvisualdiff/modes/compare.go
       Note: Phase 2 compare mode now routes pixel artifact writing through service primitives (commit 6ca2498)
     - Path: internal/cssvisualdiff/modes/pixeldiff.go
@@ -46,7 +63,9 @@ RelatedFiles:
     - Path: internal/cssvisualdiff/service/selection_compare_test.go
       Note: Phase 3 service tests for style
     - Path: internal/cssvisualdiff/verbcli/command_test.go
-      Note: Phases 4-5 repository-scanned JS integration tests for collection and comparison handles (commit 5c76cd7)
+      Note: |-
+        Phases 4-5 repository-scanned JS integration tests for collection and comparison handles (commit 5c76cd7)
+        Phases 6-7 JS verb integration tests for compare.region and canonical namespaces (commit 88ddac5)
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/design/01-elegant-javascript-api-additions-for-pixel-comparison-workflows.md
       Note: Main API design proposal produced from this investigation
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/reference/01-pyxis-user-feedback-source-analysis.md
@@ -61,14 +80,21 @@ RelatedFiles:
       Note: Phase 4 replayable JS collected selection smoke script
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/005-js-selection-comparison-smoke.sh
       Note: Phase 5 replayable JS selection comparison smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/006-js-compare-region-smoke.sh
+      Note: Phase 6 replayable compare.region smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/007-canonical-api-surface-smoke.sh
+      Note: Phase 7 replayable canonical namespace smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/008-built-in-compare-dogfood-smoke.sh
+      Note: Phase 8 replayable built-in dogfood smoke script
 ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T12:35:00-04:00
+LastUpdated: 2026-04-25T13:20:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
+
 
 
 
@@ -952,6 +978,147 @@ Canonical API now implemented:
 const selected = await page.locator("#cta").collect({ inspect: "rich" })
 const same = await cvd.collect.selection(page.locator("#cta"), { inspect: "minimal" })
 const comparison = await cvd.compare.selections(left, right, { styleProps: ["color"] })
+```
+
+## Step 18: Implement Phases 6 through 8 canonical compare-region workflow
+
+Phases 6 through 8 make the new comparison stack practical. `cvd.compare.region(...)` is now the opinionated low-effort public API, canonical namespaces exist for the next-generation surface, and the built-in `script compare` verbs dogfood the public `require("css-visual-diff")` API instead of the older internal `require("diff")` and `require("report")` modules.
+
+This step intentionally follows the ticket's no-backward-compatibility direction in docs, examples, tests, and built-ins. Some old top-level functions still remain as implementation aliases to avoid a wider unrelated test migration in this turn, but public documentation and examples now teach the canonical namespace map.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 6 - 8"
+
+**Assistant interpretation:** Implement the opinionated `cvd.compare.region(...)` surface, canonical namespace cleanup, and built-in compare dogfooding phases, with tests, docs, smoke scripts, diary/changelog/task updates, and commits.
+
+**Inferred user intent:** Finish the core user-facing JS pixel workflow API so scripts and built-ins use the same public primitives.
+
+**Commit (code):** 88ddac5 — "feat: add canonical compare region js workflow"
+
+### What I did
+
+- Implemented `cvd.compare.region({ left, right, name, threshold, inspect, outDir, styleProps, attributes })`.
+- Made `compare.region` require strict `page.locator(...)` handles for `left` and `right`.
+- Made `compare.region` collect both sides, capture region screenshots, and return a `cvd.selectionComparison` handle.
+- Wrote region screenshots and pixel diff PNGs under `outDir` when provided.
+- Added focused JS integration tests for `cvd.compare.region(...)`, including raw-object rejection.
+- Added canonical namespace wiring:
+  - `cvd.snapshot.page(...)`,
+  - `cvd.diff.structural(...)`,
+  - `cvd.image.diff(...)`,
+  - `cvd.catalog.create(...)`,
+  - `cvd.config.load(...)`.
+- Updated repository-scanned tests and examples to use canonical names.
+- Rewrote `internal/cssvisualdiff/dsl/scripts/compare.js` to use `require("css-visual-diff")` and `cvd.compare.region(...)`.
+- Removed built-in compare script usage of `require("diff")` and `require("report")`.
+- Updated `script compare brief` to render a concise text brief from comparison data.
+- Updated embedded JS API docs and JS verbs docs.
+- Added smoke scripts:
+  - `scripts/006-js-compare-region-smoke.sh`,
+  - `scripts/007-canonical-api-surface-smoke.sh`,
+  - `scripts/008-built-in-compare-dogfood-smoke.sh`.
+- Marked Phases 6, 7, and 8 complete in `tasks.md`.
+- Related implementation files and smoke scripts to this diary.
+
+### Why
+
+- Users need a low-effort one-call comparison path.
+- Built-ins should prove the public API is sufficient.
+- Canonical namespaces reduce confusion between structural diffs, image diffs, snapshots, config loading, and catalogs.
+
+### What worked
+
+- Focused package tests passed:
+
+```bash
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./internal/cssvisualdiff/jsapi -count=1
+```
+
+- Phase 6 smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/006-js-compare-region-smoke.sh
+```
+
+- Phase 7 smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/007-canonical-api-surface-smoke.sh
+```
+
+- Phase 8 smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/008-built-in-compare-dogfood-smoke.sh
+```
+
+- Full test suite passed:
+
+```bash
+go test ./... -count=1
+```
+
+### What didn't work
+
+- No major blocker in this step. The main adjustment was keeping old top-level implementation aliases present while moving public docs/tests/examples to canonical names. Removing every alias immediately would require a broader migration of existing tests and internal callers that is better handled in a focused cleanup if desired.
+
+### What I learned
+
+- `compare.region` can be implemented as an ordinary collect-and-compare orchestration without introducing a workflow builder.
+- The built-in compare verb is a good pressure test: if it can be implemented with public primitives, user scripts can too.
+- Canonical docs and smoke scripts catch stale examples quickly; the Phase 7 smoke rejects `require("diff")`, `require("report")`, and old public shapes in examples/built-ins/API docs.
+
+### What was tricky to build
+
+- `cvd.compare.region(...)` must avoid nested page locks. It collects and screenshots each side under that side's `runExclusive` lock, then releases both locks before comparing pure data.
+- Same-page comparisons need deterministic serialization; separate-page comparisons should not deadlock. Sequential side collection satisfies both for now.
+- The built-in compare output shape intentionally changed from the old `computed_diffs` / `pixel_diff` mode-shaped result to `cssvd.selectionComparison.v1` lowerCamel comparison data. Tests were updated accordingly.
+
+### What warrants a second pair of eyes
+
+- Review whether old top-level aliases (`cvd.snapshot`, `cvd.diff`, `cvd.catalog`, `cvd.loadConfig`) should be removed now or in a later dedicated cleanup. Public docs no longer teach them.
+- Review `compare.region` artifact semantics. It always captures region screenshots and writes pixel diff artifacts under `outDir` or a temp directory.
+- Review `script compare brief`; it is deliberately simple and no longer uses the internal report helper.
+
+### What should be done in the future
+
+- Phase 9 should integrate comparison objects with catalogs and richer report/artifact flows.
+- If strict no-alias cleanup is desired, remove old top-level exports and update any remaining internal tests in a dedicated pass.
+- A binary smoke that invokes `go run ./cmd/css-visual-diff verbs script compare region ...` against a live local server could supplement the current focused host smoke.
+
+### Code review instructions
+
+- Start with `internal/cssvisualdiff/jsapi/compare.go`, especially `compareRegion` and `collectAndScreenshotRegion`.
+- Review `internal/cssvisualdiff/dsl/scripts/compare.js` to see the built-in dogfood usage.
+- Review `internal/cssvisualdiff/doc/topics/javascript-api.md` for canonical namespace guidance.
+- Validate with:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/006-js-compare-region-smoke.sh
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/007-canonical-api-surface-smoke.sh
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/008-built-in-compare-dogfood-smoke.sh
+go test ./... -count=1
+```
+
+### Technical details
+
+Canonical quick path:
+
+```js
+const comparison = await cvd.compare.region({
+  left: leftPage.locator("#cta"),
+  right: rightPage.locator("#cta"),
+  outDir: "artifacts/cta",
+})
+```
+
+Expanded primitive path:
+
+```js
+const left = await leftPage.locator("#cta").collect({ inspect: "rich" })
+const right = await rightPage.locator("#cta").collect({ inspect: "rich" })
+const comparison = await cvd.compare.selections(left, right)
 ```
 
 ## Issues and assumptions
