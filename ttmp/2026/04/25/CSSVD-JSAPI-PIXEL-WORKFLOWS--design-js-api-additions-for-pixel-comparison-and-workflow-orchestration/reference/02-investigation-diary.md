@@ -11,6 +11,12 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: examples/verbs/README.md
+      Note: Phase 10 examples README refresh for canonical APIs (commit ffd94c4)
+    - Path: examples/verbs/collect-and-analyze.js
+      Note: Phase 10 public locator.collect and cvd.compare.selections example (commit ffd94c4)
+    - Path: examples/verbs/compare-region.js
+      Note: Phase 10 public cvd.compare.region example (commit ffd94c4)
     - Path: internal/cssvisualdiff/doc/topics/javascript-api.md
       Note: |-
         Phase 1 embedded JavaScript API reference update for the collected selection model (commit b13933a)
@@ -21,6 +27,8 @@ RelatedFiles:
         Phase 9 embedded docs for catalog.record comparison integration (commit 1227f1a)
     - Path: internal/cssvisualdiff/doc/topics/javascript-verbs.md
       Note: Phase 8 verbs docs explain built-ins as public API dogfood (commit 88ddac5)
+    - Path: internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md
+      Note: Phase 10 textbook guide update for quick and primitive comparison paths (commit ffd94c4)
     - Path: internal/cssvisualdiff/dsl/host_test.go
       Note: Phase 8 built-in compare regression test for new public API-backed output shape (commit 88ddac5)
     - Path: internal/cssvisualdiff/dsl/scripts/catalog.js
@@ -36,7 +44,9 @@ RelatedFiles:
         Phase 5 Goja selection comparison API handle and cvd.compare.selections namespace (commit 5c76cd7)
         Phase 6 cvd.compare.region implementation and selection comparison artifact helpers (commit 88ddac5)
     - Path: internal/cssvisualdiff/jsapi/diff.go
-      Note: Phase 7 canonical cvd.diff.structural and cvd.image.diff namespaces (commit 88ddac5)
+      Note: |-
+        Phase 7 canonical cvd.diff.structural and cvd.image.diff namespaces (commit 88ddac5)
+        Phase 10 write helpers create parent directories so examples work from empty output dirs (commit ffd94c4)
     - Path: internal/cssvisualdiff/jsapi/locator.go
       Note: Phase 4 locator.collect method wiring (commit 5c76cd7)
     - Path: internal/cssvisualdiff/jsapi/module.go
@@ -94,14 +104,17 @@ RelatedFiles:
       Note: Phase 8 replayable built-in dogfood smoke script
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/009-comparison-catalog-smoke.sh
       Note: Phase 9 replayable comparison catalog smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/010-public-examples-smoke.sh
+      Note: Phase 10 replayable public examples smoke script
 ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T14:05:00-04:00
+LastUpdated: 2026-04-25T14:25:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
+
 
 
 
@@ -1348,6 +1361,98 @@ go test ./... -count=1
 
 ```bash
 ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/009-comparison-catalog-smoke.sh
+go test ./... -count=1
+```
+
+## Step 21: Implement Phase 10 public examples and pixel-accuracy guide refresh
+
+Phase 10 turns the API implementation into user-facing examples. The goal was to make the new canonical JavaScript surface easy to copy: one example for the low-effort `cvd.compare.region(...)` path, one example for the primitive `locator.collect(...)` plus `cvd.compare.selections(...)` path, and documentation that explains when to use each.
+
+This step also found a practical usability issue: `cvd.write.json(...)` and related Markdown writers did not create parent directories. Public examples should work from an empty output directory, so the write helpers now create parent directories before writing.
+
+### Prompt Context
+
+**User prompt (verbatim):** "go ahead."
+
+**Assistant interpretation:** Continue with the next planned phase, Phase 10, refreshing public examples and docs and adding the corresponding smoke test.
+
+**Inferred user intent:** Make the newly implemented JS API usable and demonstrable through real examples, not only internal tests.
+
+**Commit (code/docs):** ffd94c4 — "docs: refresh js api public examples"
+
+### What I did
+
+- Added `examples/verbs/compare-region.js`, a public `cvd.compare.region(...)` example.
+- Added `examples/verbs/collect-and-analyze.js`, a public primitive collect/compare/analyze example.
+- Updated `examples/verbs/README.md` with canonical API guidance and commands for the new examples.
+- Updated `README.md` to show the quick `cvd.compare.region(...)` path instead of older inspect-only snippets.
+- Updated `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md` with:
+  - quick pixel region comparison,
+  - collect-first/analyze-in-JavaScript path,
+  - selective artifact writing,
+  - explicit `summary()` / `toJSON()` guidance.
+- Updated `internal/cssvisualdiff/jsapi/diff.go` so `cvd.write.json`, `cvd.write.markdown`, and structural diff report Markdown writers create parent directories.
+- Added `scripts/010-public-examples-smoke.sh`.
+- Marked Phase 10 complete in `tasks.md`.
+
+### Why
+
+- A public API is not done until users can copy a small working example.
+- The low-effort and primitive paths solve different problems and should both be represented.
+- Examples should start from empty output directories; otherwise users learn incidental setup steps instead of the API.
+
+### What worked
+
+- The public examples smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/010-public-examples-smoke.sh
+```
+
+- The smoke runs all executable public examples against a local fixture server:
+  - `examples compare region`,
+  - `examples compare collect-and-analyze`,
+  - `examples low-level inspect`,
+  - `examples catalog inspect-page`.
+- Full test suite passed:
+
+```bash
+go test ./... -count=1
+```
+
+### What didn't work
+
+- The first public examples smoke failed on `collect-and-analyze` because `cvd.write.json("missing-dir/comparison.json", ...)` did not create the parent directory. I changed the example to use `comparison.artifacts.write(...)` and then fixed `cvd.write.json` / `cvd.write.markdown` so direct writes are also robust.
+- The second smoke run failed on the existing `low-level inspect` example for the same parent-directory reason. Updating the write helpers fixed that example without needing extra setup in the script.
+
+### What I learned
+
+- Example smokes are excellent usability tests. Unit tests had not revealed that `cvd.write.json` was unfriendly for empty output directories.
+- The canonical API scan in the smoke script is useful. It prevents examples and docs from drifting back to old shapes such as `cvd.snapshot(...)` or `cvd.diff(...)`.
+
+### What was tricky to build
+
+- The `collect-and-analyze` example needed to be different from `compare-region`, not merely a verbose duplicate. It now demonstrates JavaScript-side policy: typography diffs, class changes, bounds diffs, and returning custom structured output.
+- `comparison.artifacts.write(...)` writes `compare.json` / `compare.md`, while the example originally used `comparison.json` / `comparison.md`. The README and smoke were aligned to the actual artifact contract.
+
+### What warrants a second pair of eyes
+
+- Review whether `cvd.write.json` creating parent directories should be documented explicitly in the API reference.
+- Review the example command names: `examples compare region` and `examples compare collect-and-analyze` are clear, but the examples namespace may grow.
+
+### What should be done in the future
+
+- Phase 12 should run all smoke scripts in sequence.
+- The Obsidian deep dive could be updated later with these final examples if desired.
+
+### Code review instructions
+
+- Start with the two new example files under `examples/verbs/`.
+- Review `scripts/010-public-examples-smoke.sh` to see exactly what is considered executable public example coverage.
+- Validate with:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/010-public-examples-smoke.sh
 go test ./... -count=1
 ```
 

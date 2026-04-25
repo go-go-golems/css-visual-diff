@@ -66,6 +66,7 @@
 - Validation for Phases 6 through 8 passed with focused package tests, all three new ticket smoke scripts, embedded help checks, and `go test ./... -count=1`.
 - Ran real-site validation for the public compare-region path and preserved artifacts under `validation/`: `example.com` vs `example.org` produced a zero-diff sanity check, and `example.com` vs `www.iana.org/domains/reserved` produced a 10.2954% changed-pixel comparison with JSON/Markdown/PNG artifacts.
 - Implemented Phase 9 catalog integration in commit `1227f1a`: added catalog comparison records, `catalog.record(comparison, target?)`, comparison counts and artifact counts in summaries, comparison manifest lowering, comparison index rendering, docs, tests, and `scripts/009-comparison-catalog-smoke.sh`.
+- Implemented Phase 10 public examples/docs refresh in commit `ffd94c4`: added `examples/verbs/compare-region.js`, added `examples/verbs/collect-and-analyze.js`, refreshed examples README and README snippets, expanded the pixel-accuracy guide, made JS write helpers create parent directories, added `scripts/010-public-examples-smoke.sh`, and marked Phase 10 complete.
 
 ## Key decision
 

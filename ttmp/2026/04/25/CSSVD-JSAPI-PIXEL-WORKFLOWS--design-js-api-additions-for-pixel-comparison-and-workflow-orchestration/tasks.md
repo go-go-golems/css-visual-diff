@@ -513,34 +513,34 @@ Goal: update user-facing docs/examples so the new API is easy to learn.
 
 ### Implementation tasks
 
-- [ ] Update `examples/verbs/low-level-inspect.js` or replace it with canonical examples.
-- [ ] Add `examples/verbs/compare-region.js` using `cvd.compare.region`.
-- [ ] Add `examples/verbs/collect-and-analyze.js` using `locator.collect` and `cvd.compare.selections`.
-- [ ] Update `examples/verbs/README.md`.
-- [ ] Update README snippets if they mention older API names.
+- [x] Update `examples/verbs/low-level-inspect.js` or replace it with canonical examples.
+- [x] Add `examples/verbs/compare-region.js` using `cvd.compare.region`.
+- [x] Add `examples/verbs/collect-and-analyze.js` using `locator.collect` and `cvd.compare.selections`.
+- [x] Update `examples/verbs/README.md`.
+- [x] Update README snippets if they mention older API names.
 
 ### Tests
 
-- [ ] Add/adjust binary smoke tests for examples.
-- [ ] Ensure examples run without external project dependencies.
-- [ ] Ensure examples use canonical API names only.
+- [x] Add/adjust binary smoke tests for examples.
+- [x] Ensure examples run without external project dependencies.
+- [x] Ensure examples use canonical API names only.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md` to teach:
+- [x] Update `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md` to teach:
   - quick comparison path,
   - collect-then-compare path,
   - rich inspection filtering,
   - selective artifact writing,
   - returning plain summaries from verbs.
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` examples to match the final API.
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` examples to match the final API.
 
 ### Real smoke script
 
-- [ ] Add `scripts/010-public-examples-smoke.sh`.
-- [ ] Script should run every public example intended to be executable.
-- [ ] Script should validate expected output/artifacts.
-- [ ] Record smoke output in the diary.
+- [x] Add `scripts/010-public-examples-smoke.sh`.
+- [x] Script should run every public example intended to be executable.
+- [x] Script should validate expected output/artifacts.
+- [x] Record smoke output in the diary.
 
 ---
 
