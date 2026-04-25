@@ -23,6 +23,7 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 		installProbeAPI(vm, exports)
 		installExtractorAPI(vm, exports)
 		installExtractAPI(ctx, vm, exports)
+		installSnapshotAPI(ctx, vm, exports)
 		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
 			catalog, err := newCatalogFromJS(raw)
 			if err != nil {
@@ -203,6 +204,7 @@ func (s *pageState) runExclusive(work func() (any, error)) (any, error) {
 
 func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageState) *goja.Object {
 	obj := vm.NewObject()
+	_ = obj.Set(proxyIDProperty, defaultProxyRegistry.bind("cvd.page", state))
 	_ = obj.Set("locator", func(selector string) goja.Value {
 		return wrapLocator(ctx, vm, state, selector)
 	})

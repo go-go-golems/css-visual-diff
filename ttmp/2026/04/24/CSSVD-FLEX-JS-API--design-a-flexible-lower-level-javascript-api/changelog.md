@@ -105,3 +105,17 @@
   - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExtract' -count=1`
   - `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 8 strict `cvd.snapshot(page, probes)`
+
+- Completed Phase 8 by adding `internal/cssvisualdiff/service/snapshot.go` and `snapshot_test.go`.
+- Added service-layer `SnapshotProbeSpec`, `ProbeSnapshot`, `PageSnapshot`, and `SnapshotPage(...)`.
+- Registered page wrappers in the shared Proxy registry so strict APIs can unwrap `cvd.page` values.
+- Updated probe builders to retain service-native extractor specs for snapshot execution.
+- Added `internal/cssvisualdiff/jsapi/snapshot.go` and registered strict `cvd.snapshot(page, probes)`.
+- Added repository-scanned JS verb tests for successful snapshots and raw-object probe rejection.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/service -run 'TestSnapshotPage' -count=1`
+  - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleSnapshot' -count=1`
+  - `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`

@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 8 — strict `cvd.snapshot(page, probes, options)`**.
+- Current active implementation phase: **Phase 9 — diff/report/write primitives**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -213,15 +213,15 @@ Goal: composable extraction with typed Go-backed inputs.
 
 Goal: inspect many Go-backed probe builders into an in-memory structured result without necessarily writing standard inspect artifacts.
 
-- [ ] Define `PageSnapshot` service result shape.
-- [ ] Implement snapshot orchestration over a page and multiple probe builders.
-- [ ] Expose `cvd.snapshot(page, probes, options)`.
-- [ ] Require a `PageHandle` Proxy and Go-backed `ProbeBuilder` values.
-- [ ] Return plain JSON-serializable snapshot data.
-- [ ] Add optional artifact writing only when explicitly requested.
-- [ ] Add tests for strict raw-object rejection.
-- [ ] Add tests for snapshot data shape stability.
-- [ ] Update diary/changelog and commit Phase 8.
+- [x] Define `PageSnapshot` service result shape.
+- [x] Implement snapshot orchestration over a page and multiple probe builders.
+- [x] Expose `cvd.snapshot(page, probes, options)`.
+- [x] Require a `PageHandle` Proxy and Go-backed `ProbeBuilder` values.
+- [x] Return plain JSON-serializable snapshot data.
+- [x] Add optional artifact writing only when explicitly requested.
+- [x] Add tests for strict raw-object rejection.
+- [x] Add tests for snapshot data shape stability.
+- [x] Update diary/changelog and commit Phase 8.
 
 ## Phase 9 — Add diff, report, and write primitives
 

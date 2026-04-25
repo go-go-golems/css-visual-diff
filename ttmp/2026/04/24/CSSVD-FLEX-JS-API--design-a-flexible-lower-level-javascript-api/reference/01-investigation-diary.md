@@ -1510,3 +1510,141 @@ with an error containing:
 ```text
 css-visual-diff.extract: expected cvd.locator
 ```
+
+## Step 14: Complete Phase 8 strict `cvd.snapshot(page, probes, options)`
+
+I completed Phase 8 by adding service-level page snapshots and exposing strict `cvd.snapshot(page, probes, options)` in the JavaScript API. The new API requires a Go-backed page handle and Go-backed `cvd.probe(...)` builders, rejecting raw probe objects with explicit guidance.
+
+This phase builds directly on Phase 7. A snapshot is now a batch of probe recipes evaluated against one already-loaded page, with each probe producing a plain serializable element snapshot. It is intentionally in-memory and does not write inspect artifacts.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 8"
+
+**Assistant interpretation:** Implement Phase 8 from the ticket: add strict page snapshot support using Go-backed page/probe values, validate raw-object rejection and result shape, update docs/diary/tasks, and commit.
+
+**Inferred user intent:** Add the next lower-level composition primitive after `cvd.extract(...)`: snapshot multiple probe builders against one page.
+
+### What I did
+
+- Added `internal/cssvisualdiff/service/snapshot.go`.
+- Defined:
+  - `SnapshotProbeSpec`
+  - `ProbeSnapshot`
+  - `PageSnapshot`
+- Implemented `service.SnapshotPage(...)` using `service.ExtractElement(...)` for each probe.
+- Added `internal/cssvisualdiff/service/snapshot_test.go` covering:
+  - successful multi-probe snapshots,
+  - optional probe error recording.
+- Marked JS page objects with the shared Proxy registry id so strict APIs can unwrap them as `cvd.page` values.
+- Updated `probeBuilder` to retain service-native extractor specs in addition to `.build()` debug output.
+- Added `internal/cssvisualdiff/jsapi/snapshot.go` with:
+  - `installSnapshotAPI(...)`
+  - `unwrapSnapshotProbes(...)`
+  - `lowerPageSnapshot(...)`
+- Registered `cvd.snapshot(...)` from the native module.
+- Added repository-scanned JS verb tests:
+  - `TestCVDModuleSnapshotsPageWithProbeBuilders`
+  - `TestCVDModuleSnapshotRejectsRawObjects`
+- Marked Phase 8 tasks complete and set the active phase to Phase 9.
+
+### Why
+
+`cvd.snapshot(...)` is the page-level counterpart to `cvd.extract(...)`. It lets users define reusable probe recipes and evaluate them together against a page, without writing inspect artifacts and without using YAML or raw JS object probes.
+
+### What worked
+
+The service implementation could reuse `ExtractElement(...)`, so snapshot behavior remains aligned with strict extraction. The page serialization guard ensures all snapshot work runs exclusively on the page while the Promise API remains async.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestSnapshotPage' -count=1
+
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleSnapshot' -count=1
+
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+No failing test occurred after the first Phase 8 implementation pass. The main design compromise is that existing page objects are still ordinary Goja objects, not full Proxy objects, but they now carry the internal registry id needed for strict unwrapping as `cvd.page`.
+
+### What I learned
+
+Strict API unwrapping can be introduced incrementally. Locator, probe, and extractor values are full Proxies. Page values are currently object wrappers, but tagging them with the same registry mechanism lets `cvd.snapshot(...)` enforce that they came from this API instead of accepting raw page-like objects.
+
+Probe builders now need to track both human/debug `.build()` output and service-native extraction specs. Keeping both avoids parsing plain build output back into service specs.
+
+### What was tricky to build
+
+The tricky part was the page-handle boundary. A full conversion of page wrappers to Proxies would be a larger behavior-changing refactor. For Phase 8, I chose the minimal strict-unwrapping step: bind the existing page object into the registry under `cvd.page`. That preserves current method behavior while allowing strict APIs to reject raw objects.
+
+Another subtle point is optional probe errors. `SnapshotPage(...)` records an error in the probe result for non-required probes but returns immediately for required probe errors. This gives future authoring workflows a structured non-strict mode without weakening strict required probes.
+
+### What warrants a second pair of eyes
+
+- Whether page wrappers should become full Proxies in a cleanup phase rather than registry-tagged objects.
+- Whether `cvd.snapshot(...)` should accept options now, or wait until artifact writing / strictness options are designed.
+- Whether page snapshot result shape should include target metadata, created timestamps, or catalog integration fields.
+
+### What should be done in the future
+
+Phase 9 should add diff/report/write primitives that can operate on the plain snapshots returned by `cvd.snapshot(...)`.
+
+### Code review instructions
+
+Start with service snapshot code:
+
+```text
+internal/cssvisualdiff/service/snapshot.go
+internal/cssvisualdiff/service/snapshot_test.go
+```
+
+Then review JS strict API plumbing:
+
+```text
+internal/cssvisualdiff/jsapi/snapshot.go
+internal/cssvisualdiff/jsapi/module.go
+internal/cssvisualdiff/jsapi/probe.go
+internal/cssvisualdiff/jsapi/module.go
+```
+
+Then review integration tests:
+
+```text
+internal/cssvisualdiff/verbcli/command_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestSnapshotPage' -count=1
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleSnapshot' -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+Example supported JS:
+
+```js
+const snapshot = await cvd.snapshot(page, [
+  cvd.probe("cta").selector("#cta").required().text().styles(["color"]),
+  cvd.probe("copy").selector("#copy").text(),
+])
+```
+
+Raw object probes are rejected:
+
+```js
+await cvd.snapshot(page, [{ name: "cta", selector: "#cta" }])
+```
+
+with an error containing:
+
+```text
+css-visual-diff.snapshot: expected array of cvd.probe() builders
+```

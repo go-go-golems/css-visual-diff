@@ -8,6 +8,7 @@ import (
 type probeBuilder struct {
 	spec       service.ProbeSpec
 	extractors []map[string]any
+	specs      []service.ExtractorSpec
 }
 
 func installProbeAPI(vm *goja.Runtime, exports *goja.Object) {
@@ -63,6 +64,7 @@ func (b *probeBuilder) source(vm *goja.Runtime) ProxyMethod {
 func (b *probeBuilder) text(vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		b.extractors = append(b.extractors, map[string]any{"kind": "text"})
+		b.specs = append(b.specs, service.ExtractorSpec{Kind: service.ExtractorText, Text: service.TextOptions{NormalizeWhitespace: true, Trim: true}})
 		return receiver
 	}
 }
@@ -70,6 +72,7 @@ func (b *probeBuilder) text(vm *goja.Runtime) ProxyMethod {
 func (b *probeBuilder) bounds(vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		b.extractors = append(b.extractors, map[string]any{"kind": "bounds"})
+		b.specs = append(b.specs, service.ExtractorSpec{Kind: service.ExtractorBounds})
 		return receiver
 	}
 }
@@ -82,6 +85,7 @@ func (b *probeBuilder) styles(vm *goja.Runtime) ProxyMethod {
 		}
 		b.spec.Props = append([]string{}, props...)
 		b.extractors = append(b.extractors, map[string]any{"kind": "computedStyle", "props": props})
+		b.specs = append(b.specs, service.ExtractorSpec{Kind: service.ExtractorComputedStyle, Props: props})
 		return receiver
 	}
 }
@@ -94,6 +98,7 @@ func (b *probeBuilder) attributes(vm *goja.Runtime) ProxyMethod {
 		}
 		b.spec.Attributes = append([]string{}, attrs...)
 		b.extractors = append(b.extractors, map[string]any{"kind": "attributes", "attributes": attrs})
+		b.specs = append(b.specs, service.ExtractorSpec{Kind: service.ExtractorAttributes, Attributes: attrs})
 		return receiver
 	}
 }
