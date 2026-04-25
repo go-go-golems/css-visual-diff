@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 9 — diff/report/write primitives**.
+- Current active implementation phase: **Phase 10 — docs/examples/smoke scripts/delivery**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -227,15 +227,15 @@ Goal: inspect many Go-backed probe builders into an in-memory structured result 
 
 Goal: compare snapshots without YAML.
 
-- [ ] Add `internal/cssvisualdiff/service/diff.go`.
-- [ ] Implement deterministic structural JSON diff.
-- [ ] Add initial CSS-aware normalization hooks if low risk; otherwise document as follow-up.
-- [ ] Expose `cvd.diff(before, after, options)`.
-- [ ] Expose `cvd.report(diff)` with Markdown rendering.
-- [ ] Expose `cvd.write.json(path, value)`.
-- [ ] Expose `cvd.write.markdown(path, markdown)` or equivalent.
-- [ ] Add tests for equal/changed/ignored/tolerance cases.
-- [ ] Update diary/changelog and commit Phase 9.
+- [x] Add `internal/cssvisualdiff/service/diff.go`.
+- [x] Implement deterministic structural JSON diff.
+- [x] Add initial CSS-aware normalization hooks if low risk; otherwise document as follow-up.
+- [x] Expose `cvd.diff(before, after, options)`.
+- [x] Expose `cvd.report(diff)` with Markdown rendering.
+- [x] Expose `cvd.write.json(path, value)`.
+- [x] Expose `cvd.write.markdown(path, markdown)` or equivalent.
+- [x] Add tests for equal/changed/ignored/tolerance cases.
+- [x] Update diary/changelog and commit Phase 9.
 
 ## Phase 10 — Public docs, examples, smoke scripts, and delivery
 

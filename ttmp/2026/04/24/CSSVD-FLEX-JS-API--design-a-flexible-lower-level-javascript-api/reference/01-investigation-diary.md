@@ -1648,3 +1648,142 @@ with an error containing:
 ```text
 css-visual-diff.snapshot: expected array of cvd.probe() builders
 ```
+
+## Step 15: Complete Phase 9 diff/report/write primitives
+
+I completed Phase 9 by adding the first snapshot diff, report, and write primitives. The new service layer can compare plain snapshot-like values structurally, render a small Markdown report, and the JavaScript API exposes synchronous diff/report construction plus Promise-returning file writes.
+
+This is intentionally a deterministic first cut rather than a full CSS-aware visual regression diff engine. It gives scripts a usable in-memory comparison path for snapshots produced by `cvd.snapshot(...)` and creates extension points for future CSS normalization/tolerance rules.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 9"
+
+**Assistant interpretation:** Implement Phase 9 from the ticket: add service diff/report primitives, expose `cvd.diff`, `cvd.report`, and `cvd.write.*`, validate with tests, update docs/diary/tasks, and commit.
+
+**Inferred user intent:** Complete the lower-level snapshot comparison/reporting layer before final docs and delivery.
+
+### What I did
+
+- Added `internal/cssvisualdiff/service/diff.go`.
+- Defined:
+  - `DiffOptions`
+  - `DiffChange`
+  - `SnapshotDiff`
+- Implemented:
+  - `DiffValues(...)`
+  - `RenderDiffMarkdown(...)`
+- Added `internal/cssvisualdiff/service/diff_test.go` covering changed/equal/ignored paths and Markdown rendering.
+- Added `internal/cssvisualdiff/jsapi/diff.go`.
+- Registered:
+  - `cvd.diff(before, after, options)`
+  - `cvd.report(diff).markdown()`
+  - `cvd.report(diff).writeMarkdown(path)`
+  - `cvd.write.json(path, value)`
+  - `cvd.write.markdown(path, markdown)`
+- Added `TestCVDModuleDiffReportAndWritePrimitives` to the repository-scanned JS verb tests.
+- Marked Phase 9 tasks complete and set the active phase to Phase 10.
+
+### Why
+
+The lower-level API now has locators, extraction, and snapshots. Scripts need a way to compare those snapshot values without returning to YAML workflows or file-artifact inspect modes. Diff/report/write primitives provide that final in-memory and file-output bridge.
+
+### What worked
+
+The diff service normalizes values through JSON first, so it can compare Go structs, maps, and JS-exported values consistently. The path-based diff is deterministic because map keys are sorted before traversal.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestDiff' -count=1
+
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleDiffReportAndWritePrimitives' -count=1
+
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+The first repository-scanned JS smoke used:
+
+```js
+const path = require("path")
+```
+
+That failed because the embedded runtime does not provide a Node `path` module:
+
+```text
+promise rejected: GoError: Invalid module
+```
+
+I changed the test script to build paths with `outDir + "/diff.json"` and `outDir + "/diff.md"`.
+
+The second failure was that `ignorePaths` did not apply at first because the JS adapter decoded options using direct `ExportTo(...)`, which did not populate the JSON-tagged `DiffOptions` field as expected. The symptom was `ignoredEqual` being `false` instead of `true`. I fixed `cvd.diff(...)` option decoding to use the JSON-based `decodeInto[service.DiffOptions](call.Argument(2).Export())`, consistent with the other lowerCamel JS adapters.
+
+### What I learned
+
+The go-go-goja runtime used by jsverbs should not be treated as a full Node runtime. Tests and examples should avoid `require("path")` unless that module is explicitly registered.
+
+For lowerCamel JS options, the JSON-based adapter remains the safest decoding path. Direct Goja `ExportTo(...)` can miss fields when Go structs rely on JSON tags rather than exported field names.
+
+### What was tricky to build
+
+The tricky part was choosing a useful first diff scope without overbuilding. I kept the service as a structural JSON diff with exact path ignores. That is enough to compare snapshots now and leaves CSS-specific normalization/tolerance for a later improvement.
+
+Another subtle point is output shape: Go service structs use `change_count`, but the JS API lowers this to `changeCount`, keeping JS-facing fields lowerCamel.
+
+### What warrants a second pair of eyes
+
+- Whether path ignore syntax (`results[0].snapshot.text`) is the right long-term format.
+- Whether slice length changes should be reported as one whole-slice change or per-index add/remove changes.
+- Whether Markdown output is too minimal for operator-facing reports.
+- Whether `cvd.write.json` should create parent directories automatically.
+
+### What should be done in the future
+
+Phase 10 should add public docs, examples, smoke scripts, final validation, and optionally regenerate/upload the implementation PDF.
+
+### Code review instructions
+
+Start with service diff code:
+
+```text
+internal/cssvisualdiff/service/diff.go
+internal/cssvisualdiff/service/diff_test.go
+```
+
+Then review JS exports:
+
+```text
+internal/cssvisualdiff/jsapi/diff.go
+internal/cssvisualdiff/jsapi/module.go
+```
+
+Then review integration coverage:
+
+```text
+internal/cssvisualdiff/verbcli/command_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestDiff' -count=1
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleDiffReportAndWritePrimitives' -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+Example supported JS:
+
+```js
+const diff = cvd.diff(beforeSnapshot, afterSnapshot, {
+  ignorePaths: ["results[0].snapshot.bounds.x"],
+})
+const markdown = cvd.report(diff).markdown()
+await cvd.write.json("out/diff.json", diff)
+await cvd.report(diff).writeMarkdown("out/diff.md")
+```

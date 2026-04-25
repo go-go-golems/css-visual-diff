@@ -231,6 +231,72 @@ __verb__("catalogSmoke", {
 	require.Contains(t, string(indexBytes), "# Verb Catalog Smoke")
 }
 
+func TestCVDModuleDiffReportAndWritePrimitives(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "diff.js"), `
+async function diffSmoke(outDir) {
+  const cvd = require("css-visual-diff");
+  const before = { results: [{ name: "cta", snapshot: { text: "Book", computed: { color: "red" } } }] };
+  const after = { results: [{ name: "cta", snapshot: { text: "Book now", computed: { color: "red" } } }] };
+  const diff = cvd.diff(before, after);
+  const markdown = cvd.report(diff).markdown();
+  const jsonPath = outDir + "/diff.json";
+  const markdownPath = outDir + "/diff.md";
+  await cvd.write.json(jsonPath, diff);
+  await cvd.report(diff).writeMarkdown(markdownPath);
+  const ignored = cvd.diff(before, after, { ignorePaths: ["results[0].snapshot.text"] });
+  return {
+    equal: diff.equal,
+    changeCount: diff.changeCount,
+    firstPath: diff.changes[0].path,
+    markdownHasPath: markdown.includes("results[0].snapshot.text"),
+    ignoredEqual: ignored.equal,
+    jsonPath,
+    markdownPath
+  };
+}
+__verb__("diffSmoke", {
+  parents: ["custom"],
+  fields: {
+    outDir: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"outDir": outDir},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, false, row["equal"])
+	require.EqualValues(t, 1, row["changeCount"])
+	require.Equal(t, "results[0].snapshot.text", row["firstPath"])
+	require.Equal(t, true, row["markdownHasPath"])
+	require.Equal(t, true, row["ignoredEqual"])
+	require.Equal(t, filepath.Join(outDir, "diff.json"), row["jsonPath"])
+	require.Equal(t, filepath.Join(outDir, "diff.md"), row["markdownPath"])
+	_, err = os.Stat(filepath.Join(outDir, "diff.json"))
+	require.NoError(t, err)
+	markdownBytes, err := os.ReadFile(filepath.Join(outDir, "diff.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(markdownBytes), "# Snapshot Diff")
+}
+
 func TestCVDModuleSnapshotsPageWithProbeBuilders(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><button id="cta" style="color: rgb(255, 0, 0)">Book now</button><p id="copy">Hello</p></body></html>`)

@@ -119,3 +119,15 @@
   - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleSnapshot' -count=1`
   - `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 9 diff/report/write primitives
+
+- Completed Phase 9 by adding `internal/cssvisualdiff/service/diff.go` and `diff_test.go`.
+- Added structural `DiffValues(...)`, `SnapshotDiff`, `DiffChange`, `DiffOptions`, and Markdown rendering.
+- Added `internal/cssvisualdiff/jsapi/diff.go` and registered `cvd.diff`, `cvd.report`, and `cvd.write.*` helpers.
+- Added repository-scanned JS verb coverage for diffing, ignored paths, Markdown report generation, and JSON/Markdown writes.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/service -run 'TestDiff' -count=1`
+  - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleDiffReportAndWritePrimitives' -count=1`
+  - `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`
