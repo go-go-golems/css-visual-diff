@@ -27,6 +27,16 @@ func TestDiffValuesEqualChangedAndIgnored(t *testing.T) {
 	require.True(t, equal.Equal)
 }
 
+func TestDiffValuesDetectsScalarTypeChanges(t *testing.T) {
+	diff, err := DiffValues(map[string]any{"value": 1}, map[string]any{"value": "1"}, DiffOptions{})
+	require.NoError(t, err)
+	require.False(t, diff.Equal)
+	require.Equal(t, 1, diff.ChangeCount)
+	require.Equal(t, "value", diff.Changes[0].Path)
+	require.EqualValues(t, float64(1), diff.Changes[0].Before)
+	require.Equal(t, "1", diff.Changes[0].After)
+}
+
 func TestRenderDiffMarkdown(t *testing.T) {
 	diff := SnapshotDiff{Equal: false, ChangeCount: 1, Changes: []DiffChange{{Path: "results[0].text", Before: "A", After: "B"}}}
 	markdown := RenderDiffMarkdown(diff)

@@ -27,7 +27,7 @@ func installDiffAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports 
 	})
 
 	_ = exports.Set("report", func(raw map[string]any) *goja.Object {
-		diff, err := decodeInto[service.SnapshotDiff](raw)
+		diff, err := decodeSnapshotDiffReport(raw)
 		if err != nil {
 			panic(vm.NewGoError(err))
 		}
@@ -66,6 +66,20 @@ func wrapDiffReport(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, diff ser
 
 func jsonMarshalIndent(value any) ([]byte, error) {
 	return json.MarshalIndent(value, "", "  ")
+}
+
+func decodeSnapshotDiffReport(raw map[string]any) (service.SnapshotDiff, error) {
+	if _, hasSnake := raw["change_count"]; !hasSnake {
+		if changeCount, hasCamel := raw["changeCount"]; hasCamel {
+			clone := make(map[string]any, len(raw)+1)
+			for k, v := range raw {
+				clone[k] = v
+			}
+			clone["change_count"] = changeCount
+			raw = clone
+		}
+	}
+	return decodeInto[service.SnapshotDiff](raw)
 }
 
 func lowerSnapshotDiff(diff service.SnapshotDiff) map[string]any {

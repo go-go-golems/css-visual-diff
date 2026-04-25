@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -106,7 +107,7 @@ func walkDiff(path string, before, after any, ignored map[string]bool, changes *
 		}
 		return
 	}
-	if fmt.Sprint(before) != fmt.Sprint(after) {
+	if !reflect.DeepEqual(before, after) {
 		*changes = append(*changes, DiffChange{Path: path, Before: before, After: after})
 	}
 }
