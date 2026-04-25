@@ -77,6 +77,18 @@ async function inspectHome(url) {
 
 This script does not compare images yet. That is intentional. Pixel accuracy starts with confidence that you are looking at the right element. A screenshot of the wrong element can be perfectly stable and completely useless.
 
+For app and Storybook pages that render asynchronously, wait for the selector before reading or comparing it:
+
+```js
+await page.locator("[data-testid='primary-cta']").waitFor({
+  timeoutMs: 30000,
+  visible: true,
+  afterWaitMs: 250,
+})
+```
+
+`page.waitForSelector(selector, options)` is also available, but the locator form keeps the code centered on the selector you will inspect or compare next.
+
 ## 3. Turning a Function into a CLI Verb
 
 A JavaScript file becomes a CLI command when it declares a verb. The metadata is static so `css-visual-diff` can scan the file without executing browser work.
@@ -114,6 +126,7 @@ async function inspectButton(url) {
   try {
     const page = await browser.page(url, { viewport: { width: 390, height: 844 } })
     const button = page.locator("[data-testid='primary-cta']")
+    await button.waitFor({ timeoutMs: 30000, visible: true })
 
     const [status, text, bounds, styles, attrs] = await Promise.all([
       button.status(),

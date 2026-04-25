@@ -21,6 +21,7 @@ func wrapLocator(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *page
 			"status":        locator.status(ctx, vm),
 			"exists":        locator.exists(ctx, vm),
 			"visible":       locator.visible(ctx, vm),
+			"waitFor":       locator.waitFor(ctx, vm),
 			"text":          locator.text(ctx, vm),
 			"bounds":        locator.bounds(ctx, vm),
 			"computedStyle": locator.computedStyle(ctx, vm),
@@ -78,6 +79,25 @@ func (l *locatorHandle) visible(ctx *engine.RuntimeModuleContext, vm *goja.Runti
 					return nil, err
 				}
 				return status.Visible, nil
+			})
+		}, nil)
+	}
+}
+
+func (l *locatorHandle) waitFor(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
+		rawOptions := exportOptionalObject(vm, "css-visual-diff.locator.waitFor", call.Argument(0))
+		return promiseValue(ctx, vm, "css-visual-diff.locator.waitFor", func() (any, error) {
+			return l.page.runExclusive(func() (any, error) {
+				opts, err := decodeInto[service.WaitForSelectorOptions](rawOptions)
+				if err != nil {
+					return nil, err
+				}
+				result, err := service.WaitForLocator(l.page.page.Page(), l.spec(), opts)
+				if err != nil {
+					return nil, err
+				}
+				return lowerJSON(result), nil
 			})
 		}, nil)
 	}

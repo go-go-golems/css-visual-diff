@@ -85,6 +85,7 @@ Exports:
 - `cvd.extractors.*`
 - `cvd.extract(locator, extractors)`
 - `cvd.snapshot.page(page, probes, options?)`
+- `locator.waitFor(options?)`
 - `locator.collect(options?)`
 - `cvd.collect.selection(locator, options?)`
 - `cvd.compare.region({ left, right, ... })`
@@ -333,6 +334,34 @@ await page.prepare({
 
 `directReactGlobal` is a prepare/rendering mode, not a selector mode. It creates or targets a controlled root and renders a global React component into it before inspection.
 
+### `await page.waitForSelector(selector, options?)`
+
+Waits until a selector exists, or until it is visible when `visible: true` is passed. This is the preferred readiness helper for Storybook/app pages where the document loads before the comparison region is rendered.
+
+```js
+await page.waitForSelector('[data-page="archive"]', {
+  timeoutMs: 30000,
+  pollIntervalMs: 100,
+  visible: true,
+  afterWaitMs: 500,
+})
+```
+
+Returns a selector status summary with elapsed time:
+
+```js
+{
+  selector: '[data-page="archive"]',
+  exists: true,
+  visible: true,
+  bounds: { x: 0, y: 0, width: 920, height: 1400 },
+  textStart: "Archive",
+  elapsedMs: 742
+}
+```
+
+For selector-bound code, prefer `page.locator(selector).waitFor(...)`.
+
 ### `await page.preflight(probes)`
 
 Checks selectors before expensive extraction.
@@ -439,6 +468,7 @@ Locator methods:
 - `await locator.status()` — returns selector status with existence, visibility, bounds, text start, and selector error.
 - `await locator.exists()` — returns a boolean.
 - `await locator.visible()` — returns a boolean.
+- `await locator.waitFor(options?)` — waits for this selector to exist or, with `{ visible: true }`, to be visible.
 - `await locator.text(options?)` — returns text content. Use `{ normalizeWhitespace: true, trim: true }` for stable comparisons.
 - `await locator.bounds()` — returns `{ x, y, width, height }` or `null` for a missing selector.
 - `await locator.computedStyle(props)` — returns a map of CSS property values.
@@ -448,6 +478,7 @@ Example:
 
 ```js
 const cta = page.locator("#cta")
+await cta.waitFor({ timeoutMs: 30000, visible: true })
 const [text, bounds, styles] = await Promise.all([
   cta.text({ normalizeWhitespace: true, trim: true }),
   cta.bounds(),

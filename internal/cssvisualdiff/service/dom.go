@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
@@ -23,6 +24,22 @@ type TextOptions struct {
 type ElementHTML struct {
 	Exists bool   `json:"exists"`
 	HTML   string `json:"html"`
+}
+
+type WaitForSelectorOptions struct {
+	TimeoutMS      int  `json:"timeoutMs,omitempty"`
+	PollIntervalMS int  `json:"pollIntervalMs,omitempty"`
+	Visible        bool `json:"visible,omitempty"`
+	AfterWaitMS    int  `json:"afterWaitMs,omitempty"`
+}
+
+type WaitForSelectorResult struct {
+	Selector  string  `json:"selector"`
+	Exists    bool    `json:"exists"`
+	Visible   bool    `json:"visible"`
+	Bounds    *Bounds `json:"bounds,omitempty"`
+	TextStart string  `json:"textStart,omitempty"`
+	ElapsedMS int     `json:"elapsedMs"`
 }
 
 func LocatorStatus(page *driver.Page, locator LocatorSpec) (SelectorStatus, error) {
@@ -167,6 +184,71 @@ func LocatorComputedStyle(page *driver.Page, locator LocatorSpec, props []string
 		return map[string]string{}, nil
 	}
 	return snapshot.Computed, nil
+}
+
+func WaitForLocator(page *driver.Page, locator LocatorSpec, opts WaitForSelectorOptions) (WaitForSelectorResult, error) {
+	opts = normalizeWaitForSelectorOptions(opts)
+	if opts.TimeoutMS < 0 {
+		return WaitForSelectorResult{}, fmt.Errorf("timeoutMs must be >= 0")
+	}
+	if opts.PollIntervalMS <= 0 {
+		return WaitForSelectorResult{}, fmt.Errorf("pollIntervalMs must be > 0")
+	}
+	if opts.AfterWaitMS < 0 {
+		return WaitForSelectorResult{}, fmt.Errorf("afterWaitMs must be >= 0")
+	}
+
+	started := time.Now()
+	deadline := started.Add(time.Duration(opts.TimeoutMS) * time.Millisecond)
+	for {
+		status, err := LocatorStatus(page, locator)
+		if err != nil {
+			return WaitForSelectorResult{}, err
+		}
+		result := waitForSelectorResultFromStatus(status, time.Since(started))
+		if status.Error != "" {
+			return result, fmt.Errorf("selector %q: %s", locator.Selector, status.Error)
+		}
+		if status.Exists && (!opts.Visible || status.Visible) {
+			if opts.AfterWaitMS > 0 {
+				page.Wait(time.Duration(opts.AfterWaitMS) * time.Millisecond)
+				result.ElapsedMS = int(time.Since(started).Milliseconds())
+			}
+			return result, nil
+		}
+		if time.Now().After(deadline) {
+			return result, fmt.Errorf("selector %q did not become %s within %dms", locator.Selector, waitForSelectorCondition(opts), opts.TimeoutMS)
+		}
+		page.Wait(time.Duration(opts.PollIntervalMS) * time.Millisecond)
+	}
+}
+
+func normalizeWaitForSelectorOptions(opts WaitForSelectorOptions) WaitForSelectorOptions {
+	if opts.TimeoutMS == 0 {
+		opts.TimeoutMS = 5000
+	}
+	if opts.PollIntervalMS == 0 {
+		opts.PollIntervalMS = 100
+	}
+	return opts
+}
+
+func waitForSelectorCondition(opts WaitForSelectorOptions) string {
+	if opts.Visible {
+		return "visible"
+	}
+	return "present"
+}
+
+func waitForSelectorResultFromStatus(status SelectorStatus, elapsed time.Duration) WaitForSelectorResult {
+	return WaitForSelectorResult{
+		Selector:  status.Selector,
+		Exists:    status.Exists,
+		Visible:   status.Visible,
+		Bounds:    status.Bounds,
+		TextStart: status.TextStart,
+		ElapsedMS: int(elapsed.Milliseconds()),
+	}
 }
 
 func configStyleSpec(selector string, props []string, attrs []string, includeBounds bool) config.StyleSpec {

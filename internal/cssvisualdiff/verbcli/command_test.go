@@ -626,10 +626,12 @@ async function locatorSmoke(url) {
   try {
     page = await browser.page(url, { viewport: { width: 320, height: 240 } });
     const cta = page.locator("#cta");
-    const [status, exists, visible, text, bounds, styles, attrs, missingExists, hiddenVisible] = await Promise.all([
+    const [status, exists, visible, waited, pageWaited, text, bounds, styles, attrs, missingExists, hiddenVisible] = await Promise.all([
       cta.status(),
       cta.exists(),
       cta.visible(),
+      cta.waitFor({ timeoutMs: 1000 }),
+      page.waitForSelector("#cta", { timeoutMs: 1000 }),
       cta.text({ normalizeWhitespace: true, trim: true }),
       cta.bounds(),
       cta.computedStyle(["color", "display"]),
@@ -641,6 +643,9 @@ async function locatorSmoke(url) {
       statusExists: status.exists,
       exists,
       visible,
+      waitedExists: waited.exists,
+      waitedSelector: waited.selector,
+      pageWaitedExists: pageWaited.exists,
       text,
       widthPositive: bounds.width > 0,
       color: styles.color,
@@ -684,6 +689,9 @@ __verb__("locatorSmoke", {
 	require.Equal(t, true, row["statusExists"])
 	require.Equal(t, true, row["exists"])
 	require.Equal(t, true, row["visible"])
+	require.Equal(t, true, row["waitedExists"])
+	require.Equal(t, "#cta", row["waitedSelector"])
+	require.Equal(t, true, row["pageWaitedExists"])
 	require.Equal(t, "Book now", row["text"])
 	require.Equal(t, true, row["widthPositive"])
 	require.Equal(t, "rgb(255, 0, 0)", row["color"])

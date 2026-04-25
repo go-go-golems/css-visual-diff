@@ -71,6 +71,54 @@ func TestLocatorDOMPrimitives(t *testing.T) {
 	require.NotEmpty(t, styles["display"])
 }
 
+func TestWaitForLocator(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body>
+<div id="hidden" style="display:none">Hidden</div>
+<script>
+setTimeout(() => {
+  const delayed = document.createElement('div');
+  delayed.id = 'delayed';
+  delayed.textContent = 'Ready';
+  document.body.appendChild(delayed);
+}, 150);
+setTimeout(() => {
+  document.getElementById('hidden').style.display = 'block';
+}, 250);
+</script>
+</body></html>`)
+	}))
+	defer server.Close()
+
+	page := newDOMTestPage(t, server.URL)
+
+	existing, err := WaitForLocator(page, LocatorSpec{Selector: "body"}, WaitForSelectorOptions{TimeoutMS: 1000})
+	require.NoError(t, err)
+	require.True(t, existing.Exists)
+	require.True(t, existing.Visible)
+	require.Equal(t, "body", existing.Selector)
+
+	delayed, err := WaitForLocator(page, LocatorSpec{Selector: "#delayed"}, WaitForSelectorOptions{TimeoutMS: 2000, PollIntervalMS: 50})
+	require.NoError(t, err)
+	require.True(t, delayed.Exists)
+	require.True(t, delayed.Visible)
+	require.Contains(t, delayed.TextStart, "Ready")
+
+	visible, err := WaitForLocator(page, LocatorSpec{Selector: "#hidden"}, WaitForSelectorOptions{TimeoutMS: 2000, PollIntervalMS: 50, Visible: true})
+	require.NoError(t, err)
+	require.True(t, visible.Exists)
+	require.True(t, visible.Visible)
+
+	missing, err := WaitForLocator(page, LocatorSpec{Selector: "#missing"}, WaitForSelectorOptions{TimeoutMS: 100, PollIntervalMS: 25})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "did not become present")
+	require.False(t, missing.Exists)
+
+	_, err = WaitForLocator(page, LocatorSpec{Selector: "#bad["}, WaitForSelectorOptions{TimeoutMS: 100})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "selector")
+}
+
 func TestLocatorDOMPrimitivesMissingHiddenAndInvalid(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><div id="hidden" style="display:none">Hidden</div></body></html>`)

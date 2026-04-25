@@ -219,6 +219,29 @@ func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageSta
 	_ = obj.Set("locator", func(selector string) goja.Value {
 		return wrapLocator(ctx, vm, state, selector)
 	})
+	_ = obj.Set("waitForSelector", func(call goja.FunctionCall) goja.Value {
+		if len(call.Arguments) == 0 || goja.IsUndefined(call.Argument(0)) || goja.IsNull(call.Argument(0)) {
+			panic(typeMismatchError(vm, "css-visual-diff.page.waitForSelector", "CSS selector string", call.Argument(0)))
+		}
+		selector, ok := call.Argument(0).Export().(string)
+		if !ok {
+			panic(typeMismatchError(vm, "css-visual-diff.page.waitForSelector", "CSS selector string", call.Argument(0)))
+		}
+		rawOptions := exportOptionalObject(vm, "css-visual-diff.page.waitForSelector", call.Argument(1))
+		return promiseValue(ctx, vm, "css-visual-diff.page.waitForSelector", func() (any, error) {
+			return state.runExclusive(func() (any, error) {
+				opts, err := decodeInto[service.WaitForSelectorOptions](rawOptions)
+				if err != nil {
+					return nil, err
+				}
+				result, err := service.WaitForLocator(state.page.Page(), service.LocatorSpec{Selector: selector}, opts)
+				if err != nil {
+					return nil, err
+				}
+				return lowerJSON(result), nil
+			})
+		}, nil)
+	})
 	_ = obj.Set("goto", func(rawURL string, rawOptions map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.goto", func() (any, error) {
 			return state.runExclusive(func() (any, error) {
