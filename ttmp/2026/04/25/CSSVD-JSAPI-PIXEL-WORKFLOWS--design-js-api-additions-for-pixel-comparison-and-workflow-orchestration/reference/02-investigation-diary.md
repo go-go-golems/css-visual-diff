@@ -16,6 +16,17 @@ RelatedFiles:
         Phase 1 embedded JavaScript API reference update for the collected selection model (commit b13933a)
         Phase 2 embedded JavaScript API reference update for structural vs image diff concepts (commit 6ca2498)
         Phase 3 embedded JavaScript API reference update for SelectionComparison concepts (commit 29c8aca)
+        Phases 4-5 embedded JS API reference updates for real collect/compare handles (commit 5c76cd7)
+    - Path: internal/cssvisualdiff/jsapi/collect.go
+      Note: Phases 4-5 Goja collected selection API handle and cvd.collect namespace (commit 5c76cd7)
+    - Path: internal/cssvisualdiff/jsapi/compare.go
+      Note: Phase 5 Goja selection comparison API handle and cvd.compare.selections namespace (commit 5c76cd7)
+    - Path: internal/cssvisualdiff/jsapi/locator.go
+      Note: Phase 4 locator.collect method wiring (commit 5c76cd7)
+    - Path: internal/cssvisualdiff/jsapi/module.go
+      Note: Phases 4-5 module export installation for collect/compare APIs (commit 5c76cd7)
+    - Path: internal/cssvisualdiff/jsapi/proxy.go
+      Note: Proxy property support and then-safe promise assimilation for Go-backed handles (commit 5c76cd7)
     - Path: internal/cssvisualdiff/modes/compare.go
       Note: Phase 2 compare mode now routes pixel artifact writing through service primitives (commit 6ca2498)
     - Path: internal/cssvisualdiff/modes/pixeldiff.go
@@ -34,6 +45,8 @@ RelatedFiles:
       Note: Phase 3 service-level selection comparison model and pure data diff helpers (commit 29c8aca)
     - Path: internal/cssvisualdiff/service/selection_compare_test.go
       Note: Phase 3 service tests for style
+    - Path: internal/cssvisualdiff/verbcli/command_test.go
+      Note: Phases 4-5 repository-scanned JS integration tests for collection and comparison handles (commit 5c76cd7)
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/design/01-elegant-javascript-api-additions-for-pixel-comparison-workflows.md
       Note: Main API design proposal produced from this investigation
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/reference/01-pyxis-user-feedback-source-analysis.md
@@ -44,14 +57,19 @@ RelatedFiles:
       Note: Phase 2 replayable pixel service smoke script
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/003-selection-compare-service-smoke.sh
       Note: Phase 3 replayable selection comparison service smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/004-js-collected-selection-smoke.sh
+      Note: Phase 4 replayable JS collected selection smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/005-js-selection-comparison-smoke.sh
+      Note: Phase 5 replayable JS selection comparison smoke script
 ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T12:00:00-04:00
+LastUpdated: 2026-04-25T12:35:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
+
 
 
 
@@ -773,6 +791,168 @@ func CompareSelections(left SelectionData, right SelectionData, opts CompareSele
 ```
 
 Comparison does not query the browser. It only compares data already present in `SelectionData`.
+
+## Step 17: Implement Phases 4 and 5 JavaScript collected/comparison handles
+
+Phases 4 and 5 turn the Phase 1 and Phase 3 service data into real JavaScript APIs. `page.locator(selector).collect(...)` and `cvd.collect.selection(...)` now return Go-backed `cvd.collectedSelection` handles, and `cvd.compare.selections(left, right, options)` returns a Go-backed `cvd.selectionComparison` handle.
+
+This is the first point where the new API becomes directly usable from repository-scanned JS verbs. The implementation keeps browser work Promise-first, uses strict Proxy-backed handles, and requires explicit lowering through `summary()` / `toJSON()` for plain output.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 4 - 5"
+
+**Assistant interpretation:** Implement both the JavaScript `CollectedSelection` and `SelectionComparison` API phases, with tests, docs, smoke scripts, diary/changelog/tasks, and commits.
+
+**Inferred user intent:** Move from Go service primitives to the actual user-facing JS API needed for scripts, while keeping the phase discipline and no-backward-compat canonical direction.
+
+**Commit (code):** 5c76cd7 — "feat: expose collected selection comparison js api"
+
+### What I did
+
+- Added `internal/cssvisualdiff/jsapi/collect.go`.
+- Added `locator.collect(options?)`.
+- Added `cvd.collect.selection(locator, options?)`.
+- Added Go-backed Proxy owner `cvd.collectedSelection`.
+- Added collected selection methods:
+  - `summary()`,
+  - `toJSON()`,
+  - `status()`,
+  - `bounds()`,
+  - `text()`,
+  - `styles(props?)`,
+  - `attributes(names?)`,
+  - `screenshot.write(path)` placeholder error until screenshot collection is enabled.
+- Added option decoding for `inspect`, `styles: "all"`, style arrays, `attributes: "all"`, and attribute arrays.
+- Added `internal/cssvisualdiff/jsapi/compare.go`.
+- Added `cvd.compare.selections(leftCollected, rightCollected, options?)`.
+- Added Go-backed Proxy owner `cvd.selectionComparison`.
+- Added comparison methods/properties:
+  - `summary()`,
+  - `toJSON()`,
+  - `left()`,
+  - `right()`,
+  - `artifact(name)`,
+  - `pixel.summary()`,
+  - `bounds.diff()`,
+  - `styles.diff(props?)`,
+  - `attributes.diff(names?)`,
+  - `report.markdown()`,
+  - `report.writeMarkdown(path)`,
+  - `artifacts.list()`,
+  - `artifacts.write(outDir, names?)`.
+- Extended Proxy infrastructure with property getters so handles can expose namespaces such as `comparison.styles.diff()`.
+- Made Proxy handles return `undefined` for property `then` so Promise resolution does not treat resolved handles as thenables.
+- Updated module registration to install `cvd.collect` and `cvd.compare`.
+- Added repository-scanned JS integration tests in `internal/cssvisualdiff/verbcli/command_test.go`.
+- Updated `internal/cssvisualdiff/doc/topics/javascript-api.md` to describe collect/compare APIs as real rather than future.
+- Added smoke scripts:
+  - `scripts/004-js-collected-selection-smoke.sh`,
+  - `scripts/005-js-selection-comparison-smoke.sh`.
+- Marked Phase 4 and Phase 5 tasks complete in `tasks.md`.
+- Related implementation files and smoke scripts to this diary.
+
+### Why
+
+- Phase 4 exposes the browser truth collection primitive to JS scripts.
+- Phase 5 exposes comparison as a queryable object rather than a raw blob.
+- Strict Go-backed handles preserve the project direction: robust runtime feedback for LLM-written scripts and explicit lowering for output.
+
+### What worked
+
+- Focused JS integration tests passed:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleCollectsLocatorSelection|TestCVDModuleComparesCollectedSelections' -count=1
+```
+
+- Phase 4 smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/004-js-collected-selection-smoke.sh
+```
+
+- Phase 5 smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/005-js-selection-comparison-smoke.sh
+```
+
+- Full test suite passed:
+
+```bash
+go test ./... -count=1
+```
+
+### What didn't work
+
+- The first JS integration run failed when awaiting `locator.collect(...)`:
+
+```text
+promise rejected: TypeError: cvd.collectedSelection: unknown method .then(). Available: attributes, bounds, status, styles, summary, text, toJSON.
+```
+
+Goja/Promise resolution checks whether resolved values are thenables by reading `.then`. Our Proxy treated every unknown property as an error, so resolving a Proxy handle caused Promise assimilation to call the unknown-property path. I fixed this by returning `undefined` for Proxy property `then`, which marks handles as non-thenable and lets awaited promises resolve to the handle.
+
+### What I learned
+
+- Go-backed Proxy handles that are returned from Promises must be safe for `.then` property reads. This is a general invariant for all current and future Promise-returned handles.
+- Method-only proxies are not enough for the fluent object shape we want. Namespaces such as `comparison.styles.diff()` require controlled property getters.
+- Keeping `summary()` and `toJSON()` explicit makes command output predictable and prevents accidental serialization of behavior-rich handles.
+
+### What was tricky to build
+
+- `comparison.styles.diff()` required adding `ProxySpec.Properties` instead of forcing everything into methods. The property returns a plain Goja object whose functions operate on the Go-backed data.
+- `comparison.artifacts.write(...)` is currently a report/JSON writer for comparison data. Pixel artifacts already written by the service are listed, but Phase 5 does not yet recopy or lazily materialize PNG artifacts. Phase 6/9 can refine artifact policy.
+- Collection options needed to bridge JS-friendly names (`styles: "all"`, `styles: [...]`) into Go service fields (`AllStyles`, `StyleProps`) without adding a separate userland parser.
+
+### What warrants a second pair of eyes
+
+- Review the exact method/property split on `cvd.selectionComparison`: especially `left()` / `right()` as methods versus `pixel`, `bounds`, `styles`, `attributes`, `report`, and `artifacts` as properties.
+- Review whether `screenshot.write(path)` should remain present-but-erroring until screenshot collection lands, or whether it should be hidden until implemented.
+- Review `artifacts.write(...)` semantics: it writes JSON/Markdown now; PNG copy/lazy materialization may need a clearer contract in Phase 6/9.
+
+### What should be done in the future
+
+- Phase 6 should implement `cvd.compare.region({ left, right })` as collect-left, collect-right, compare-selections.
+- Future phases should add screenshot collection to `CollectedSelection` so pixel diffs can be produced from JS collect/compare flows.
+- Phase 7 should clean the canonical namespace surface and remove compatibility language.
+
+### Code review instructions
+
+- Start with `internal/cssvisualdiff/jsapi/collect.go` and `internal/cssvisualdiff/jsapi/compare.go`.
+- Review the Proxy infrastructure change in `internal/cssvisualdiff/jsapi/proxy.go`; the `.then` special case is important for Promise-returned handles.
+- Review integration tests at the end of `internal/cssvisualdiff/verbcli/command_test.go`.
+- Validate with:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleCollectsLocatorSelection|TestCVDModuleComparesCollectedSelections' -count=1
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/004-js-collected-selection-smoke.sh
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/005-js-selection-comparison-smoke.sh
+go test ./... -count=1
+```
+
+### Technical details
+
+Phase 4 handle owner:
+
+```text
+cvd.collectedSelection
+```
+
+Phase 5 handle owner:
+
+```text
+cvd.selectionComparison
+```
+
+Canonical API now implemented:
+
+```js
+const selected = await page.locator("#cta").collect({ inspect: "rich" })
+const same = await cvd.collect.selection(page.locator("#cta"), { inspect: "minimal" })
+const comparison = await cvd.compare.selections(left, right, { styleProps: ["color"] })
+```
 
 ## Issues and assumptions
 

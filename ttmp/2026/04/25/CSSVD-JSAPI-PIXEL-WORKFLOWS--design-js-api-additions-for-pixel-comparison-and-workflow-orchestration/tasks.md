@@ -217,11 +217,11 @@ Goal: expose rich collected selector data to JavaScript as a Go-backed fluent/qu
 
 ### Implementation tasks
 
-- [ ] Add `internal/cssvisualdiff/jsapi/collect.go`.
-- [ ] Add `locator.collect(options?)` to `internal/cssvisualdiff/jsapi/locator.go`.
-- [ ] Add namespace function `cvd.collect.selection(locator, options?)`.
-- [ ] Add Go-backed Proxy owner `cvd.collectedSelection`.
-- [ ] Implement methods:
+- [x] Add `internal/cssvisualdiff/jsapi/collect.go`.
+- [x] Add `locator.collect(options?)` to `internal/cssvisualdiff/jsapi/locator.go`.
+- [x] Add namespace function `cvd.collect.selection(locator, options?)`.
+- [x] Add Go-backed Proxy owner `cvd.collectedSelection`.
+- [x] Implement methods:
   - `summary()` → compact plain summary,
   - `toJSON(options?)` → plain serializable data,
   - `status()` → selector status,
@@ -230,44 +230,44 @@ Goal: expose rich collected selector data to JavaScript as a Go-backed fluent/qu
   - `styles(propsOrPreset?)` → filtered style map,
   - `attributes(names?)` → filtered attribute map,
   - `screenshot.write(path)` if screenshot data exists.
-- [ ] Decode `inspect` options:
+- [x] Decode `inspect` options:
   - `"minimal"`,
   - `"rich"` as default,
   - `"debug"`,
   - object form with `styles`, `attributes`, `matchedStyles`, `bounds`, `text`, `screenshots`.
-- [ ] Add helpful wrong-parent errors:
+- [x] Add helpful wrong-parent errors:
   - `.diff()` on collected selection → use `cvd.compare.selections(left, right)`,
   - `.selector()` on collected selection → collected selections are immutable; create a new locator.
-- [ ] Ensure collection uses `pageState.runExclusive`.
-- [ ] Ensure `toJSON()` is explicit and examples return plain data from verbs.
+- [x] Ensure collection uses `pageState.runExclusive`.
+- [x] Ensure `toJSON()` is explicit and examples return plain data from verbs.
 
 ### Tests
 
-- [ ] Add `internal/cssvisualdiff/jsapi/collect_test.go`.
-- [ ] Test `await page.locator('#id').collect()` returns a `cvd.collectedSelection` handle.
-- [ ] Test `summary()`, `toJSON()`, `bounds()`, `styles()`, and `attributes()`.
-- [ ] Test `inspect: "minimal"` and `inspect: "rich"`.
-- [ ] Test raw-object rejection where a collected-selection handle is required.
-- [ ] Test wrong-parent feedback messages.
+- [x] Add `internal/cssvisualdiff/jsapi/collect_test.go`.
+- [x] Test `await page.locator('#id').collect()` returns a `cvd.collectedSelection` handle.
+- [x] Test `summary()`, `toJSON()`, `bounds()`, `styles()`, and `attributes()`.
+- [x] Test `inspect: "minimal"` and `inspect: "rich"`.
+- [x] Test raw-object rejection where a collected-selection handle is required.
+- [x] Test wrong-parent feedback messages.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with the final `locator.collect()` / `cvd.collect.selection(...)` API.
-- [ ] Add examples showing:
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with the final `locator.collect()` / `cvd.collect.selection(...)` API.
+- [x] Add examples showing:
   - quick collection,
   - filtering style properties after collection,
   - returning `collected.toJSON()` from a verb.
 
 ### Real smoke script
 
-- [ ] Add `scripts/004-js-collected-selection-smoke.sh`.
-- [ ] Script should build/run a tiny repository-scanned JS verb that:
+- [x] Add `scripts/004-js-collected-selection-smoke.sh`.
+- [x] Script should build/run a tiny repository-scanned JS verb that:
   - opens a local HTML page,
   - collects one selector with `inspect: "rich"`,
   - returns `summary()` and filtered styles,
   - writes optional JSON output.
-- [ ] Script should assert expected JSON keys with `jq` or a small Python snippet.
-- [ ] Record smoke output in the diary.
+- [x] Script should assert expected JSON keys with `jq` or a small Python snippet.
+- [x] Record smoke output in the diary.
 
 ---
 
@@ -277,10 +277,10 @@ Goal: expose comparison between two collected selections as a rich Go-backed obj
 
 ### Implementation tasks
 
-- [ ] Add `internal/cssvisualdiff/jsapi/compare.go` if not already present.
-- [ ] Install `cvd.compare.selections(leftCollected, rightCollected, options?)`.
-- [ ] Add Go-backed Proxy owner `cvd.selectionComparison`.
-- [ ] Implement methods/namespaces:
+- [x] Add `internal/cssvisualdiff/jsapi/compare.go` if not already present.
+- [x] Install `cvd.compare.selections(leftCollected, rightCollected, options?)`.
+- [x] Add Go-backed Proxy owner `cvd.selectionComparison`.
+- [x] Implement methods/namespaces:
   - `summary()`,
   - `toJSON(options?)`,
   - `left()` / `right()` if useful,
@@ -293,32 +293,32 @@ Goal: expose comparison between two collected selections as a rich Go-backed obj
   - `artifact(name)`,
   - `artifacts.list()`,
   - `artifacts.write(outDir, names?)`.
-- [ ] Ensure all returned diffs are plain JavaScript arrays/maps that users can filter/map/reduce.
-- [ ] Add `cvd.styles.presets` minimal set if needed by docs/tests:
+- [x] Ensure all returned diffs are plain JavaScript arrays/maps that users can filter/map/reduce.
+- [x] Add `cvd.styles.presets` minimal set if needed by docs/tests:
   - `typography`,
   - `spacing`,
   - `layout`,
   - `surface`,
   - `interaction`.
-- [ ] Add tailored type errors:
+- [x] Add tailored type errors:
   - if user passes a locator, suggest `await locator.collect()` or `cvd.compare.region(...)`,
   - if user passes raw JSON, suggest `cvd.compare.data(...)` only if such a function exists; otherwise reject.
 
 ### Tests
 
-- [ ] Add `internal/cssvisualdiff/jsapi/compare_test.go`.
-- [ ] Test comparing two collected selections.
-- [ ] Test `summary()` and `toJSON()` lowerCamel shape.
-- [ ] Test `styles.diff()` with no filter and with presets.
-- [ ] Test `bounds.diff()` and `attributes.diff()`.
-- [ ] Test report markdown generation.
-- [ ] Test artifact listing/writing with parent directory creation.
-- [ ] Test helpful type mismatch messages.
+- [x] Add `internal/cssvisualdiff/jsapi/compare_test.go`.
+- [x] Test comparing two collected selections.
+- [x] Test `summary()` and `toJSON()` lowerCamel shape.
+- [x] Test `styles.diff()` with no filter and with presets.
+- [x] Test `bounds.diff()` and `attributes.diff()`.
+- [x] Test report markdown generation.
+- [x] Test artifact listing/writing with parent directory creation.
+- [x] Test helpful type mismatch messages.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with `cvd.compare.selections(...)` and the `SelectionComparison` handle.
-- [ ] Include examples for:
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with `cvd.compare.selections(...)` and the `SelectionComparison` handle.
+- [x] Include examples for:
   - custom JavaScript filtering,
   - policy classification,
   - writing selective artifacts,
@@ -326,15 +326,15 @@ Goal: expose comparison between two collected selections as a rich Go-backed obj
 
 ### Real smoke script
 
-- [ ] Add `scripts/005-js-selection-comparison-smoke.sh`.
-- [ ] Script should run a repository-scanned JS verb that:
+- [x] Add `scripts/005-js-selection-comparison-smoke.sh`.
+- [x] Script should run a repository-scanned JS verb that:
   - opens two local pages,
   - collects one selector from each,
   - compares collected selections,
   - returns pixel/style/bounds summaries,
   - writes selected artifacts.
-- [ ] Script should assert `diffComparison`, `compare.json`, and `compare.md` exist when requested.
-- [ ] Record smoke output in the diary.
+- [x] Script should assert `diffComparison`, `compare.json`, and `compare.md` exist when requested.
+- [x] Record smoke output in the diary.
 
 ---
 

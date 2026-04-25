@@ -41,6 +41,19 @@
   - added `scripts/003-selection-compare-service-smoke.sh`,
   - marked Phase 3 tasks complete in `tasks.md`.
 - Validation for Phase 3 passed with focused comparison tests, JSON fixture smoke generation, embedded help checks, and `go test ./... -count=1`.
+- Implemented Phases 4 and 5 JavaScript collected/comparison handles in commit `5c76cd7`:
+  - added `internal/cssvisualdiff/jsapi/collect.go`,
+  - added `internal/cssvisualdiff/jsapi/compare.go`,
+  - wired `locator.collect(...)` and `cvd.collect.selection(...)`,
+  - wired `cvd.compare.selections(...)`,
+  - added Go-backed `cvd.collectedSelection` and `cvd.selectionComparison` Proxy handles,
+  - added Proxy property getters for namespaces like `comparison.styles.diff()`,
+  - made Proxy handles safe for Promise resolution by returning `undefined` for `.then`,
+  - added repository-scanned JS integration tests in `internal/cssvisualdiff/verbcli/command_test.go`,
+  - updated `internal/cssvisualdiff/doc/topics/javascript-api.md`,
+  - added `scripts/004-js-collected-selection-smoke.sh` and `scripts/005-js-selection-comparison-smoke.sh`,
+  - marked Phases 4 and 5 complete in `tasks.md`.
+- Validation for Phases 4 and 5 passed with focused verbcli integration tests, both ticket smoke scripts, embedded help checks, and `go test ./... -count=1`.
 
 ## Key decision
 
