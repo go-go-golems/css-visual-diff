@@ -26,17 +26,18 @@ type Catalog struct {
 }
 
 type CatalogManifest struct {
-	SchemaVersion string                   `json:"schema_version"`
-	Title         string                   `json:"title"`
-	OutDir        string                   `json:"out_dir"`
-	ArtifactRoot  string                   `json:"artifact_root"`
-	CreatedAt     time.Time                `json:"created_at"`
-	UpdatedAt     time.Time                `json:"updated_at"`
-	Targets       []CatalogTargetRecord    `json:"targets"`
-	Preflights    []CatalogPreflightRecord `json:"preflights,omitempty"`
-	Results       []CatalogResultRecord    `json:"results,omitempty"`
-	Failures      []CatalogFailureRecord   `json:"failures,omitempty"`
-	Summary       CatalogSummary           `json:"summary"`
+	SchemaVersion string                    `json:"schema_version"`
+	Title         string                    `json:"title"`
+	OutDir        string                    `json:"out_dir"`
+	ArtifactRoot  string                    `json:"artifact_root"`
+	CreatedAt     time.Time                 `json:"created_at"`
+	UpdatedAt     time.Time                 `json:"updated_at"`
+	Targets       []CatalogTargetRecord     `json:"targets"`
+	Preflights    []CatalogPreflightRecord  `json:"preflights,omitempty"`
+	Results       []CatalogResultRecord     `json:"results,omitempty"`
+	Comparisons   []CatalogComparisonRecord `json:"comparisons,omitempty"`
+	Failures      []CatalogFailureRecord    `json:"failures,omitempty"`
+	Summary       CatalogSummary            `json:"summary"`
 }
 
 type CatalogTargetRecord struct {
@@ -61,6 +62,12 @@ type CatalogResultRecord struct {
 	RecordedAt time.Time           `json:"recorded_at"`
 }
 
+type CatalogComparisonRecord struct {
+	Target     CatalogTargetRecord     `json:"target"`
+	Comparison SelectionComparisonData `json:"comparison"`
+	RecordedAt time.Time               `json:"recorded_at"`
+}
+
 type CatalogFailureRecord struct {
 	Target     CatalogTargetRecord `json:"target"`
 	Name       string              `json:"name,omitempty"`
@@ -71,11 +78,12 @@ type CatalogFailureRecord struct {
 }
 
 type CatalogSummary struct {
-	TargetCount    int `json:"target_count"`
-	PreflightCount int `json:"preflight_count"`
-	ResultCount    int `json:"result_count"`
-	FailureCount   int `json:"failure_count"`
-	ArtifactCount  int `json:"artifact_count"`
+	TargetCount     int `json:"target_count"`
+	PreflightCount  int `json:"preflight_count"`
+	ResultCount     int `json:"result_count"`
+	ComparisonCount int `json:"comparison_count"`
+	FailureCount    int `json:"failure_count"`
+	ArtifactCount   int `json:"artifact_count"`
 }
 
 func NewCatalog(opts CatalogOptions) (*Catalog, error) {
@@ -153,6 +161,13 @@ func (c *Catalog) AddResult(target CatalogTargetRecord, result InspectResult) Ca
 	return record
 }
 
+func (c *Catalog) AddComparison(target CatalogTargetRecord, comparison SelectionComparisonData) CatalogComparisonRecord {
+	record := CatalogComparisonRecord{Target: c.AddTarget(target), Comparison: comparison, RecordedAt: time.Now().UTC()}
+	c.manifest.Comparisons = append(c.manifest.Comparisons, record)
+	c.touch()
+	return record
+}
+
 func (c *Catalog) AddFailure(target CatalogTargetRecord, failure CatalogFailureRecord) CatalogFailureRecord {
 	failure.Target = c.AddTarget(target)
 	if strings.TrimSpace(failure.Message) == "" {
@@ -185,12 +200,16 @@ func (c *Catalog) Summary() CatalogSummary {
 			}
 		}
 	}
+	for _, comparison := range c.manifest.Comparisons {
+		artifactCount += len(comparison.Comparison.Artifacts)
+	}
 	return CatalogSummary{
-		TargetCount:    len(c.manifest.Targets),
-		PreflightCount: len(c.manifest.Preflights),
-		ResultCount:    len(c.manifest.Results),
-		FailureCount:   len(c.manifest.Failures),
-		ArtifactCount:  artifactCount,
+		TargetCount:     len(c.manifest.Targets),
+		PreflightCount:  len(c.manifest.Preflights),
+		ResultCount:     len(c.manifest.Results),
+		ComparisonCount: len(c.manifest.Comparisons),
+		FailureCount:    len(c.manifest.Failures),
+		ArtifactCount:   artifactCount,
 	}
 }
 
@@ -229,9 +248,9 @@ func (c *Catalog) WriteIndex() (string, error) {
 	b.WriteString("\n\n")
 	b.WriteString(fmt.Sprintf("Schema: `%s`\n\n", manifest.SchemaVersion))
 	b.WriteString("## Summary\n\n")
-	b.WriteString("| Targets | Preflights | Results | Failures | Artifacts |\n")
-	b.WriteString("| ---: | ---: | ---: | ---: | ---: |\n")
-	b.WriteString(fmt.Sprintf("| %d | %d | %d | %d | %d |\n\n", manifest.Summary.TargetCount, manifest.Summary.PreflightCount, manifest.Summary.ResultCount, manifest.Summary.FailureCount, manifest.Summary.ArtifactCount))
+	b.WriteString("| Targets | Preflights | Results | Comparisons | Failures | Artifacts |\n")
+	b.WriteString("| ---: | ---: | ---: | ---: | ---: | ---: |\n")
+	b.WriteString(fmt.Sprintf("| %d | %d | %d | %d | %d | %d |\n\n", manifest.Summary.TargetCount, manifest.Summary.PreflightCount, manifest.Summary.ResultCount, manifest.Summary.ComparisonCount, manifest.Summary.FailureCount, manifest.Summary.ArtifactCount))
 	if len(manifest.Targets) > 0 {
 		b.WriteString("## Targets\n\n")
 		b.WriteString("| Slug | Name | URL | Selector |\n")
@@ -247,6 +266,19 @@ func (c *Catalog) WriteIndex() (string, error) {
 		b.WriteString("| --- | --- | ---: |\n")
 		for _, result := range manifest.Results {
 			b.WriteString(fmt.Sprintf("| %s | `%s` | %d |\n", result.Target.Slug, result.Result.OutputDir, len(result.Result.Results)))
+		}
+		b.WriteString("\n")
+	}
+	if len(manifest.Comparisons) > 0 {
+		b.WriteString("## Comparisons\n\n")
+		b.WriteString("| Target | Name | Changed % | Style changes | Attribute changes | Artifacts |\n")
+		b.WriteString("| --- | --- | ---: | ---: | ---: | ---: |\n")
+		for _, comparison := range manifest.Comparisons {
+			changed := 0.0
+			if comparison.Comparison.Pixel != nil {
+				changed = comparison.Comparison.Pixel.ChangedPercent
+			}
+			b.WriteString(fmt.Sprintf("| %s | %s | %.4f%% | %d | %d | %d |\n", comparison.Target.Slug, comparison.Comparison.Name, changed, len(comparison.Comparison.Styles), len(comparison.Comparison.Attributes), len(comparison.Comparison.Artifacts)))
 		}
 		b.WriteString("\n")
 	}

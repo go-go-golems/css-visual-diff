@@ -1207,3 +1207,79 @@ __verb__("compareRegionError", { parents: ["custom"], fields: {} });
 	require.Equal(t, "TypeError", row["name"])
 	require.Contains(t, row["message"], "css-visual-diff.compare.region: expected cvd.locator")
 }
+
+func TestCVDModuleRecordsComparisonInCatalog(t *testing.T) {
+	left := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" style="color: rgb(0, 0, 0); font-size: 16px">Book now</button></body></html>`)
+	}))
+	defer left.Close()
+	right := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="secondary" style="color: rgb(255, 0, 0); font-size: 18px">Book now</button></body></html>`)
+	}))
+	defer right.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "comparison-catalog.js"), `
+async function comparisonCatalogSmoke(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let leftPage, rightPage;
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: { width: 320, height: 240 } });
+    rightPage = await browser.page(rightUrl, { viewport: { width: 320, height: 240 } });
+    const comparison = await cvd.compare.region({
+      name: "cta-comparison",
+      left: leftPage.locator("#cta"),
+      right: rightPage.locator("#cta"),
+      outDir: outDir + "/artifacts/cta-comparison",
+      styleProps: ["color", "font-size"],
+      attributes: ["class"]
+    });
+    await comparison.artifacts.write(outDir + "/artifacts/cta-comparison", ["json", "markdown"]);
+    const catalog = cvd.catalog.create({ title: "Comparison Catalog", outDir, artifactRoot: "artifacts" });
+    catalog.record(comparison, { slug: "cta-comparison", name: "CTA comparison", url: leftUrl, selector: "#cta" });
+    const manifestPath = await catalog.writeManifest();
+    const indexPath = await catalog.writeIndex();
+    const manifest = catalog.manifest();
+    return {
+      manifestPath,
+      indexPath,
+      comparisonCount: manifest.summary.comparisonCount,
+      artifactCount: manifest.summary.artifactCount,
+      firstComparisonName: manifest.comparisons[0].comparison.name,
+      changedPercent: manifest.comparisons[0].comparison.pixel.changedPercent
+    };
+  } finally {
+    if (leftPage) await leftPage.close();
+    if (rightPage) await rightPage.close();
+    await browser.close();
+  }
+}
+__verb__("comparisonCatalogSmoke", { parents: ["custom"], fields: { leftUrl: { argument: true, required: true }, rightUrl: { argument: true, required: true }, outDir: { argument: true, required: true } } });
+`)
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{"default": {"leftUrl": left.URL, "rightUrl": right.URL, "outDir": outDir}}))
+	require.NoError(t, err)
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.EqualValues(t, 1, row["comparisonCount"])
+	require.EqualValues(t, 2, row["artifactCount"])
+	require.Equal(t, "cta-comparison", row["firstComparisonName"])
+	require.Greater(t, row["changedPercent"].(float64), 0.0)
+	manifestBytes, err := os.ReadFile(filepath.Join(outDir, "manifest.json"))
+	require.NoError(t, err)
+	require.Contains(t, string(manifestBytes), `"comparisons"`)
+	indexBytes, err := os.ReadFile(filepath.Join(outDir, "index.md"))
+	require.NoError(t, err)
+	require.Contains(t, string(indexBytes), "## Comparisons")
+}

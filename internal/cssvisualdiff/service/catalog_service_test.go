@@ -31,6 +31,15 @@ func TestCatalogWritesManifestAndIndex(t *testing.T) {
 		Metadata: InspectMetadata{Name: "root", Selector: "#root"},
 		Style:    &StyleSnapshot{Exists: true, Computed: map[string]string{"color": "rgb(0, 0, 0)"}},
 	}}})
+	catalog.AddComparison(target, SelectionComparisonData{
+		SchemaVersion: SelectionComparisonSchemaVersion,
+		Name:          "cta-compare",
+		Left:          SelectionSummary{Selector: "#root", Exists: true, Visible: true},
+		Right:         SelectionSummary{Selector: "#root", Exists: true, Visible: true},
+		Pixel:         &PixelDiffResult{ChangedPercent: 12.5, ChangedPixels: 10, TotalPixels: 80},
+		Styles:        []MapValueDiff{{Name: "color", Left: "red", Right: "blue", Changed: true}},
+		Artifacts:     []SelectionArtifact{{Name: "diffComparison", Path: filepath.Join(artifactDir, "diff.png"), Kind: "png"}},
+	})
 	catalog.AddFailure(CatalogTargetRecord{Slug: "Broken Target"}, CatalogFailureRecord{Code: "SELECTOR_ERROR", Operation: "inspect", Message: "missing selector"})
 
 	manifestPath, err := catalog.WriteManifest()
@@ -49,12 +58,16 @@ func TestCatalogWritesManifestAndIndex(t *testing.T) {
 	require.Equal(t, "artifacts/raw", filepath.ToSlash(manifest.ArtifactRoot))
 	require.Len(t, manifest.Targets, 2)
 	require.Equal(t, "prototype-public-shows", manifest.Targets[0].Slug)
-	require.Equal(t, CatalogSummary{TargetCount: 2, PreflightCount: 1, ResultCount: 1, FailureCount: 1, ArtifactCount: 1}, manifest.Summary)
+	require.Len(t, manifest.Comparisons, 1)
+	require.Equal(t, "cta-compare", manifest.Comparisons[0].Comparison.Name)
+	require.Equal(t, CatalogSummary{TargetCount: 2, PreflightCount: 1, ResultCount: 1, ComparisonCount: 1, FailureCount: 1, ArtifactCount: 2}, manifest.Summary)
 
 	indexBytes, err := os.ReadFile(indexPath)
 	require.NoError(t, err)
 	require.Contains(t, string(indexBytes), "# Smoke Catalog")
 	require.Contains(t, string(indexBytes), "prototype-public-shows")
+	require.Contains(t, string(indexBytes), "cta-compare")
+	require.Contains(t, string(indexBytes), "12.5000%")
 	require.Contains(t, string(indexBytes), "SELECTOR_ERROR")
 }
 

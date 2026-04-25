@@ -66,6 +66,19 @@ func wrapCatalog(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, catalog *se
 		record := catalog.AddResult(target, result)
 		return lowerCatalogResultRecord(record), nil
 	})
+	_ = obj.Set("record", func(call goja.FunctionCall) goja.Value {
+		comparison := mustUnwrapProxyBacking[selectionComparisonHandle](vm, defaultProxyRegistry, "css-visual-diff.catalog.record", call.Argument(0), "cvd.selectionComparison")
+		target := catalogTargetFromComparison(comparison.data)
+		if len(call.Arguments) > 1 && !goja.IsUndefined(call.Argument(1)) && !goja.IsNull(call.Argument(1)) {
+			var err error
+			target, err = decodeCatalogTarget(call.Argument(1).Export())
+			if err != nil {
+				panic(vm.NewGoError(err))
+			}
+		}
+		record := catalog.AddComparison(target, comparison.data)
+		return vm.ToValue(lowerCatalogComparisonRecord(record))
+	})
 	_ = obj.Set("addFailure", func(call goja.FunctionCall) goja.Value {
 		target, err := decodeCatalogTarget(call.Argument(0).Export())
 		if err != nil {
@@ -252,6 +265,7 @@ func lowerCatalogManifest(manifest service.CatalogManifest) map[string]any {
 		"targets":       lowerCatalogTargets(manifest.Targets),
 		"preflights":    lowerCatalogPreflightRecords(manifest.Preflights),
 		"results":       lowerCatalogResultRecords(manifest.Results),
+		"comparisons":   lowerCatalogComparisonRecords(manifest.Comparisons),
 		"failures":      lowerCatalogFailureRecords(manifest.Failures),
 		"summary":       lowerCatalogSummary(manifest.Summary),
 	}
@@ -330,11 +344,12 @@ func lowerCatalogFailureRecord(record service.CatalogFailureRecord) map[string]a
 
 func lowerCatalogSummary(summary service.CatalogSummary) map[string]any {
 	return map[string]any{
-		"targetCount":    summary.TargetCount,
-		"preflightCount": summary.PreflightCount,
-		"resultCount":    summary.ResultCount,
-		"failureCount":   summary.FailureCount,
-		"artifactCount":  summary.ArtifactCount,
+		"targetCount":     summary.TargetCount,
+		"preflightCount":  summary.PreflightCount,
+		"resultCount":     summary.ResultCount,
+		"comparisonCount": summary.ComparisonCount,
+		"failureCount":    summary.FailureCount,
+		"artifactCount":   summary.ArtifactCount,
 	}
 }
 
@@ -346,4 +361,48 @@ func valueString(value goja.Value) string {
 		return fmt.Sprint(exported)
 	}
 	return value.String()
+}
+
+func catalogTargetFromComparison(comparison service.SelectionComparisonData) service.CatalogTargetRecord {
+	name := comparison.Name
+	if name == "" {
+		name = firstNonEmptyString(comparison.Left.Name, comparison.Right.Name, "comparison")
+	}
+	slug := service.SanitizeCatalogSlug(name)
+	return service.CatalogTargetRecord{
+		Slug:     slug,
+		Name:     name,
+		URL:      comparison.Left.URL,
+		Selector: comparison.Left.Selector,
+		Metadata: map[string]any{
+			"kind":          "selectionComparison",
+			"rightUrl":      comparison.Right.URL,
+			"rightSelector": comparison.Right.Selector,
+		},
+	}
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func lowerCatalogComparisonRecords(records []service.CatalogComparisonRecord) []map[string]any {
+	ret := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		ret = append(ret, lowerCatalogComparisonRecord(record))
+	}
+	return ret
+}
+
+func lowerCatalogComparisonRecord(record service.CatalogComparisonRecord) map[string]any {
+	return map[string]any{
+		"target":     lowerCatalogTarget(record.Target),
+		"comparison": lowerJSON(record.Comparison),
+		"recordedAt": record.RecordedAt.Format(time.RFC3339Nano),
+	}
 }

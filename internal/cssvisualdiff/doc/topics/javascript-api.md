@@ -686,6 +686,28 @@ Records selector preflight results.
 
 Records a `page.inspectAll(...)`-shaped result.
 
+### `catalog.record(comparison, target?)`
+
+Records a `cvd.selectionComparison` handle in the catalog. If `target` is omitted, the catalog derives a target from the comparison name and left selector.
+
+```js
+const comparison = await cvd.compare.region({
+  name: "cta-comparison",
+  left: leftPage.locator("#cta"),
+  right: rightPage.locator("#cta"),
+  outDir: catalog.artifactDir("cta-comparison"),
+})
+
+catalog.record(comparison, {
+  slug: "cta-comparison",
+  name: "CTA comparison",
+  url: leftUrl,
+  selector: "#cta",
+})
+```
+
+Recorded comparisons appear in `manifest.comparisons` and in the generated catalog index under `## Comparisons`.
+
 ### `catalog.addFailure(target, error)`
 
 Records a failure. If passed a typed `cvd.*Error`, the catalog captures name/code/operation/message.
@@ -699,8 +721,9 @@ Returns lowerCamel summary counts:
   targetCount: 1,
   preflightCount: 1,
   resultCount: 1,
+  comparisonCount: 1,
   failureCount: 0,
-  artifactCount: 1
+  artifactCount: 3
 }
 ```
 
