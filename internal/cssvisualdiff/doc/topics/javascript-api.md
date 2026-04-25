@@ -363,7 +363,69 @@ Collected data lowers to plain JSON:
 }
 ```
 
-Use collected selections when later JavaScript wants to compare, filter, serialize, or report on browser facts without re-querying the page. The comparison API will build on this model with `cvd.compare.selections(left, right)` and the low-effort `cvd.compare.region({ left, right })` helper.
+Use collected selections when later JavaScript wants to compare, filter, serialize, or report on browser facts without re-querying the page. The comparison API builds on this model with `cvd.compare.selections(left, right)` and the low-effort `cvd.compare.region({ left, right })` helper.
+
+## Selection comparison model
+
+A `SelectionComparison` compares two collected selections. It is data-centered: it does not re-query the browser. It compares the immutable facts already captured in the left and right `CollectedSelection` values.
+
+The Go service model is implemented as `SelectionComparisonData` with schema version `cssvd.selectionComparison.v1`. The future JavaScript handle will be exposed as:
+
+```js
+const left = await leftPage.locator("#cta").collect({ inspect: "rich" })
+const right = await rightPage.locator("#cta").collect({ inspect: "rich" })
+
+const comparison = await cvd.compare.selections(left, right, {
+  threshold: 30,
+  styleProps: ["font-size", "line-height", "color"],
+  attributes: ["class", "data-state"],
+})
+```
+
+A lowered comparison has stable lowerCamel data:
+
+```js
+{
+  schemaVersion: "cssvd.selectionComparison.v1",
+  name: "cta",
+  left: { selector: "#cta", exists: true, visible: true, bounds: { /* ... */ } },
+  right: { selector: "#cta", exists: true, visible: true, bounds: { /* ... */ } },
+  pixel: {
+    threshold: 30,
+    changedPixels: 713,
+    changedPercent: 7.13,
+    normalizedWidth: 500,
+    normalizedHeight: 20
+  },
+  bounds: {
+    changed: true,
+    delta: { x: 0, y: 2, width: 0, height: 4 }
+  },
+  text: { changed: false, left: "Book now", right: "Book now" },
+  styles: [
+    { name: "font-size", left: "16px", right: "18px", changed: true }
+  ],
+  attributes: [
+    { name: "class", left: "primary", right: "secondary", changed: true }
+  ],
+  artifacts: [
+    { name: "diffComparison", kind: "png", path: "artifacts/diff_comparison.png" }
+  ]
+}
+```
+
+The JavaScript handle should expose query methods over this data rather than forcing users to parse the full JSON every time:
+
+```js
+comparison.pixel.summary()
+comparison.bounds.diff()
+comparison.styles.diff(["font-size", "color"])
+comparison.attributes.diff(["class"])
+comparison.report.markdown()
+comparison.artifacts.write(outDir, ["diffComparison", "json", "markdown"])
+```
+
+Reports and artifacts are views over comparison data. The comparison data is the durable source of truth; Markdown, PNGs, and catalog entries are outputs derived from it.
 
 ### `await page.close()`
 
