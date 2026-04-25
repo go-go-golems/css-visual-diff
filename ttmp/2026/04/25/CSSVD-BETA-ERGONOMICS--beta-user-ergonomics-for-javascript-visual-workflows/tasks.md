@@ -48,10 +48,10 @@ Owners: []
 
 ## Phase 4 — Collection profile docs
 
-- [ ] Verify actual `normalizeCollectOptions` behavior in `service/collection.go`.
-- [ ] Document `minimal`, `rich`, and `debug` profile recommendations.
-- [ ] Clarify `styleProps` and `attributes` semantics.
-- [ ] Add notes to `javascript-api` and `pixel-accuracy-scripting-guide`.
+- [x] Verify actual `normalizeCollectOptions` behavior in `service/collection.go`.
+- [x] Document `minimal`, `rich`, and `debug` profile recommendations.
+- [x] Clarify `styleProps` and `attributes` semantics.
+- [x] Add notes to `javascript-api` and `pixel-accuracy-scripting-guide`.
 
 ## Deferred explicitly
 
@@ -61,8 +61,8 @@ Owners: []
 
 ## Validation
 
-- [ ] `go test ./... -count=1`.
-- [ ] `make lint`.
-- [ ] Ticket smoke script passes.
-- [ ] Embedded help renders for `javascript-api` and `pixel-accuracy-scripting-guide`.
-- [ ] `docmgr doctor --root ./ttmp --ticket CSSVD-BETA-ERGONOMICS --stale-after 30` passes.
+- [x] `go test ./... -count=1`.
+- [x] `make lint`.
+- [x] Ticket smoke script passes.
+- [x] Embedded help renders for `javascript-api` and `pixel-accuracy-scripting-guide`.
+- [x] `docmgr doctor --root ./ttmp --ticket CSSVD-BETA-ERGONOMICS --stale-after 30` passes.

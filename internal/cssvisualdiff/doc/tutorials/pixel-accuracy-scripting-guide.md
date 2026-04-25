@@ -241,6 +241,10 @@ async function compareCTA(leftUrl, rightUrl, outDir) {
 
 The returned object is behavior-rich. Use `comparison.summary()` for compact command output, `comparison.toJSON()` for full machine-readable data, `comparison.report.markdown()` for a human explanation, and `comparison.artifacts.write(...)` for durable JSON/Markdown output.
 
+`cvd.compare.region(...)` uses the collection profile system. The default `inspect: "rich"` is intentionally diagnostic: it collects normalized text, a focused set of computed styles, a focused set of attributes, and selector status/bounds before doing the pixel comparison. Use `inspect: "minimal"` when a high-volume CI pass only needs status/bounds/pixels. Use `inspect: "debug"` for one-off failures where you want inner HTML, all computed styles, and all attributes in the collected data.
+
+`styleProps` and `attributes` are collection filters. Passing them does not merely hide fields later; it narrows what browser facts are collected. For example, `styleProps: ["font-size", "line-height"]` means only those computed CSS properties are captured for style comparison. If you omit `styleProps` in `rich` mode, the default set is `display`, `position`, `color`, `background-color`, `font-family`, `font-size`, `font-weight`, `line-height`, `margin`, `padding`, and `border`. If you omit `attributes` in `rich` mode, the default set is `id`, `class`, `role`, `aria-label`, and `data-testid`.
+
 `comparison.artifacts.write(...)` also returns a path map that is useful in project-local CLI summaries:
 
 ```js
@@ -268,13 +272,13 @@ The quick path is best when you want the standard answer. The primitive path is 
 ```js
 const left = await leftPage.locator("[data-testid='primary-cta']").collect({
   inspect: "rich",
-  styles: ["font-size", "font-weight", "line-height", "color"],
+  styleProps: ["font-size", "font-weight", "line-height", "color"],
   attributes: ["class"],
 })
 
 const right = await cvd.collect.selection(rightPage.locator("[data-testid='primary-cta']"), {
   inspect: "rich",
-  styles: ["font-size", "font-weight", "line-height", "color"],
+  styleProps: ["font-size", "font-weight", "line-height", "color"],
   attributes: ["class"],
 })
 

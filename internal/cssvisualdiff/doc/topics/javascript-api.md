@@ -502,9 +502,9 @@ const same = await cvd.collect.selection(page.locator("#cta"), { inspect: "rich"
 
 Collection profiles:
 
-- `inspect: "minimal"` — selector status, existence, visibility, and bounds.
+- `inspect: "minimal"` — selector status, existence, visibility, and bounds only.
 - `inspect: "rich"` — default profile for scripts; includes normalized text, common computed styles, common attributes, and status/bounds.
-- `inspect: "debug"` — intended for deeper diagnostics; includes HTML, all computed styles, and all attributes.
+- `inspect: "debug"` — intended for deeper diagnostics; includes normalized text, inner HTML by default, all computed styles, and all attributes.
 - object form — custom profile equivalent to the Go `CollectOptions` fields.
 
 Collected data lowers to plain JSON:
@@ -526,6 +526,32 @@ Collected data lowers to plain JSON:
 ```
 
 Use collected selections when later JavaScript wants to compare, filter, serialize, or report on browser facts without re-querying the page. The comparison API builds on this model with `cvd.compare.selections(left, right)` and the low-effort `cvd.compare.region({ left, right })` helper.
+
+### Collection profiles
+
+`locator.collect(...)`, `cvd.collect.selection(...)`, and `cvd.compare.region(...)` accept `inspect` profiles. `cvd.compare.region(...)` defaults to `inspect: "rich"` because beta users usually need enough evidence to diagnose a visual mismatch.
+
+| Profile | Collects | Use when | Avoid when |
+|---|---|---|---|
+| `minimal` | Selector status and bounds from preflight. No text, styles, attributes, or HTML unless explicitly requested with lower-level option fields. | CI only needs existence/bounds/pixels, or a script will collect richer data only after a failure. | You need immediate text, style, or attribute diagnosis. |
+| `rich` | Normalized text, focused computed styles, focused attributes, status/bounds. | Default authoring and review mode. | Very large suites where style extraction is too expensive. |
+| `debug` | Normalized text, inner HTML by default, all computed styles, all attributes. Use `outerHtml: true` when you need the wrapper element too. | Deep one-off diagnosis. | Routine CI/page-suite runs. |
+
+The current `rich` default style set is:
+
+```js
+["display", "position", "color", "background-color", "font-family", "font-size", "font-weight", "line-height", "margin", "padding", "border"]
+```
+
+The current `rich` default attribute set is:
+
+```js
+["id", "class", "role", "aria-label", "data-testid"]
+```
+
+Passing `styleProps` or `attributes` changes what is collected, not just what is later displayed. With `inspect: "rich"`, an empty `styleProps` list means “use the rich default style set”; a non-empty `styleProps` list means “collect only these computed CSS properties.” Likewise, an empty `attributes` list means “use the rich default attribute set”; a non-empty `attributes` list means “collect only these attributes.”
+
+`inspect: "debug"` overrides those focused lists by enabling `allStyles` and `allAttributes`. It is useful when you do not know yet which property matters, but it can produce large JSON payloads. If you want broad post-hoc diagnosis, use `inspect: "rich"` without filters or `inspect: "debug"` for one-off debugging. If you want a lean first CI pass, use `inspect: "minimal"` and collect richer data only for failing sections.
 
 ### `await cvd.compare.region({ left, right, ... })`
 
