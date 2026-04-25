@@ -380,13 +380,140 @@ When a script fails, debug from the outside in. First prove the page loaded. The
 | Diff changes bounds on every run | Layout is responsive or unstable. | Ignore expected paths or compare more stable CSS/text facts. |
 | Script says a method belongs elsewhere | Locator/probe/extractor concepts were mixed. | Use locators for live page reads, probes for reusable recipes, extractors for what to read. |
 
-## 14. Key Points
+## 14. Package the Loop as a Project CLI
+
+A one-off script is useful while exploring. A reusable project command is what turns visual validation into a daily development loop.
+
+Use a repository layout like:
+
+```text
+visual-verbs/
+  shared.js
+  homepage.js
+  checkout.js
+```
+
+Each page-specific file can expose a command through `__verb__`:
+
+```js
+async function validateHomepage(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff")
+  const browser = await cvd.browser()
+  const catalog = cvd.catalog.create({
+    title: "Homepage visual validation",
+    outDir,
+    artifactRoot: "artifacts",
+  })
+
+  const sections = [
+    { name: "hero", selector: "[data-section='hero']" },
+    { name: "primary-cta", selector: "[data-testid='primary-cta']" },
+    { name: "footer", selector: "footer" },
+  ]
+
+  const summaries = []
+  let leftPage, rightPage
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: cvd.viewport.desktop(), waitMs: 500 })
+    rightPage = await browser.page(rightUrl, { viewport: cvd.viewport.desktop(), waitMs: 500 })
+
+    for (const section of sections) {
+      const artifactDir = catalog.artifactDir(section.name)
+      const comparison = await cvd.compare.region({
+        name: section.name,
+        left: leftPage.locator(section.selector),
+        right: rightPage.locator(section.selector),
+        outDir: artifactDir,
+      })
+      await comparison.artifacts.write(artifactDir, ["json", "markdown"])
+      catalog.record(comparison, { slug: section.name, selector: section.selector })
+      summaries.push(comparison.summary())
+    }
+
+    return {
+      ok: summaries.every(s => !s.pixel || s.pixel.changedPercent < 2.0),
+      manifestPath: await catalog.writeManifest(),
+      indexPath: await catalog.writeIndex(),
+      summaries,
+    }
+  } finally {
+    if (leftPage) await leftPage.close()
+    if (rightPage) await rightPage.close()
+    await browser.close()
+  }
+}
+
+__verb__("validateHomepage", {
+  parents: ["site"],
+  short: "Validate homepage visual implementation against a reference URL",
+  fields: {
+    leftUrl: { argument: true, required: true },
+    rightUrl: { argument: true, required: true },
+    outDir: { argument: true, required: true },
+  },
+})
+```
+
+Run it directly:
+
+```bash
+css-visual-diff verbs --repository ./visual-verbs site validate-homepage \
+  http://localhost:4100 \
+  http://localhost:4200 \
+  ./artifacts/visual/homepage/latest \
+  --output json
+```
+
+Or wrap it in project-native commands:
+
+```json
+{
+  "scripts": {
+    "visual:homepage": "css-visual-diff verbs --repository ./visual-verbs site validate-homepage",
+    "visual:homepage:local": "npm run visual:homepage -- http://localhost:4100 http://localhost:4200 ./artifacts/visual/homepage/latest --output json"
+  }
+}
+```
+
+The command has two products:
+
+```text
+stdout JSON:   ok/fail summary, changed percentages, report paths
+artifact dir:  index.md, manifest.json, screenshots, pixel diffs, compare.json, compare.md
+```
+
+This split is important. Automation should read the compact JSON result. Humans should open the catalog index and image artifacts. CI can run the same command, upload the artifact directory, and fail only when the JSON policy says the difference is a blocker.
+
+A mature project usually has both fast and full commands:
+
+```text
+visual:quick   one page, one viewport, high-value selectors; local authoring
+visual:full    many pages/viewports/sections; CI or pre-release validation
+```
+
+The loop becomes:
+
+```text
+edit CSS/component
+run visual command
+open index.md and diff_comparison.png
+inspect JSON/Markdown evidence
+fix implementation
+run again
+```
+
+For coding agents, this packaged command is a concrete feedback loop: after changing UI code, run the visual command, inspect structured differences, and only claim success when the command passes or remaining differences are documented.
+
+## 15. Key Points
 
 - Pixel accuracy is a loop, not a one-time screenshot. The loop is render, locate, extract, compare, report, and adjust.
 - Locators are page-bound handles. They are best for exploration and direct questions about the current page.
 - Probes are reusable recipes. They are best when you want repeatable checks across targets, runs, or CI jobs.
 - Extractors make the question explicit. A script that asks for `text`, `bounds`, and `computedStyle(["color"])` is easier to review than a script that dumps everything.
 - Snapshots are plain data. They are cheap to diff, write, store, and reason about.
+- `cvd.compare.region(...)` is the quickest way to get pixel artifacts plus structured selector comparison data.
+- Catalogs turn many section comparisons into one review packet with `manifest.json`, `index.md`, and per-section artifacts.
+- Repository-local verbs package visual validation as reusable CLI commands for local authoring, CI, and coding-agent loops.
 - Inspect artifacts are durable evidence. Use them when a human needs screenshots, HTML, or full CSS/DOM files.
 
 ## See Also

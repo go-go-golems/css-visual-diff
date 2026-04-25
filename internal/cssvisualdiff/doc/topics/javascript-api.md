@@ -129,6 +129,106 @@ return comparison.toJSON()
 
 The quick path is just collect-left, collect-right, compare-selections, plus sensible artifact defaults.
 
+## Website validation workflow
+
+For website implementation work, think of a script as an executable design review packet. The script should choose meaningful selectors, compare rendered regions, write artifacts, and return a compact policy result.
+
+A typical project-local workflow is:
+
+```text
+reference/current URLs
+        ↓
+page.locator(selector)
+        ↓
+cvd.compare.region(...)
+        ↓
+SelectionComparison
+        ↓
+comparison.summary() for stdout JSON
+comparison.artifacts.write(...) for compare.json / compare.md
+catalog.record(...) for manifest.json / index.md
+```
+
+For one selector, the result is a comparison object:
+
+```js
+const comparison = await cvd.compare.region({
+  name: "primary-cta",
+  left: referencePage.locator("[data-testid='primary-cta']"),
+  right: implementationPage.locator("[data-testid='primary-cta']"),
+  outDir: "artifacts/primary-cta",
+  styleProps: ["font-size", "line-height", "color", "background-color", "border-radius"],
+  attributes: ["class", "aria-label"],
+})
+
+await comparison.artifacts.write("artifacts/primary-cta", ["json", "markdown"])
+
+return {
+  ok: comparison.pixel.summary().changedPercent < 2.0,
+  pixel: comparison.pixel.summary(),
+  bounds: comparison.bounds.diff(),
+  typography: comparison.styles.diff(["font-size", "line-height"]),
+}
+```
+
+For many selectors, create a catalog:
+
+```js
+const catalog = cvd.catalog.create({
+  title: "Homepage visual validation",
+  outDir,
+  artifactRoot: "artifacts",
+})
+
+for (const section of sections) {
+  const artifactDir = catalog.artifactDir(section.name)
+  const comparison = await cvd.compare.region({
+    name: section.name,
+    left: leftPage.locator(section.selector),
+    right: rightPage.locator(section.selector),
+    outDir: artifactDir,
+  })
+  await comparison.artifacts.write(artifactDir, ["json", "markdown"])
+  catalog.record(comparison, { slug: section.name, selector: section.selector })
+}
+
+return {
+  manifestPath: await catalog.writeManifest(),
+  indexPath: await catalog.writeIndex(),
+  summary: catalog.summary(),
+}
+```
+
+This pattern gives two outputs: stdout JSON for automation and an artifact directory for human review.
+
+## Packaging as a reusable CLI
+
+A mature project should wrap visual scripts as repository-local verbs and then expose them through `npm`, `make`, CI jobs, or another project command runner.
+
+```text
+visual-verbs/
+  shared.js
+  homepage.js
+  checkout.js
+```
+
+```bash
+css-visual-diff verbs --repository ./visual-verbs site validate-homepage \
+  http://localhost:4100 \
+  http://localhost:4200 \
+  ./artifacts/visual/homepage/latest \
+  --output json
+```
+
+The useful boundary is:
+
+```text
+stdout JSON:   ok/fail summary and paths
+artifact dir:  index.md, manifest.json, screenshots, diff PNGs, compare.json, compare.md
+```
+
+That boundary lets the same command support local authoring, CI artifact upload, design review, and coding-agent feedback loops.
+
 ## Browser and page API
 
 ### `await cvd.browser(options?)`

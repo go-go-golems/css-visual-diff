@@ -108,6 +108,119 @@ Run:
 css-visual-diff verbs --repository ./verbs custom hello Manuel
 ```
 
+## Packaging project-local visual CLIs
+
+Repository-scanned verbs are designed to become project-local development commands. A one-off script is useful while exploring a visual issue; a packaged verb is useful every day because it gives the team one stable command for local authoring, CI artifacts, design review, and coding-agent feedback loops.
+
+A typical repository layout is:
+
+```text
+visual-verbs/
+  shared.js
+  homepage.js
+  checkout.js
+```
+
+A page-specific verb can compare multiple sections, write a catalog, and return compact JSON:
+
+```js
+async function validateHomepage(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff")
+  const browser = await cvd.browser()
+  const catalog = cvd.catalog.create({
+    title: "Homepage visual validation",
+    outDir,
+    artifactRoot: "artifacts",
+  })
+
+  const sections = [
+    { name: "hero", selector: "[data-section='hero']" },
+    { name: "primary-cta", selector: "[data-testid='primary-cta']" },
+    { name: "footer", selector: "footer" },
+  ]
+
+  const summaries = []
+  let leftPage, rightPage
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: cvd.viewport.desktop(), waitMs: 500 })
+    rightPage = await browser.page(rightUrl, { viewport: cvd.viewport.desktop(), waitMs: 500 })
+
+    for (const section of sections) {
+      const artifactDir = catalog.artifactDir(section.name)
+      const comparison = await cvd.compare.region({
+        name: section.name,
+        left: leftPage.locator(section.selector),
+        right: rightPage.locator(section.selector),
+        outDir: artifactDir,
+      })
+      await comparison.artifacts.write(artifactDir, ["json", "markdown"])
+      catalog.record(comparison, { slug: section.name, selector: section.selector })
+      summaries.push(comparison.summary())
+    }
+
+    return {
+      ok: summaries.every(s => !s.pixel || s.pixel.changedPercent < 2.0),
+      manifestPath: await catalog.writeManifest(),
+      indexPath: await catalog.writeIndex(),
+      summaries,
+    }
+  } finally {
+    if (leftPage) await leftPage.close()
+    if (rightPage) await rightPage.close()
+    await browser.close()
+  }
+}
+
+__verb__("validateHomepage", {
+  parents: ["site"],
+  short: "Validate homepage visual implementation against a reference URL",
+  fields: {
+    leftUrl: { argument: true, required: true, help: "Reference/baseline URL" },
+    rightUrl: { argument: true, required: true, help: "Implementation/current URL" },
+    outDir: { argument: true, required: true, help: "Artifact output directory" },
+  },
+})
+```
+
+Run it directly:
+
+```bash
+css-visual-diff verbs --repository ./visual-verbs site validate-homepage \
+  http://localhost:4100 \
+  http://localhost:4200 \
+  ./artifacts/visual/homepage/latest \
+  --output json
+```
+
+Or wrap it in `package.json` so the project has a memorable command:
+
+```json
+{
+  "scripts": {
+    "visual:homepage": "css-visual-diff verbs --repository ./visual-verbs site validate-homepage",
+    "visual:homepage:local": "npm run visual:homepage -- http://localhost:4100 http://localhost:4200 ./artifacts/visual/homepage/latest --output json"
+  }
+}
+```
+
+A reusable visual CLI should have:
+
+- stable positional arguments for reference URL, implementation URL, and artifact directory,
+- predictable output paths,
+- compact JSON on stdout for automation,
+- Markdown and PNG artifacts for human review,
+- catalog `manifest.json` and `index.md` for multi-section runs,
+- help text that explains what the command compares and what it writes,
+- local and CI usage of the same command.
+
+The resulting development loop is:
+
+```text
+edit UI code → run visual command → inspect index/diffs/JSON → fix or approve → run again
+```
+
+This is especially useful for coding agents: the command gives the agent a concrete pass/fail signal plus structured evidence such as changed pixel percentages, bounds deltas, and style differences.
+
 ## Sentinels
 
 Supported metadata sentinels:

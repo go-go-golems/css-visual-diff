@@ -1469,3 +1469,65 @@ go test ./... -count=1
 2. Add service-level `CompareRegions(...)` before adding JS adapters.
 3. Implement `cvd.compare.region(...)` under `require("css-visual-diff")`.
 4. Update embedded docs and add binary smoke scripts.
+
+## 2026-04-25 — README and embedded docs refresh from user/designer writeup
+
+### What changed
+
+- Rewrote `README.md` so it describes the whole project as a browser-driven visual validation toolkit rather than only a Go CLI plus a short JS snippet.
+- Added README sections for:
+  - core YAML / inspection / JavaScript workflows,
+  - quick `cvd.compare.region(...)` comparison,
+  - the JavaScript API mental model (`Browser`, `Page`, `Locator`, `CollectedSelection`, `SelectionComparison`, `Catalog`),
+  - quick path versus primitive path,
+  - packaging repository-local scripts into reusable project CLI commands,
+  - JavaScript verbs and embedded help,
+  - YAML config workflows, inspection, and prepared targets.
+- Expanded `internal/cssvisualdiff/doc/topics/javascript-api.md` with a website validation workflow section and reusable CLI packaging guidance.
+- Expanded `internal/cssvisualdiff/doc/topics/javascript-verbs.md` with a project-local visual CLI packaging section, including `visual-verbs/`, `__verb__`, cataloged comparisons, `package.json` wrappers, and the local/CI/coding-agent loop.
+- Expanded `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md` with a new “Package the Loop as a Project CLI” section and updated key points.
+
+### Why
+
+- The Obsidian user/designer article clarified the main public story: the API is not just for one-off scripts, but for packaging repeatable visual validation into a development loop.
+- The README needed to explain the whole project coherently: YAML jobs, inspection commands, JavaScript verbs, comparison handles, artifacts, catalogs, and project CLI packaging.
+- The embedded Glazed docs should teach the same canonical concepts that the public examples and reports now teach.
+
+### Validation
+
+```bash
+go test ./... -count=1
+```
+
+Passed.
+
+Embedded help rendering also passed:
+
+```bash
+go run ./cmd/css-visual-diff help javascript-api >/tmp/cssvd-help-jsapi.txt
+wc -l /tmp/cssvd-help-jsapi.txt
+# 893 /tmp/cssvd-help-jsapi.txt
+
+go run ./cmd/css-visual-diff help javascript-verbs >/tmp/cssvd-help-jsverbs.txt
+wc -l /tmp/cssvd-help-jsverbs.txt
+# 464 /tmp/cssvd-help-jsverbs.txt
+
+go run ./cmd/css-visual-diff help pixel-accuracy-scripting-guide >/tmp/cssvd-help-pixel.txt
+wc -l /tmp/cssvd-help-pixel.txt
+# 612 /tmp/cssvd-help-pixel.txt
+```
+
+### Issues
+
+- No code changes were made in this docs refresh.
+- I intentionally did not implement optional Phase 11. The docs update focuses on the already implemented JavaScript API surface and reusable verb packaging.
+- `README.md` was significantly rewritten, so a reviewer should scan it for whether any older prototype-only inspection nuance should be restored elsewhere.
+
+### Review instructions
+
+- Start with `README.md` and check that the project story is accurate.
+- Then compare the embedded help docs:
+  - `css-visual-diff help javascript-api`,
+  - `css-visual-diff help javascript-verbs`,
+  - `css-visual-diff help pixel-accuracy-scripting-guide`.
+- Validate with `go test ./... -count=1`.

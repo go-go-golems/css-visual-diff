@@ -1,24 +1,33 @@
 # css-visual-diff
 
-`css-visual-diff` is a Go CLI for comparing rendered HTML/CSS across two browser targets.
-It is being rebuilt from the proven `sbcap` comparison engine and now uses a standard
-`go-go-golems` project layout.
+`css-visual-diff` is a browser-driven visual validation toolkit for comparing rendered web pages, component states, and design implementations. It combines a Go CLI, Chromium automation, pixel-diff image artifacts, computed CSS inspection, YAML configuration workflows, and a programmable JavaScript API for project-specific validation scripts.
 
-## Current shape
+The project is useful when a screenshot alone is not enough. A screenshot can show that something changed; `css-visual-diff` helps explain what changed by collecting evidence from the browser:
 
-The live tool now centers on:
+- element existence and visibility,
+- selector bounds and layout deltas,
+- rendered text,
+- computed CSS values,
+- attributes and semantic state,
+- region screenshots and pixel-diff PNGs,
+- JSON and Markdown reports,
+- catalog manifests and indexes for multi-section review.
 
-- browser-driven capture via `chromedp`
-- element-level compare workflows
-- computed CSS diffs
-- matched-style / cascade inspection
-- pixel diff artifacts
+The current implementation is rebuilt from the proven `sbcap` comparison engine and uses the standard `go-go-golems` project layout.
 
-The previous Python prototype has been preserved under:
+## Core workflows
 
-- `legacy/python-prototype/`
+`css-visual-diff` supports three complementary workflows.
 
-## Development
+| Workflow | Use it when | Main entry point |
+|---|---|---|
+| YAML/config comparison | You have repeatable baseline/current targets, sections, prepare steps, and output modes. | `css-visual-diff run --config ...` |
+| Inspection and tuning | You need to debug one URL, side, selector, screenshot, or computed CSS probe. | `inspect`, `screenshot`, `css-md`, `css-json`, `html` |
+| JavaScript visual scripts | You need project-specific loops, selectors, policies, catalogs, or CI commands. | `css-visual-diff verbs ...` and `require("css-visual-diff")` |
+
+The JavaScript workflow is now the most flexible API surface. It is designed for designers, frontend engineers, and coding agents who want to build an implementation loop: change UI code, run a validation command, inspect structured evidence, fix the implementation, and run again.
+
+## Install and develop
 
 ```bash
 GOWORK=off go mod tidy
@@ -26,17 +35,260 @@ GOWORK=off go test ./...
 GOWORK=off go build ./cmd/css-visual-diff
 ```
 
-## CLI
+Run the CLI during development:
 
 ```bash
 GOWORK=off go run ./cmd/css-visual-diff --help
-GOWORK=off go run ./cmd/css-visual-diff compare --help
-GOWORK=off go run ./cmd/css-visual-diff chromedp-probe --help
+GOWORK=off go run ./cmd/css-visual-diff run --help
+GOWORK=off go run ./cmd/css-visual-diff inspect --help
+GOWORK=off go run ./cmd/css-visual-diff verbs --help
 ```
 
-## JavaScript verbs and programmable catalogs
+## Quick JavaScript region comparison
 
-`css-visual-diff` can scan annotated JavaScript files and expose them as CLI verbs under the lazy `verbs` namespace:
+The fastest programmable path is `cvd.compare.region(...)`. It compares two loaded page regions, captures screenshots, computes a pixel diff, collects selector facts, and returns a `SelectionComparison` handle.
+
+```js
+async function compareCTA(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff")
+  const browser = await cvd.browser()
+  let leftPage, rightPage
+
+  try {
+    leftPage = await browser.page(leftUrl, {
+      viewport: { width: 1280, height: 720 },
+      waitMs: 250,
+      name: "reference",
+    })
+    rightPage = await browser.page(rightUrl, {
+      viewport: { width: 1280, height: 720 },
+      waitMs: 250,
+      name: "implementation",
+    })
+
+    const comparison = await cvd.compare.region({
+      name: "primary-cta",
+      left: leftPage.locator("[data-testid='primary-cta']"),
+      right: rightPage.locator("[data-testid='primary-cta']"),
+      outDir,
+      threshold: 30,
+      styleProps: ["font-size", "line-height", "color", "background-color", "border-radius"],
+      attributes: ["class", "aria-label"],
+    })
+
+    await comparison.artifacts.write(outDir, ["json", "markdown"])
+    return comparison.summary()
+  } finally {
+    if (leftPage) await leftPage.close()
+    if (rightPage) await rightPage.close()
+    await browser.close()
+  }
+}
+```
+
+That one comparison can produce:
+
+```text
+left_region.png
+right_region.png
+diff_only.png
+diff_comparison.png
+compare.json
+compare.md
+```
+
+`diff_comparison.png` is the review image. `compare.json` is the automation record. `compare.md` is the human-readable explanation.
+
+## JavaScript API mental model
+
+The API is Promise-first and organized around a small object model:
+
+| Object | Meaning | Example |
+|---|---|---|
+| `Browser` | Chromium-backed browser service. | `const browser = await cvd.browser()` |
+| `Page` | One loaded browser page. | `await browser.page(url, options)` |
+| `Locator` | A selector bound to one page. | `page.locator("#cta")` |
+| `CollectedSelection` | Stable browser evidence for one selector. | `await locator.collect()` |
+| `SelectionComparison` | Analysis of two collected selections. | `await cvd.compare.selections(left, right)` |
+| `Catalog` | Durable manifest/index for many artifacts and comparisons. | `cvd.catalog.create(...)` |
+
+A locator is live browser state. A collected selection is immutable evidence. A comparison is deterministic analysis over collected evidence. This separation makes scripts easier to reason about and easier to debug.
+
+Canonical namespaces:
+
+```js
+cvd.collect.selection(locator, options?)
+cvd.compare.region({ left, right, ... })
+cvd.compare.selections(leftSelection, rightSelection, options?)
+cvd.image.diff(options)
+cvd.diff.structural(before, after, options?)
+cvd.snapshot.page(page, probes, options?)
+cvd.catalog.create(options)
+cvd.config.load(path)
+```
+
+Use `summary()` for compact CLI output and `toJSON()` for durable machine-readable data.
+
+## Quick path vs primitive path
+
+Use the quick path when you want a low-effort visual answer:
+
+```js
+const comparison = await cvd.compare.region({
+  left: leftPage.locator("#cta"),
+  right: rightPage.locator("#cta"),
+  outDir: "artifacts/cta",
+})
+return comparison.summary()
+```
+
+Use the primitive path when you want project-specific policy logic:
+
+```js
+const left = await leftPage.locator("#cta").collect({
+  inspect: "rich",
+  styles: ["font-size", "line-height", "color"],
+  attributes: ["class", "aria-label"],
+})
+const right = await cvd.collect.selection(rightPage.locator("#cta"), {
+  inspect: "rich",
+  styles: ["font-size", "line-height", "color"],
+  attributes: ["class", "aria-label"],
+})
+
+const comparison = await cvd.compare.selections(left, right, {
+  styleProps: ["font-size", "line-height", "color"],
+  attributes: ["class", "aria-label"],
+})
+
+return {
+  ok: comparison.styles.diff(["font-size", "line-height"]).length === 0,
+  summary: comparison.summary(),
+  bounds: comparison.bounds.diff(),
+}
+```
+
+The quick path is implemented as a composition of the primitives: collect left, collect right, capture regions, compare selections, and return a comparison handle.
+
+## Packaging scripts into a reusable project CLI
+
+One-off scripts are useful while experimenting, but the real power comes from packaging validation scripts as project-local CLI commands. That turns visual validation into a core development loop instead of a manual QA event.
+
+A typical structure is:
+
+```text
+visual-verbs/
+  shared.js
+  homepage.js
+  checkout.js
+```
+
+A project-local verb can compare key sections and write a catalog:
+
+```js
+// visual-verbs/homepage.js
+async function validateHomepage(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff")
+  const browser = await cvd.browser()
+  const catalog = cvd.catalog.create({
+    title: "Homepage visual validation",
+    outDir,
+    artifactRoot: "artifacts",
+  })
+
+  const sections = [
+    { name: "hero", selector: "[data-section='hero']" },
+    { name: "primary-cta", selector: "[data-testid='primary-cta']" },
+    { name: "footer", selector: "footer" },
+  ]
+
+  const summaries = []
+  let leftPage, rightPage
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: cvd.viewport.desktop(), waitMs: 500 })
+    rightPage = await browser.page(rightUrl, { viewport: cvd.viewport.desktop(), waitMs: 500 })
+
+    for (const section of sections) {
+      const artifactDir = catalog.artifactDir(section.name)
+      const comparison = await cvd.compare.region({
+        name: section.name,
+        left: leftPage.locator(section.selector),
+        right: rightPage.locator(section.selector),
+        outDir: artifactDir,
+        styleProps: ["font-size", "line-height", "color", "background-color", "padding"],
+        attributes: ["class", "aria-label"],
+      })
+      await comparison.artifacts.write(artifactDir, ["json", "markdown"])
+      catalog.record(comparison, {
+        slug: section.name,
+        name: section.name,
+        url: leftUrl,
+        selector: section.selector,
+      })
+      summaries.push(comparison.summary())
+    }
+
+    return {
+      ok: summaries.every(s => !s.pixel || s.pixel.changedPercent < 2.0),
+      manifestPath: await catalog.writeManifest(),
+      indexPath: await catalog.writeIndex(),
+      summaries,
+    }
+  } finally {
+    if (leftPage) await leftPage.close()
+    if (rightPage) await rightPage.close()
+    await browser.close()
+  }
+}
+
+__verb__("validateHomepage", {
+  parents: ["site"],
+  short: "Validate homepage visual implementation against a reference URL",
+  fields: {
+    leftUrl: { argument: true, required: true, help: "Reference/baseline URL" },
+    rightUrl: { argument: true, required: true, help: "Implementation/current URL" },
+    outDir: { argument: true, required: true, help: "Artifact output directory" },
+  },
+})
+```
+
+Run it directly:
+
+```bash
+css-visual-diff verbs --repository ./visual-verbs site validate-homepage \
+  http://localhost:4100 \
+  http://localhost:4200 \
+  ./artifacts/visual/homepage/latest \
+  --output json
+```
+
+Or wrap it in project-native commands:
+
+```json
+{
+  "scripts": {
+    "visual:homepage": "css-visual-diff verbs --repository ./visual-verbs site validate-homepage",
+    "visual:homepage:local": "npm run visual:homepage -- http://localhost:4100 http://localhost:4200 ./artifacts/visual/homepage/latest --output json"
+  }
+}
+```
+
+The reusable loop becomes:
+
+```text
+edit CSS/component
+run visual command
+open index.md and diff_comparison.png
+inspect JSON/Markdown evidence
+fix implementation
+run again
+```
+
+For CI, run the same project command, upload the artifact directory, and use the JSON result as the pass/fail or warning signal. CI should not invent a separate visual workflow; it should run the same reusable command developers run locally.
+
+## JavaScript verbs
+
+`css-visual-diff` scans annotated JavaScript files and exposes them as typed CLI commands under the lazy `verbs` namespace:
 
 ```bash
 GOWORK=off go run ./cmd/css-visual-diff verbs --help
@@ -70,29 +322,19 @@ GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-config \
 External verb repositories can be supplied at runtime:
 
 ```bash
-GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs examples catalog inspect-page \
-  http://127.0.0.1:8767/ '#cta' /tmp/cssvd-example \
+GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs examples compare region \
+  http://localhost:3000/original \
+  http://localhost:3000/react \
+  '#cta' \
+  /tmp/cssvd-example \
   --output json
 ```
 
-JavaScript verbs can use the Promise-first native module. The quickest visual comparison path is `cvd.compare.region(...)`:
+Generated JavaScript commands are intentionally not injected at the CLI root. Use `css-visual-diff verbs ...` so repository scan errors, duplicate script command paths, and script-specific flags stay scoped to the verbs subtree.
 
-```js
-const cvd = require("css-visual-diff")
-const browser = await cvd.browser()
-const leftPage = await browser.page(leftUrl, { viewport: { width: 1280, height: 720 } })
-const rightPage = await browser.page(rightUrl, { viewport: { width: 1280, height: 720 } })
+## Embedded help
 
-const comparison = await cvd.compare.region({
-  left: leftPage.locator("#cta"),
-  right: rightPage.locator("#cta"),
-  outDir: "/tmp/cssvd/artifacts/cta",
-})
-
-return comparison.summary()
-```
-
-See the embedded Glazed help entries:
+The built binary includes Glazed help entries:
 
 ```bash
 css-visual-diff help javascript-api
@@ -100,14 +342,21 @@ css-visual-diff help javascript-verbs
 css-visual-diff help pixel-accuracy-scripting-guide
 ```
 
-These entries cover `require("css-visual-diff")`, Promise behavior, locators, extraction, snapshots, diffs, typed errors, catalog APIs, `__verb__`, repositories, generated flags, output modes, duplicate command paths, and migration notes.
+They cover the Promise-first module, browser/page/locator APIs, collection and comparison objects, pixel workflows, structural snapshots, catalogs, repository-scanned verbs, generated flags, output modes, and project CLI packaging patterns.
 
-Migration note: generated JavaScript commands are intentionally no longer injected at the CLI root. Use `css-visual-diff verbs ...` so repository scan errors and duplicate script command paths remain scoped to the verbs subtree.
+## YAML config workflows
 
-## Run co-located configs from a directory
+YAML configs remain the right shape for repeatable baseline/current comparison jobs. A config can define targets, prepare steps, screenshot sections, CSS probes, output modes, and validation options.
 
-You can keep small comparison configs next to the component or page they cover and
-run all of them through the existing `run` verb:
+Run one config:
+
+```bash
+GOWORK=off go run ./cmd/css-visual-diff run \
+  --config examples/pyxis-public-shows.yaml \
+  --modes capture,cssdiff,matched-styles,pixeldiff,html-report
+```
+
+Scan a directory for co-located configs:
 
 ```bash
 GOWORK=off go run ./cmd/css-visual-diff run \
@@ -122,18 +371,11 @@ GOWORK=off go run ./cmd/css-visual-diff run \
 *.css-visual-diff.yaml
 ```
 
-It intentionally does not load every YAML file, and it skips common generated/vendor
-directories such as `node_modules`, `.git`, `dist`, `build`, and `.css-visual-diff`.
-Use explicit `--config path/to/file.yaml` when you want to run one config file.
+It skips common generated/vendor directories such as `node_modules`, `.git`, `dist`, `build`, and `.css-visual-diff`.
 
 ## Inspect one side before comparing
 
-When tuning a `*.css-visual-diff.yml` file, first inspect one side and one selector
-before running a full comparison. This helps verify that the URL, viewport, prepare
-hook, root selector, section selector, and CSS probe selector are correct.
-
-A config can contain many screenshot regions under `sections` and many computed-CSS
-probes under `styles`. Inspect a named CSS probe and write a bundle of artifacts:
+When tuning selectors, inspect one side before running a full comparison. This helps verify the URL, viewport, prepare hook, root selector, section selector, and CSS probe selector.
 
 ```bash
 GOWORK=off go run ./cmd/css-visual-diff inspect \
@@ -154,7 +396,7 @@ computed-css.md
 inspect.json
 ```
 
-For tight selector-tuning loops, use the single-artifact verbs:
+For tight selector-tuning loops, use single-artifact commands:
 
 ```bash
 # Check the crop/element screenshot.
@@ -179,15 +421,11 @@ GOWORK=off go run ./cmd/css-visual-diff html \
   --output-file /tmp/original-root.html
 ```
 
-Available single-artifact verbs are `screenshot`, `css-md`, `css-json`, `html`, and
-`inspect-json`. They share the same selector flags as `inspect`: `--root`,
-`--section`, `--style`, or `--selector`.
+Available single-artifact commands are `screenshot`, `css-md`, `css-json`, `html`, and `inspect-json`. They share the same selector flags as `inspect`: `--root`, `--section`, `--style`, or `--selector`.
 
 ## Prepared targets
 
-Some design sources do not render the comparison target directly. They may open a
-pan/zoom design canvas, prototype shell, or development board first. Config-driven
-runs can now prepare each target after navigation and before capture/CSS analysis.
+Some design sources do not render the comparison target directly. They may open a pan/zoom design canvas, prototype shell, or development board first. Config-driven runs can prepare each target after navigation and before capture/CSS analysis.
 
 Minimal script prepare:
 
@@ -228,9 +466,7 @@ original:
     background: "#fff"
 ```
 
-When `root_selector` is set, capture mode uses an element screenshot for the full
-baseline PNG instead of a browser full-page screenshot. This avoids including
-prototype shell or design-canvas chrome in the exported baseline.
+When `root_selector` is set, capture mode uses an element screenshot for the full baseline PNG instead of a browser full-page screenshot. This avoids including prototype shell or design-canvas chrome in the exported baseline.
 
 Optional capture artifacts and validation:
 
@@ -258,40 +494,12 @@ output:
   validate_pngs: true
 ```
 
-To generate a static artifact browser for the run, include `html-report` after the
-modes that produce artifacts:
+To generate a static artifact browser for the run, include `html-report` after the modes that produce artifacts. The report is written to `<output.dir>/index.html`.
 
-```bash
-GOWORK=off go run ./cmd/css-visual-diff run \
-  --config examples/pyxis-public-shows.yaml \
-  --modes capture,cssdiff,matched-styles,pixeldiff,html-report
-```
+## Legacy prototype
 
-The report is written to:
+The previous Python prototype is preserved under:
 
 ```text
-<output.dir>/index.html
+legacy/python-prototype/
 ```
-
-### Prototype-only inspection
-
-The current config shape still requires both `original` and `react` targets because
-`css-visual-diff` is a comparator. To inspect only a prototype/export target, point
-both targets at the same URL and use the same prepare hook, then run only capture and
-report modes:
-
-```bash
-GOWORK=off go run ./cmd/css-visual-diff run \
-  --config examples/pyxis-prototype-only.yaml \
-  --modes capture,html-report
-```
-
-In that workflow the second target is just a mirror so the report renderer can reuse
-its existing two-column UI. Do not interpret pixel diffs from a prototype-only run.
-Use it to validate the prepared DOM, PNGs, prepared HTML, inspect JSON, and capture
-validation before comparing against Storybook.
-
-Validation is intentionally layered: inspect DOM text/selectors first, then PNG
-structure and color-strip statistics. Use human visual review or `understand_image`
-for semantic questions such as cutoff/footer visibility; OCR should be a later
-fallback, not the first validation tool.

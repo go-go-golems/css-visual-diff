@@ -67,6 +67,7 @@
 - Ran real-site validation for the public compare-region path and preserved artifacts under `validation/`: `example.com` vs `example.org` produced a zero-diff sanity check, and `example.com` vs `www.iana.org/domains/reserved` produced a 10.2954% changed-pixel comparison with JSON/Markdown/PNG artifacts.
 - Implemented Phase 9 catalog integration in commit `1227f1a`: added catalog comparison records, `catalog.record(comparison, target?)`, comparison counts and artifact counts in summaries, comparison manifest lowering, comparison index rendering, docs, tests, and `scripts/009-comparison-catalog-smoke.sh`.
 - Implemented Phase 10 public examples/docs refresh in commit `ffd94c4`: added `examples/verbs/compare-region.js`, added `examples/verbs/collect-and-analyze.js`, refreshed examples README and README snippets, expanded the pixel-accuracy guide, made JS write helpers create parent directories, added `scripts/010-public-examples-smoke.sh`, and marked Phase 10 complete.
+- Refreshed the README and embedded Glazed docs from the new textbook-style user/designer writeup: rewrote `README.md` around website validation workflows, added reusable project CLI packaging guidance, expanded `javascript-api`, `javascript-verbs`, and `pixel-accuracy-scripting-guide` with project-local verb / artifact / CI loop patterns, and validated embedded help rendering plus `go test ./... -count=1`.
 
 ## Key decision
 
