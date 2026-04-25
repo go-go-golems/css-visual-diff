@@ -241,6 +241,18 @@ async function compareCTA(leftUrl, rightUrl, outDir) {
 
 The returned object is behavior-rich. Use `comparison.summary()` for compact command output, `comparison.toJSON()` for full machine-readable data, `comparison.report.markdown()` for a human explanation, and `comparison.artifacts.write(...)` for durable JSON/Markdown output.
 
+`comparison.artifacts.write(...)` also returns a path map that is useful in project-local CLI summaries:
+
+```js
+const written = await comparison.artifacts.write(outDir, ["json", "markdown"])
+return {
+  changedPercent: comparison.pixel.summary().changedPercent,
+  compareJson: written.json,
+  compareMarkdown: written.markdown,
+  diffComparison: written.diffComparison,
+}
+```
+
 The files written under `outDir` are the evidence a reviewer needs:
 
 - `left_region.png` shows the left rendered region.

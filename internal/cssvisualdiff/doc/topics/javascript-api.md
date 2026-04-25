@@ -624,8 +624,25 @@ comparison.bounds.diff()
 comparison.styles.diff(["font-size", "color"])
 comparison.attributes.diff(["class"])
 comparison.report.markdown()
-comparison.artifacts.write(outDir, ["diffComparison", "json", "markdown"])
+const written = await comparison.artifacts.write(outDir, ["json", "markdown"])
 ```
+
+`comparison.artifacts.write(...)` writes requested JSON/Markdown reports and returns stable artifact paths that are convenient for project-local CLI output:
+
+```js
+{
+  outDir: "artifacts/cta",
+  json: "artifacts/cta/compare.json",
+  markdown: "artifacts/cta/compare.md",
+  leftRegion: "artifacts/cta/left_region.png",
+  rightRegion: "artifacts/cta/right_region.png",
+  diffOnly: "artifacts/cta/diff_only.png",
+  diffComparison: "artifacts/cta/diff_comparison.png",
+  written: ["artifacts/cta/compare.json", "artifacts/cta/compare.md"]
+}
+```
+
+The PNG paths are returned when known from the comparison or when the standard `cvd.compare.region(...)` files exist in `outDir`. `artifacts.write(...)` does not re-render PNGs; it writes JSON/Markdown and reports known artifact paths.
 
 Reports and artifacts are views over comparison data. The comparison data is the durable source of truth; Markdown, PNGs, and catalog entries are outputs derived from it.
 

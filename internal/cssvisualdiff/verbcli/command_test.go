@@ -1139,13 +1139,20 @@ async function compareRegionSmoke(leftUrl, rightUrl, outDir) {
       styleProps: ["color", "font-size"],
       attributes: ["class"]
     });
-    await comparison.artifacts.write(outDir, ["json", "markdown"]);
+    const written = await comparison.artifacts.write(outDir, ["json", "markdown"]);
     return {
       schemaVersion: comparison.toJSON().schemaVersion,
       changedPercent: comparison.pixel.summary().changedPercent,
       styleCount: comparison.styles.diff().length,
       boundsChanged: comparison.bounds.diff().changed,
-      attrName: comparison.attributes.diff()[0].name
+      attrName: comparison.attributes.diff()[0].name,
+      jsonPath: written.json,
+      markdownPath: written.markdown,
+      leftRegionPath: written.leftRegion,
+      rightRegionPath: written.rightRegion,
+      diffOnlyPath: written.diffOnly,
+      diffComparisonPath: written.diffComparison,
+      writtenCount: written.written.length
     };
   } finally {
     if (leftPage) await leftPage.close();
@@ -1178,6 +1185,13 @@ __verb__("compareRegionSmoke", { parents: ["custom"], fields: { leftUrl: { argum
 	require.EqualValues(t, 2, row["styleCount"])
 	require.Equal(t, true, row["boundsChanged"])
 	require.Equal(t, "class", row["attrName"])
+	require.Equal(t, filepath.Join(outDir, "compare.json"), row["jsonPath"])
+	require.Equal(t, filepath.Join(outDir, "compare.md"), row["markdownPath"])
+	require.Equal(t, filepath.Join(outDir, "left_region.png"), row["leftRegionPath"])
+	require.Equal(t, filepath.Join(outDir, "right_region.png"), row["rightRegionPath"])
+	require.Equal(t, filepath.Join(outDir, "diff_only.png"), row["diffOnlyPath"])
+	require.Equal(t, filepath.Join(outDir, "diff_comparison.png"), row["diffComparisonPath"])
+	require.EqualValues(t, 2, row["writtenCount"])
 	for _, name := range []string{"left_region.png", "right_region.png", "diff_only.png", "diff_comparison.png", "compare.json", "compare.md"} {
 		_, err = os.Stat(filepath.Join(outDir, name))
 		require.NoError(t, err, name)

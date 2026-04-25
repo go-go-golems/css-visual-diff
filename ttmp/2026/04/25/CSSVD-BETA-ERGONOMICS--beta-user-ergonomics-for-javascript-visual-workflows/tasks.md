@@ -26,7 +26,7 @@ Owners: []
 
 ## Phase 2 — Stable artifact write result
 
-- [ ] Update `comparison.artifacts.write(outDir, names)` result shape with stable keys:
+- [x] Update `comparison.artifacts.write(outDir, names)` result shape with stable keys:
   - `json`,
   - `markdown`,
   - `leftRegion`,
@@ -34,10 +34,10 @@ Owners: []
   - `diffOnly`,
   - `diffComparison`,
   - `written`.
-- [ ] Ensure JSON/Markdown files are written only when requested.
-- [ ] Return known PNG paths without rewriting PNGs.
-- [ ] Add tests for returned paths and file existence.
-- [ ] Update docs with the result schema.
+- [x] Ensure JSON/Markdown files are written only when requested.
+- [x] Return known PNG paths without rewriting PNGs.
+- [x] Add tests for returned paths and file existence.
+- [x] Update docs with the result schema.
 
 ## Phase 3 — Multi-section catalog example
 

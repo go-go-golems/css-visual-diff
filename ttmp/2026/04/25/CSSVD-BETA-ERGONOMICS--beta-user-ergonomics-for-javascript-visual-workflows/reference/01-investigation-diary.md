@@ -124,3 +124,30 @@ Both passed. `make lint` reported `0 issues`.
 ### Issues encountered
 
 - The first JS integration test attempted to read `waited.exists` from a Go struct exported directly to Goja. The exported object used Go field names, so `waited.exists` was undefined. I fixed the JS wrappers to lower `WaitForSelectorResult` through `lowerJSON(...)`, producing lowerCamel JSON fields.
+
+## 2026-04-25 — Phase 2 stable artifact write result
+
+### What changed
+
+- Updated `internal/cssvisualdiff/jsapi/compare.go` so `comparison.artifacts.write(outDir, ["json", "markdown"])` returns stable keyed paths:
+  - `json`,
+  - `markdown`,
+  - `leftRegion`,
+  - `rightRegion`,
+  - `diffOnly`,
+  - `diffComparison`,
+  - `written`,
+  - `outDir`.
+- The function still only writes requested JSON/Markdown files. It does not re-render PNGs.
+- Known PNG paths are returned from `SelectionComparisonData.Artifacts`, pixel diff paths, and the standard `cvd.compare.region(...)` output filenames when those files exist in `outDir`.
+- Extended the low-effort compare-region verb integration test to assert returned artifact paths and file existence.
+- Updated `javascript-api` and `pixel-accuracy-scripting-guide` docs with the result shape and project-local CLI summary pattern.
+
+### Validation
+
+```bash
+go test ./... -count=1
+make lint
+```
+
+Both passed. `make lint` reported `0 issues`.

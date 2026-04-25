@@ -395,26 +395,63 @@ func writeComparisonArtifacts(outDir string, data service.SelectionComparisonDat
 	for _, name := range names {
 		wanted[name] = true
 	}
-	if len(wanted) == 0 || wanted["json"] {
+	wants := func(name string) bool { return len(wanted) == 0 || wanted[name] }
+
+	result := map[string]any{"outDir": outDir}
+	written := []string{}
+	if wants("json") {
+		path := filepath.Join(outDir, "compare.json")
 		bytes, err := jsonMarshalIndent(lowerJSON(data))
 		if err != nil {
 			return nil, err
 		}
-		if err := os.WriteFile(filepath.Join(outDir, "compare.json"), bytes, 0o644); err != nil {
+		if err := os.WriteFile(path, bytes, 0o644); err != nil {
 			return nil, err
 		}
+		result["json"] = path
+		written = append(written, path)
 	}
-	if len(wanted) == 0 || wanted["markdown"] {
-		if err := os.WriteFile(filepath.Join(outDir, "compare.md"), []byte(renderSelectionComparisonMarkdown(data)), 0o644); err != nil {
+	if wants("markdown") {
+		path := filepath.Join(outDir, "compare.md")
+		if err := os.WriteFile(path, []byte(renderSelectionComparisonMarkdown(data)), 0o644); err != nil {
 			return nil, err
 		}
+		result["markdown"] = path
+		written = append(written, path)
 	}
-	written := []string{}
-	if len(wanted) == 0 || wanted["json"] {
-		written = append(written, filepath.Join(outDir, "compare.json"))
+	addKnownComparisonArtifactPaths(result, outDir, data)
+	result["written"] = written
+	return result, nil
+}
+
+func addKnownComparisonArtifactPaths(result map[string]any, outDir string, data service.SelectionComparisonData) {
+	for _, artifact := range data.Artifacts {
+		switch artifact.Name {
+		case "diffOnly", "diffComparison", "leftRegion", "rightRegion":
+			if artifact.Path != "" {
+				result[artifact.Name] = artifact.Path
+			}
+		}
 	}
-	if len(wanted) == 0 || wanted["markdown"] {
-		written = append(written, filepath.Join(outDir, "compare.md"))
+	if data.Pixel != nil {
+		if data.Pixel.DiffOnlyPath != "" {
+			result["diffOnly"] = data.Pixel.DiffOnlyPath
+		}
+		if data.Pixel.DiffComparisonPath != "" {
+			result["diffComparison"] = data.Pixel.DiffComparisonPath
+		}
 	}
-	return map[string]any{"outDir": outDir, "written": written}, nil
+	addPathIfExists(result, "leftRegion", filepath.Join(outDir, "left_region.png"))
+	addPathIfExists(result, "rightRegion", filepath.Join(outDir, "right_region.png"))
+	addPathIfExists(result, "diffOnly", filepath.Join(outDir, "diff_only.png"))
+	addPathIfExists(result, "diffComparison", filepath.Join(outDir, "diff_comparison.png"))
+}
+
+func addPathIfExists(result map[string]any, key, path string) {
+	if _, ok := result[key]; ok {
+		return
+	}
+	if _, err := os.Stat(path); err == nil {
+		result[key] = path
+	}
 }
