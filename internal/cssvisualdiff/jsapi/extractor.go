@@ -1,6 +1,9 @@
 package jsapi
 
-import "github.com/dop251/goja"
+import (
+	"github.com/dop251/goja"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
+)
 
 type extractorHandle struct {
 	kind       string
@@ -45,6 +48,10 @@ func newExtractorHandle(vm *goja.Runtime, extractor extractorHandle) goja.Value 
 			"styles":   {Owner: "cvd.probe", Hint: "For a standalone extractor use cvd.extractors.computedStyle([...])."},
 		},
 	}, backing)
+}
+
+func (e extractorHandle) toSpec() service.ExtractorSpec {
+	return service.ExtractorSpec{Kind: service.ExtractorKind(e.kind), Props: e.props, Attributes: e.attributes, Text: service.TextOptions{NormalizeWhitespace: true, Trim: true}}
 }
 
 func (e extractorHandle) toPlain() map[string]any {

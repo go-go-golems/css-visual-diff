@@ -22,6 +22,7 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 		installTargetAPI(vm, exports)
 		installProbeAPI(vm, exports)
 		installExtractorAPI(vm, exports)
+		installExtractAPI(ctx, vm, exports)
 		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
 			catalog, err := newCatalogFromJS(raw)
 			if err != nil {

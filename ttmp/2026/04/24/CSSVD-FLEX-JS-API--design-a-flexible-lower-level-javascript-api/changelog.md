@@ -91,3 +91,17 @@
   - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExposesTargetProbeAndExtractorBuilders' -count=1`
   - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 7 strict `cvd.extract(locator, extractors)`
+
+- Completed Phase 7 by adding `internal/cssvisualdiff/service/extract.go` and `extract_test.go`.
+- Added service-layer `ExtractorSpec`, `ExtractorKind`, `ElementSnapshot`, and `ExtractElement(...)`.
+- Updated Proxy registration to use a shared default registry when no registry is explicitly provided, enabling strict cross-call unwrapping.
+- Added `internal/cssvisualdiff/jsapi/extract.go` and registered strict `cvd.extract(locator, extractors)`.
+- Updated extractor handles to convert into service-native extractor specs.
+- Added repository-scanned JS verb tests for successful extraction and raw-object rejection.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/service -run 'TestExtractElement' -count=1`
+  - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExtract' -count=1`
+  - `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`

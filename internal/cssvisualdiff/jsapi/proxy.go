@@ -11,6 +11,8 @@ import (
 
 const proxyIDProperty = "__cssVisualDiffProxyID"
 
+var defaultProxyRegistry = NewProxyRegistry()
+
 // ProxyRegistry tracks Go backing values for Goja Proxy objects created by the
 // css-visual-diff JS API. Strict lower-level APIs use it to reject raw objects
 // and unwrap only handles/builders created by this package.
@@ -53,7 +55,7 @@ func (s ProxySpec) availableMethods() []string {
 
 func newProxyValue(vm *goja.Runtime, registry *ProxyRegistry, spec ProxySpec, backing any) goja.Value {
 	if registry == nil {
-		registry = NewProxyRegistry()
+		registry = defaultProxyRegistry
 	}
 	id := registry.bind(spec.Owner, backing)
 	target := vm.NewObject()

@@ -1367,3 +1367,146 @@ const probe = cvd.probe("cta")
 
 const extractor = cvd.extractors.attributes(["id", "class"])
 ```
+
+## Step 13: Complete Phase 7 strict `cvd.extract(locator, extractors)`
+
+I completed Phase 7 by adding service-level extraction specs/results and exposing strict `cvd.extract(locator, extractors)` in the JavaScript API. This is the first strict API that requires Go-backed Proxy values across API calls: the locator must come from `page.locator(...)`, and extractors must come from `cvd.extractors.*(...)`.
+
+This phase turns the lower-level API into a useful composition surface. Users can now query a page-bound element and choose exactly which facts to extract without creating inspect artifacts, while raw object inputs are rejected with explicit type guidance.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 7"
+
+**Assistant interpretation:** Implement Phase 7 from the ticket: define service extraction specs/results, implement extraction from locator plus extractors, expose strict `cvd.extract(...)`, validate raw-object rejection, update docs/diary/tasks, and commit.
+
+**Inferred user intent:** Make the new locator and extractor builders work together as a strict lower-level extraction API.
+
+### What I did
+
+- Added `internal/cssvisualdiff/service/extract.go`.
+- Defined:
+  - `ExtractorKind`
+  - `ExtractorSpec`
+  - `ElementSnapshot`
+- Implemented `service.ExtractElement(...)` over a `LocatorSpec` and list of `ExtractorSpec` values.
+- Added `internal/cssvisualdiff/service/extract_test.go` covering:
+  - multiple extractors on one element,
+  - missing selector behavior,
+  - invalid selector error behavior.
+- Updated `internal/cssvisualdiff/jsapi/proxy.go` so `newProxyValue(..., nil, ...)` uses a package-level default registry instead of creating isolated one-off registries.
+- Updated `extractorHandle` to convert to `service.ExtractorSpec`.
+- Added `internal/cssvisualdiff/jsapi/extract.go` with:
+  - `installExtractAPI(...)`
+  - `unwrapExtractorList(...)`
+  - `lowerElementSnapshot(...)`
+- Registered `cvd.extract(...)` from the native module.
+- Added repository-scanned JS verb tests:
+  - `TestCVDModuleExtractsFromLocatorWithExtractorHandles`
+  - `TestCVDModuleExtractRejectsRawObjects`
+- Marked Phase 7 tasks complete and set the active phase to Phase 8.
+
+### Why
+
+The design requires lower-level APIs to be strict and Go-backed, not raw-object permissive. `cvd.extract(...)` is the first place where that matters because it receives values created elsewhere: locators from pages and extractor handles from `cvd.extractors`. The Proxy registry now enables that strict unwrapping.
+
+### What worked
+
+The Phase 4 DOM service functions made `ExtractElement(...)` straightforward. The Phase 2 Proxy registry could be reused with one change: proxies created with a nil registry now bind to a shared default registry, so strict APIs can unwrap them later.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestExtractElement' -count=1
+
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExtract' -count=1
+
+go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+No failing test occurred after the first implementation pass for Phase 7. The main design issue discovered during implementation was that previous locator/extractor proxies were created with isolated registries when callers passed `nil`. That would make cross-call strict unwrapping impossible. I fixed this by introducing a package-level default registry.
+
+### What I learned
+
+Strict APIs need a shared identity boundary. A local per-proxy registry is fine for method trapping, but it is not enough when a top-level function such as `cvd.extract(...)` must prove that a value came from `page.locator(...)` or `cvd.extractors.*(...)`.
+
+The current `ElementSnapshot` intentionally omits absent fields from the JS result unless an extractor was requested and produced data. Boolean fields use pointers internally so `exists: false` and omitted `exists` can be distinguished.
+
+### What was tricky to build
+
+The tricky part was preserving the Go-backed Proxy requirement without over-engineering module state. I used a package-level default registry as the smallest step that makes strict unwrapping work. A future cleanup may replace it with per-runtime module state, but this phase keeps the implementation simple and covered by integration tests.
+
+Another subtle point is invalid selectors. `LocatorStatus(...)` returns a status with an error string rather than a Go error. `ExtractElement(...)` promotes that status error into a Go error for strict `exists`/`visible` extraction so malformed selectors reject the Promise.
+
+### What warrants a second pair of eyes
+
+- Whether the package-level default Proxy registry is acceptable or should become per-runtime state before this API is considered stable.
+- Whether `ElementSnapshot` should always include requested fields even when empty, especially for `text: ""` and missing selectors.
+- Whether extractor default text options should normalize/trim text; currently extractor text defaults to normalized/trimmed through `extractorHandle.toSpec()`.
+
+### What should be done in the future
+
+Phase 8 should implement strict `cvd.snapshot(page, probes, options)` and likely reuse `service.ExtractElement(...)` for each probe. If per-runtime state is introduced, Phase 8 may also be a good time to clean up the registry shape.
+
+### Code review instructions
+
+Start with service extraction:
+
+```text
+internal/cssvisualdiff/service/extract.go
+internal/cssvisualdiff/service/extract_test.go
+```
+
+Then review JS strict API plumbing:
+
+```text
+internal/cssvisualdiff/jsapi/proxy.go
+internal/cssvisualdiff/jsapi/extractor.go
+internal/cssvisualdiff/jsapi/extract.go
+internal/cssvisualdiff/jsapi/module.go
+```
+
+Then review integration tests:
+
+```text
+internal/cssvisualdiff/verbcli/command_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestExtractElement' -count=1
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExtract' -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+Example supported JS:
+
+```js
+const snapshot = await cvd.extract(page.locator("#cta"), [
+  cvd.extractors.exists(),
+  cvd.extractors.visible(),
+  cvd.extractors.text(),
+  cvd.extractors.bounds(),
+  cvd.extractors.computedStyle(["color"]),
+  cvd.extractors.attributes(["id", "class"]),
+])
+```
+
+Raw object locator inputs are rejected:
+
+```js
+await cvd.extract({ selector: "#cta" }, [cvd.extractors.text()])
+```
+
+with an error containing:
+
+```text
+css-visual-diff.extract: expected cvd.locator
+```

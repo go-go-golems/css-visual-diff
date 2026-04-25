@@ -231,6 +231,136 @@ __verb__("catalogSmoke", {
 	require.Contains(t, string(indexBytes), "# Verb Catalog Smoke")
 }
 
+func TestCVDModuleExtractsFromLocatorWithExtractorHandles(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" style="color: rgb(255, 0, 0)">  Book
+now  </button></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "extract.js"), `
+async function extractSmoke(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.page(url, { viewport: { width: 320, height: 240 } });
+    const snapshot = await cvd.extract(page.locator("#cta"), [
+      cvd.extractors.exists(),
+      cvd.extractors.visible(),
+      cvd.extractors.text(),
+      cvd.extractors.bounds(),
+      cvd.extractors.computedStyle(["color"]),
+      cvd.extractors.attributes(["id", "class"])
+    ]);
+    return {
+      selector: snapshot.selector,
+      exists: snapshot.exists,
+      visible: snapshot.visible,
+      text: snapshot.text,
+      widthPositive: snapshot.bounds.width > 0,
+      color: snapshot.computed.color,
+      attrClass: snapshot.attributes.class
+    };
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("extractSmoke", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, "#cta", row["selector"])
+	require.Equal(t, true, row["exists"])
+	require.Equal(t, true, row["visible"])
+	require.Equal(t, "Book now", row["text"])
+	require.Equal(t, true, row["widthPositive"])
+	require.Equal(t, "rgb(255, 0, 0)", row["color"])
+	require.Equal(t, "primary", row["attrClass"])
+}
+
+func TestCVDModuleExtractRejectsRawObjects(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta">Book</button></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "extract-error.js"), `
+async function extractError(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.page(url, { viewport: { width: 320, height: 240 } });
+    try {
+      await cvd.extract({ selector: "#cta" }, [cvd.extractors.text()]);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, name: err.name, message: err.message };
+    }
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("extractError", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, false, row["ok"])
+	require.Equal(t, "TypeError", row["name"])
+	require.Contains(t, row["message"], "css-visual-diff.extract: expected cvd.locator")
+}
+
 func TestCVDModuleExposesTargetProbeAndExtractorBuilders(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "builders.js"), `

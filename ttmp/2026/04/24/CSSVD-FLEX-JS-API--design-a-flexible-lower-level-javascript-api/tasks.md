@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 7 — strict `cvd.extract(locator, extractors)`**.
+- Current active implementation phase: **Phase 8 — strict `cvd.snapshot(page, probes, options)`**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -199,15 +199,15 @@ Goal: make YAML replacement ergonomic and strongly validated.
 
 Goal: composable extraction with typed Go-backed inputs.
 
-- [ ] Add `internal/cssvisualdiff/service/extract.go`.
-- [ ] Define `ExtractorSpec`, `ElementSnapshot`, extraction options, and error/status result shapes.
-- [ ] Implement extraction from a single locator using multiple extractors.
-- [ ] Expose `cvd.extract(locator, extractors, options)` in `jsapi`.
-- [ ] Require `LocatorHandle` and `ExtractorHandle` Proxy values; reject raw JS objects with helpful migration hints.
-- [ ] Add tests for multiple facts from one locator.
-- [ ] Add tests for missing selector behavior.
-- [ ] Add tests for invalid selector typed errors.
-- [ ] Update diary/changelog and commit Phase 7.
+- [x] Add `internal/cssvisualdiff/service/extract.go`.
+- [x] Define `ExtractorSpec`, `ElementSnapshot`, extraction options, and error/status result shapes.
+- [x] Implement extraction from a single locator using multiple extractors.
+- [x] Expose `cvd.extract(locator, extractors, options)` in `jsapi`.
+- [x] Require `LocatorHandle` and `ExtractorHandle` Proxy values; reject raw JS objects with helpful migration hints.
+- [x] Add tests for multiple facts from one locator.
+- [x] Add tests for missing selector behavior.
+- [x] Add tests for invalid selector typed errors.
+- [x] Update diary/changelog and commit Phase 7.
 
 ## Phase 8 — Add strict `cvd.snapshot(page, probes, options)`
 
