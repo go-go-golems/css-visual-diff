@@ -2,6 +2,54 @@
 
 This folder is a small repository-scanned verb example. It is intentionally kept outside the embedded built-ins so operators can see how their own project-local verb folders can be wired in with `--repository`.
 
+All examples use the canonical JavaScript API names:
+
+- `cvd.compare.region(...)` for the quick region comparison path.
+- `page.locator(...).collect(...)` and `cvd.compare.selections(...)` for the primitive collect-and-analyze path.
+- `cvd.snapshot.page(...)` for probe snapshots.
+- `cvd.catalog.create(...)` for catalog workflows.
+- `cvd.config.load(...)` when loading YAML config files.
+
+## Quick region comparison
+
+Use `examples compare region` when you want the low-effort visual answer: load two pages, compare one selector, and write screenshots, pixel diff PNGs, JSON, and Markdown.
+
+```bash
+css-visual-diff verbs --repository examples/verbs examples compare region \
+  http://127.0.0.1:8767/left.html \
+  http://127.0.0.1:8767/right.html \
+  '#cta' \
+  /tmp/cssvd-compare-region \
+  --output json
+```
+
+The command writes:
+
+- `/tmp/cssvd-compare-region/left_region.png`
+- `/tmp/cssvd-compare-region/right_region.png`
+- `/tmp/cssvd-compare-region/diff_only.png`
+- `/tmp/cssvd-compare-region/diff_comparison.png`
+- `/tmp/cssvd-compare-region/compare.json`
+- `/tmp/cssvd-compare-region/compare.md`
+
+## Collect and analyze
+
+Use `examples compare collect-and-analyze` when you want JavaScript policy logic over collected data. This example collects selector facts from both pages, compares them with `cvd.compare.selections(...)`, filters typography and class diffs in JavaScript, and writes JSON/Markdown evidence.
+
+```bash
+css-visual-diff verbs --repository examples/verbs examples compare collect-and-analyze \
+  http://127.0.0.1:8767/left.html \
+  http://127.0.0.1:8767/right.html \
+  '#cta' \
+  /tmp/cssvd-collect-analyze \
+  --output json
+```
+
+The command writes:
+
+- `/tmp/cssvd-collect-analyze/compare.json`
+- `/tmp/cssvd-collect-analyze/compare.md`
+
 ## Inspect one page into a catalog
 
 Start or choose a local page, then run:
@@ -22,7 +70,7 @@ The command writes:
 
 ## Lower-level locator/extractor/snapshot example
 
-The `examples low-level inspect` command shows the newer script-native API. It uses `page.locator(...)`, `cvd.extract(...)`, `cvd.probe(...)`, `cvd.snapshot.page(...)`, and `cvd.write.json(...)` without writing the standard inspect artifact bundle.
+The `examples low-level inspect` command shows the lower-level script-native API. It uses `page.locator(...)`, `cvd.extract(...)`, `cvd.probe(...)`, `cvd.snapshot.page(...)`, and `cvd.write.json(...)` without writing the standard inspect artifact bundle.
 
 ```bash
 css-visual-diff verbs --repository examples/verbs examples low-level inspect \
@@ -35,7 +83,7 @@ The command writes:
 - `/tmp/cssvd-low-level/element.json`
 - `/tmp/cssvd-low-level/snapshot.json`
 
-Use this example when you want a small programmable feedback loop while building UI components. Use the catalog example when you want durable manifests, indexes, and standard inspect artifacts.
+Use the compare examples while iterating on pixel-perfect UI feedback. Use the catalog example when you want durable manifests, indexes, and standard inspect artifacts.
 
 ## Authoring mode: keep going on missing selectors
 

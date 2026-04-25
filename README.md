@@ -75,17 +75,21 @@ GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs exampl
   --output json
 ```
 
-JavaScript verbs can use the Promise-first native module:
+JavaScript verbs can use the Promise-first native module. The quickest visual comparison path is `cvd.compare.region(...)`:
 
 ```js
 const cvd = require("css-visual-diff")
 const browser = await cvd.browser()
-const page = await browser.page(url, { viewport: { width: 1280, height: 720 } })
-const statuses = await page.preflight([{ name: "cta", selector: "#cta" }])
-const result = await page.inspectAll([{ name: "cta", selector: "#cta", props: ["color"] }], {
+const leftPage = await browser.page(leftUrl, { viewport: { width: 1280, height: 720 } })
+const rightPage = await browser.page(rightUrl, { viewport: { width: 1280, height: 720 } })
+
+const comparison = await cvd.compare.region({
+  left: leftPage.locator("#cta"),
+  right: rightPage.locator("#cta"),
   outDir: "/tmp/cssvd/artifacts/cta",
-  artifacts: "css-json",
 })
+
+return comparison.summary()
 ```
 
 See the embedded Glazed help entries:

@@ -3,6 +3,7 @@ package jsapi
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
@@ -63,11 +64,17 @@ func installDiffAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports 
 			if err != nil {
 				return nil, err
 			}
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return nil, err
+			}
 			return path, os.WriteFile(path, bytes, 0o644)
 		}, nil)
 	})
 	_ = write.Set("markdown", func(path string, markdown string) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.write.markdown", func() (any, error) {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return nil, err
+			}
 			return path, os.WriteFile(path, []byte(markdown), 0o644)
 		}, nil)
 	})
@@ -80,6 +87,9 @@ func wrapDiffReport(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, diff ser
 	_ = obj.Set("writeMarkdown", func(path string) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.report.writeMarkdown", func() (any, error) {
 			markdown := service.RenderDiffMarkdown(diff)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				return nil, err
+			}
 			return path, os.WriteFile(path, []byte(markdown), 0o644)
 		}, nil)
 	})

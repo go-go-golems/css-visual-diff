@@ -192,7 +192,86 @@ if (!diff.equal) {
 
 Ignore paths are useful when a value is expected to move but the important visual contract is somewhere else. For example, a responsive layout may shift `x` and `y` while preserving height, typography, and color. Ignore paths let you state that policy directly.
 
-## 8. Writing Reports and Artifacts
+## 8. Quick Pixel Region Comparisons
+
+Structural diffs compare data. Pixel diffs compare rendered images. When you need the low-effort pixel-accuracy path, use `cvd.compare.region(...)`. It collects both locators with `inspect: "rich"` by default, captures region screenshots, computes a pixel diff, writes PNG artifacts, and returns a `SelectionComparison` handle.
+
+```js
+async function compareCTA(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff")
+  const browser = await cvd.browser()
+  let leftPage, rightPage
+
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: cvd.viewport.desktop(), waitMs: 250 })
+    rightPage = await browser.page(rightUrl, { viewport: cvd.viewport.desktop(), waitMs: 250 })
+
+    const comparison = await cvd.compare.region({
+      name: "primary-cta",
+      left: leftPage.locator("[data-testid='primary-cta']"),
+      right: rightPage.locator("[data-testid='primary-cta']"),
+      outDir,
+      threshold: 30,
+      styleProps: ["font-size", "line-height", "color", "background-color", "border-radius"],
+      attributes: ["class", "aria-label"],
+    })
+
+    await comparison.artifacts.write(outDir, ["json", "markdown"])
+    return comparison.summary()
+  } finally {
+    if (leftPage) await leftPage.close()
+    if (rightPage) await rightPage.close()
+    await browser.close()
+  }
+}
+```
+
+The returned object is behavior-rich. Use `comparison.summary()` for compact command output, `comparison.toJSON()` for full machine-readable data, `comparison.report.markdown()` for a human explanation, and `comparison.artifacts.write(...)` for durable JSON/Markdown output.
+
+The files written under `outDir` are the evidence a reviewer needs:
+
+- `left_region.png` shows the left rendered region.
+- `right_region.png` shows the right rendered region.
+- `diff_only.png` highlights changed pixels.
+- `diff_comparison.png` places left, right, and diff side by side.
+- `compare.json` and `compare.md` are written when you call `comparison.artifacts.write(...)`.
+
+## 9. Collect First, Then Analyze in JavaScript
+
+The quick path is best when you want the standard answer. The primitive path is better when you want policy. For example, a typography-only check can collect rich data once, then filter the comparison in JavaScript.
+
+```js
+const left = await leftPage.locator("[data-testid='primary-cta']").collect({
+  inspect: "rich",
+  styles: ["font-size", "font-weight", "line-height", "color"],
+  attributes: ["class"],
+})
+
+const right = await cvd.collect.selection(rightPage.locator("[data-testid='primary-cta']"), {
+  inspect: "rich",
+  styles: ["font-size", "font-weight", "line-height", "color"],
+  attributes: ["class"],
+})
+
+const comparison = await cvd.compare.selections(left, right, {
+  styleProps: ["font-size", "font-weight", "line-height", "color"],
+  attributes: ["class"],
+})
+
+const typography = comparison.styles.diff(["font-size", "font-weight", "line-height"])
+const classChanges = comparison.attributes.diff(["class"])
+
+return {
+  ok: typography.length === 0,
+  typography,
+  classChanges,
+  bounds: comparison.bounds.diff(),
+}
+```
+
+This pattern is the heart of the new API. Browser work happens once. Analysis happens in ordinary JavaScript. Reports and catalogs are then views over the same comparison data.
+
+## 10. Writing Reports and Artifacts
 
 A script becomes useful to a team when it leaves evidence behind. `cvd.write.json(...)` writes machine-readable data. `cvd.report(diff).writeMarkdown(...)` writes a human-readable explanation.
 
@@ -217,7 +296,7 @@ async function compareAndWrite(beforeUrl, afterUrl, outDir) {
 
 For CI, return structured rows and let Glazed format them as JSON, YAML, table, or CSV. For humans, write Markdown reports and screenshots/catalogs when needed.
 
-## 9. When to Use Inspect Artifacts Instead
+## 11. When to Use Inspect Artifacts Instead
 
 Snapshots are compact and script-friendly. Inspect artifacts are evidence-rich. Use `page.inspect(...)` or `page.inspectAll(...)` when you need screenshots, prepared HTML, CSS JSON/Markdown, or DOM inspection JSON on disk.
 
@@ -230,7 +309,7 @@ Snapshots are compact and script-friendly. Inspect artifacts are evidence-rich. 
 
 A good workflow often uses both. During authoring, use locators and snapshots to quickly answer questions. Before review or CI, write inspect artifacts and a catalog so the evidence is durable.
 
-## 10. A Full Authoring Loop
+## 12. A Full Authoring Loop
 
 Here is a complete script that supports the kind of pixel-accuracy loop you use while building a page. It captures a baseline, captures the current implementation, diffs them, writes evidence, and returns a structured summary.
 
@@ -289,7 +368,7 @@ css-visual-diff verbs --repository ./verbs site compare-checkout \
   --output json
 ```
 
-## 11. Debugging the Feedback Loop
+## 13. Debugging the Feedback Loop
 
 When a script fails, debug from the outside in. First prove the page loaded. Then prove the selector exists. Then prove the element is visible. Only then inspect CSS values or compare snapshots.
 
@@ -301,7 +380,7 @@ When a script fails, debug from the outside in. First prove the page loaded. The
 | Diff changes bounds on every run | Layout is responsive or unstable. | Ignore expected paths or compare more stable CSS/text facts. |
 | Script says a method belongs elsewhere | Locator/probe/extractor concepts were mixed. | Use locators for live page reads, probes for reusable recipes, extractors for what to read. |
 
-## 12. Key Points
+## 14. Key Points
 
 - Pixel accuracy is a loop, not a one-time screenshot. The loop is render, locate, extract, compare, report, and adjust.
 - Locators are page-bound handles. They are best for exploration and direct questions about the current page.
