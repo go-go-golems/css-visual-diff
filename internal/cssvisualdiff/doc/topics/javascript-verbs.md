@@ -1,4 +1,23 @@
-# JavaScript verbs and repository-scanned workflows
+---
+Title: "JavaScript Verbs and Repository-Scanned Workflows"
+Slug: javascript-verbs
+Short: Turn annotated JavaScript files into typed css-visual-diff CLI commands under the verbs namespace.
+Topics:
+- javascript
+- verbs
+- cli
+- visual-regression
+Commands:
+- verbs
+Flags:
+- repository
+- verb-repository
+- output
+IsTopLevel: true
+IsTemplate: false
+ShowPerDefault: true
+SectionType: GeneralTopic
+---
 
 `css-visual-diff verbs` turns annotated JavaScript files into CLI commands. It is intended for programmable visual catalog workflows where YAML alone is too static.
 

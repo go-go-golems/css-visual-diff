@@ -11,17 +11,19 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: docs/js-api.md
-      Note: Current high-level JS API reference.
-    - Path: docs/js-verbs.md
-      Note: Current repository-scanned JS verbs reference.
+    - Path: internal/cssvisualdiff/doc/topics/javascript-api.md
+      Note: Embedded Glazed help entry for the Promise-first and lower-level JavaScript API.
+    - Path: internal/cssvisualdiff/doc/topics/javascript-verbs.md
+      Note: Embedded Glazed help entry for repository-scanned JavaScript verbs.
+    - Path: internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md
+      Note: Textbook-style embedded help guide for building pixel-accurate website feedback loops with scripts.
     - Path: internal/cssvisualdiff/jsapi/module.go
       Note: Native css-visual-diff module implementation after Phase 1 refactor; future lower-level adapters should extend this package.
     - Path: internal/cssvisualdiff/service
       Note: Existing Go service boundary that future locator/extractor/snapshot/diff services should extend.
 ExternalSources: []
 Summary: "Ticket workspace for designing a lower-level, more flexible JavaScript API for css-visual-diff."
-LastUpdated: 2026-04-24T20:45:00-04:00
+LastUpdated: 2026-04-24T22:10:00-04:00
 WhatFor: "Use this ticket to plan and implement a JS-native API that can replace many YAML concepts with composable JavaScript objects and functions."
 WhenToUse: "When working on page locators, extractor pipelines, snapshot/diff APIs, JS target/probe builders, or YAML migration helpers."
 ---
@@ -30,7 +32,7 @@ WhenToUse: "When working on page locators, extractor pipelines, snapshot/diff AP
 
 ## Overview
 
-This ticket designs the next JavaScript API layer for `css-visual-diff`. The current `require("css-visual-diff")` API is Promise-first and useful, but it is close to the high-level CLI/YAML workflow. The new design proposes lower-level primitives: `page.locator()`, locator methods, extractor builders, in-memory snapshots, diffs, reports, fluent target/probe builders, and eventual workflow composition.
+This ticket designs and implements the next JavaScript API layer for `css-visual-diff`. The current `require("css-visual-diff")` API is Promise-first and useful, but it is close to the high-level CLI/YAML workflow. The implementation now adds lower-level primitives: `page.locator()`, locator methods, extractor builders, in-memory snapshots, diffs, reports, and fluent target/probe builders.
 
 The main deliverable is an intern-facing analysis/design/implementation guide with codebase orientation, API sketches, pseudocode, diagrams, implementation phases, validation plans, and file references.
 

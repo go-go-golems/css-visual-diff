@@ -88,10 +88,15 @@ const result = await page.inspectAll([{ name: "cta", selector: "#cta", props: ["
 })
 ```
 
-See:
+See the embedded Glazed help entries:
 
-- [`docs/js-api.md`](docs/js-api.md) for `require("css-visual-diff")`, Promise behavior, preflight, prepare modes, typed errors, catalog APIs, and concurrency guidance.
-- [`docs/js-verbs.md`](docs/js-verbs.md) for `__verb__`, repositories, generated flags, output modes, duplicate command paths, and migration notes.
+```bash
+css-visual-diff help javascript-api
+css-visual-diff help javascript-verbs
+css-visual-diff help pixel-accuracy-scripting-guide
+```
+
+These entries cover `require("css-visual-diff")`, Promise behavior, locators, extraction, snapshots, diffs, typed errors, catalog APIs, `__verb__`, repositories, generated flags, output modes, duplicate command paths, and migration notes.
 
 Migration note: generated JavaScript commands are intentionally no longer injected at the CLI root. Use `css-visual-diff verbs ...` so repository scan errors and duplicate script command paths remain scoped to the verbs subtree.
 

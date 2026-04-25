@@ -131,3 +131,24 @@
   - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleDiffReportAndWritePrimitives' -count=1`
   - `go test ./internal/cssvisualdiff/service ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 10 embedded help, textbook guide, examples, and smokes
+
+- Moved standalone JavaScript docs into embedded Glazed help entries:
+  - `internal/cssvisualdiff/doc/topics/javascript-api.md`
+  - `internal/cssvisualdiff/doc/topics/javascript-verbs.md`
+- Added a long-form textbook-style tutorial: `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md`.
+- Updated the JavaScript API help entry with locator, extraction, snapshot, diff, report, and write APIs.
+- Updated `README.md` to point users to embedded help slugs instead of standalone docs files.
+- Added external lower-level verb example `examples/verbs/low-level-inspect.js` and documented it in `examples/verbs/README.md`.
+- Added Phase 10 smoke scripts for embedded help and lower-level external verb behavior.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/doc ./cmd/css-visual-diff -count=1`
+  - `go run ./cmd/css-visual-diff help javascript-api`
+  - `go run ./cmd/css-visual-diff help javascript-verbs`
+  - `go run ./cmd/css-visual-diff help pixel-accuracy-scripting-guide`
+  - `scripts/001-help-entries-smoke.sh`
+  - `scripts/002-low-level-verb-binary-smoke.sh`
+  - `go test ./... -count=1`
+- Regenerated final PDF bundle at `pdf/CSSVD-FLEX-JS-API-implementation-and-user-guide.pdf`.
+- Uploaded final implementation/user-guide PDF to reMarkable as `/ai/2026/04/24/cssvd-flex-api-implementation` and verified the remote listing.

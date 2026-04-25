@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 10 — docs/examples/smoke scripts/delivery**.
+- Current active implementation phase: **Complete — implementation, embedded docs, examples, and smokes delivered**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -241,13 +241,13 @@ Goal: compare snapshots without YAML.
 
 Goal: make the new lower-level API usable and reviewable by operators and future implementers.
 
-- [ ] Add or update `docs/js-low-level-api.md`.
-- [ ] Update `docs/js-api.md` with links to the lower-level API.
-- [ ] Add `examples/verbs/low-level-inspect.js`.
-- [ ] Add ticket smoke scripts under `scripts/` with numeric prefixes.
-- [ ] Add a compiled-binary smoke for at least one repository-scanned lower-level verb.
-- [ ] Run `go test ./... -count=1`.
-- [ ] Run existing binary smoke scripts from the Goja/jsverbs ticket if still applicable.
-- [ ] Run `docmgr doctor --root ./ttmp --ticket CSSVD-FLEX-JS-API --stale-after 30`.
-- [ ] Regenerate and optionally upload the updated implementation PDF to reMarkable.
-- [ ] Update diary/changelog and commit final docs.
+- [x] Add embedded Glazed help coverage for the lower-level API instead of a standalone `docs/js-low-level-api.md`.
+- [x] Move `docs/js-api.md` into embedded help as `internal/cssvisualdiff/doc/topics/javascript-api.md` and update it with locator/extract/snapshot/diff APIs.
+- [x] Add `examples/verbs/low-level-inspect.js`.
+- [x] Add ticket smoke scripts under `scripts/` with numeric prefixes.
+- [x] Add and run a compiled-binary smoke for the external lower-level verb.
+- [x] Run `go test ./... -count=1`.
+- [x] Run current Phase 10 binary smokes for embedded help and lower-level external verb behavior.
+- [x] Run `docmgr doctor --root ./ttmp --ticket CSSVD-FLEX-JS-API --stale-after 30`.
+- [x] Regenerate and upload the updated implementation/user-guide PDF to reMarkable as `/ai/2026/04/24/cssvd-flex-api-implementation`.
+- [x] Update diary/changelog and commit final docs.

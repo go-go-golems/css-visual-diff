@@ -20,6 +20,23 @@ The command writes:
 - `/tmp/cssvd-example/index.md`
 - `/tmp/cssvd-example/artifacts/cta/computed-css.json`
 
+## Lower-level locator/extractor/snapshot example
+
+The `examples low-level inspect` command shows the newer script-native API. It uses `page.locator(...)`, `cvd.extract(...)`, `cvd.probe(...)`, `cvd.snapshot(...)`, and `cvd.write.json(...)` without writing the standard inspect artifact bundle.
+
+```bash
+css-visual-diff verbs --repository examples/verbs examples low-level inspect \
+  http://127.0.0.1:8767/ '#cta' /tmp/cssvd-low-level \
+  --output json
+```
+
+The command writes:
+
+- `/tmp/cssvd-low-level/element.json`
+- `/tmp/cssvd-low-level/snapshot.json`
+
+Use this example when you want a small programmable feedback loop while building UI components. Use the catalog example when you want durable manifests, indexes, and standard inspect artifacts.
+
 ## Authoring mode: keep going on missing selectors
 
 By default `failOnMissing=false`, so selector misses are recorded in the manifest and returned as a structured row instead of making the command fail:

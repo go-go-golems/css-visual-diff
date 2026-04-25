@@ -1787,3 +1787,255 @@ const markdown = cvd.report(diff).markdown()
 await cvd.write.json("out/diff.json", diff)
 await cvd.report(diff).writeMarkdown("out/diff.md")
 ```
+
+## Step 16: Complete Phase 10 embedded help, textbook guide, examples, and smokes
+
+I completed the documentation and delivery phase by moving the standalone JavaScript docs into embedded Glazed help entries and adding a long-form textbook-style guide for using `css-visual-diff` as a pixel-accuracy feedback loop while building websites. The CLI now carries the main JavaScript API documentation inside the binary, so users can discover it with `css-visual-diff help ...` instead of needing separate markdown files in `docs/`.
+
+The new guide teaches the workflow in layers: browser page, locator, probe, extractor, snapshot, diff, report, and catalog/inspect artifacts. It is intentionally written as teaching material rather than terse reference documentation, because the lower-level API is most useful when users understand why locators and probes are different and how to build repeatable scripts from small visual questions.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 10:
+
+move all docs to be glazed help entries embeddedin the binary. Also, make a nice detailed user guide in a textbook style on how to use css visual diff to build up scripts to help build up website with pixel accuracy.
+
+(read the textbook skill, be verbose, here's a great example for a similar workflow: /home/manuel/code/wesen/obsidian-vault/Projects/2026/04/21/PROJ - go-minitrace - JS Commands and Structured Query Catalog PR #6.md"
+
+**Assistant interpretation:** Finish Phase 10 by converting public docs into embedded Glazed help entries, writing a detailed textbook-style user guide for pixel-accuracy scripting, adding examples/smokes, validating, and preparing final documentation/delivery.
+
+**Inferred user intent:** The user wants the new API to be documented where operators actually use it: inside the CLI help system, with enough teaching prose that developers can build scripts for pixel-perfect UI work rather than merely copy method signatures.
+
+### What I did
+
+- Read the textbook authoring skill and Glazed help page authoring skill.
+- Read the provided go-minitrace project note as a model for narrative, architecture-oriented documentation.
+- Moved standalone docs into embedded Glazed help entries:
+  - `docs/js-api.md` -> `internal/cssvisualdiff/doc/topics/javascript-api.md`
+  - `docs/js-verbs.md` -> `internal/cssvisualdiff/doc/topics/javascript-verbs.md`
+- Added Glazed help frontmatter to both moved documents.
+- Updated the JavaScript API help entry with Phase 5-9 lower-level APIs:
+  - `page.locator(...)`
+  - locator methods
+  - `cvd.viewport(...)`
+  - `cvd.target(...)`
+  - `cvd.probe(...)`
+  - `cvd.extractors.*`
+  - `cvd.extract(...)`
+  - `cvd.snapshot(...)`
+  - `cvd.diff(...)`
+  - `cvd.report(...)`
+  - `cvd.write.*`
+- Added a textbook-style tutorial:
+  - `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md`
+- Updated `README.md` to point users to embedded help:
+  - `css-visual-diff help javascript-api`
+  - `css-visual-diff help javascript-verbs`
+  - `css-visual-diff help pixel-accuracy-scripting-guide`
+- Added an external lower-level verb example:
+  - `examples/verbs/low-level-inspect.js`
+- Updated `examples/verbs/README.md` with the new lower-level example.
+- Added ticket smoke scripts:
+  - `scripts/001-help-entries-smoke.sh`
+  - `scripts/002-low-level-verb-binary-smoke.sh`
+- Ran embedded help smoke checks and the lower-level binary smoke.
+- Ran the full Go test suite.
+
+### Why
+
+Standalone docs are easy to miss. This project already has a Glazed help system embedded in the binary, so the correct user-facing home for durable docs is `css-visual-diff help ...`. Moving the docs there makes the API discoverable offline, inside the exact tool users are running.
+
+The textbook-style guide fills a different role than the API reference. The reference says what methods exist. The guide explains how to think: start with page state, use locators for live questions, turn stable questions into probes, extract facts, snapshot repeatable recipes, diff snapshots, and write evidence.
+
+### What worked
+
+The existing `internal/cssvisualdiff/doc/doc.go` already embedded `topics`, `examples`, and `tutorials`, and `cmd/css-visual-diff/main.go` already wired `help_cmd.SetupCobraRootCommand(...)`. That meant the conversion mainly required moving markdown files, adding frontmatter, and validating that the help slugs rendered.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/doc ./cmd/css-visual-diff -count=1
+
+go run ./cmd/css-visual-diff help javascript-api >/tmp/cssvd-help-jsapi.txt
+
+go run ./cmd/css-visual-diff help javascript-verbs >/tmp/cssvd-help-jsverbs.txt
+
+go run ./cmd/css-visual-diff help pixel-accuracy-scripting-guide >/tmp/cssvd-help-pixel.txt
+
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/scripts/001-help-entries-smoke.sh
+
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/scripts/002-low-level-verb-binary-smoke.sh
+
+go test ./... -count=1
+```
+
+The help smoke confirmed the embedded slugs render. The lower-level binary smoke built the binary, served a local HTML page, ran the external `examples low-level inspect` verb, and verified `element.json` / `snapshot.json` outputs.
+
+### What didn't work
+
+No final validation command failed. One small issue was caught during review before validation: the moved JavaScript API help entry initially had a YAML title with unescaped inner quotes:
+
+```yaml
+Title: "JavaScript API: require("css-visual-diff")"
+```
+
+I fixed it by using single-quoted YAML:
+
+```yaml
+Title: 'JavaScript API: require("css-visual-diff")'
+```
+
+### What I learned
+
+The binary already had the right help integration. The important change was not Go wiring; it was content placement and quality. Keeping docs in `internal/cssvisualdiff/doc/topics` and `tutorials` means the docs travel with the CLI and can be tested with normal binary smoke scripts.
+
+The textbook guide benefits from the API design decisions made earlier. The locator/probe distinction is teachable because the API enforces it. Wrong-parent errors are not just developer ergonomics; they make the documentation's conceptual model executable.
+
+### What was tricky to build
+
+The tricky part was interpreting “move all docs” without losing useful documentation history. I moved the two standalone JavaScript docs into embedded help entries and updated the README to point at `css-visual-diff help ...`. Existing help entries under `internal/cssvisualdiff/doc` were already embedded and remained in place.
+
+Another subtle point is that `cvd.write.json(...)` does not create parent directories. The lower-level example and smoke assume the output directory exists. That is acceptable for now, but the guide and future examples should make this visible.
+
+### What warrants a second pair of eyes
+
+- Whether the textbook guide is the right length and style for embedded CLI help, or whether it should be split into multiple tutorial entries later.
+- Whether `javascript-api` should be split into high-level and lower-level reference pages now that it is long.
+- Whether `cvd.write.json(...)` should create parent directories automatically before Phase 10 is considered polished.
+
+### What should be done in the future
+
+- Consider adding a second tutorial focused only on CI gating and catalogs.
+- Consider adding shorter example help entries for `cvd.extract(...)`, `cvd.snapshot(...)`, and `cvd.diff(...)` once users try the new API.
+- Consider regenerating TypeScript-style declarations from the JS API reference after the API stabilizes.
+
+### Code review instructions
+
+Review embedded docs first:
+
+```text
+internal/cssvisualdiff/doc/topics/javascript-api.md
+internal/cssvisualdiff/doc/topics/javascript-verbs.md
+internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md
+```
+
+Then review examples and smoke scripts:
+
+```text
+examples/verbs/low-level-inspect.js
+examples/verbs/README.md
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/scripts/001-help-entries-smoke.sh
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/scripts/002-low-level-verb-binary-smoke.sh
+```
+
+Validation commands:
+
+```bash
+go test ./... -count=1
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/scripts/001-help-entries-smoke.sh
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/scripts/002-low-level-verb-binary-smoke.sh
+```
+
+### Technical details
+
+The new help slugs are:
+
+```bash
+css-visual-diff help javascript-api
+css-visual-diff help javascript-verbs
+css-visual-diff help pixel-accuracy-scripting-guide
+```
+
+## Step 17: Regenerate and upload the final implementation/user-guide PDF
+
+After embedding the docs and adding the textbook-style guide, I regenerated a final PDF bundle that includes the design guide, embedded user guide, JavaScript API help, JavaScript verbs help, diary, tasks, and changelog. I uploaded it to reMarkable with a short filename, following the same reliable upload pattern used earlier in the ticket.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 16)
+
+**Assistant interpretation:** Finish Phase 10 delivery by publishing the latest implementation/user-guide bundle to reMarkable after the embedded docs and textbook guide are in place.
+
+**Inferred user intent:** Make the final implementation and user-facing documentation available for reading/review on the reMarkable device/cloud.
+
+### What I did
+
+- Generated a combined PDF bundle at:
+  - `pdf/CSSVD-FLEX-JS-API-implementation-and-user-guide.pdf`
+- Included the new embedded help guide and moved help entries in the bundle:
+  - `internal/cssvisualdiff/doc/tutorials/pixel-accuracy-scripting-guide.md`
+  - `internal/cssvisualdiff/doc/topics/javascript-api.md`
+  - `internal/cssvisualdiff/doc/topics/javascript-verbs.md`
+- Copied the PDF to a short upload path:
+  - `/tmp/cssvd-flex-api-implementation.pdf`
+- Uploaded it to reMarkable:
+  - `/ai/2026/04/24/cssvd-flex-api-implementation`
+- Verified the remote listing.
+- Marked the PDF delivery task complete.
+
+### Why
+
+The earlier uploaded PDF did not include the completed implementation phases or the final textbook-style user guide. The new PDF is the durable final review artifact for this ticket.
+
+### What worked
+
+Upload succeeded:
+
+```text
+OK: uploaded /tmp/cssvd-flex-api-implementation.pdf -> /ai/2026/04/24
+```
+
+Remote listing verified:
+
+```text
+[f]	cssvd-flex-api
+[f]	cssvd-flex-api-implementation
+[f]	cssvd-flex-api-updated
+```
+
+### What didn't work
+
+Pandoc emitted the same non-fatal Unicode font warning for checkmark glyphs:
+
+```text
+[WARNING] Missing character: There is no ✅ (U+2705) (U+2705) in font [lmmono10-regular]:!
+```
+
+The PDF still generated and uploaded successfully.
+
+### What I learned
+
+The reliable reMarkable upload path remains: generate a local PDF, copy it to a short `/tmp/*.pdf` filename, and upload it directly into the existing `/ai/YYYY/MM/DD` folder.
+
+### What was tricky to build
+
+The bundle includes markdown files from both the ticket and embedded help entries. Each file has its own YAML frontmatter, so the bundling script strips frontmatter before concatenating the markdown for pandoc.
+
+### What warrants a second pair of eyes
+
+Check whether the uploaded PDF's font warning materially affects readability in code blocks or task lists. The upload succeeded, but checkmark symbols may not render in the monospace font.
+
+### What should be done in the future
+
+Use `/ai/2026/04/24/cssvd-flex-api-implementation` as the current final reMarkable artifact for this ticket.
+
+### Code review instructions
+
+Review the local PDF if needed:
+
+```text
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/pdf/CSSVD-FLEX-JS-API-implementation-and-user-guide.pdf
+```
+
+### Technical details
+
+Commands included:
+
+```bash
+pandoc "$TMP_MD" \
+  -o "$TICKET_DIR/pdf/CSSVD-FLEX-JS-API-implementation-and-user-guide.pdf" \
+  --toc --toc-depth=2 --pdf-engine=xelatex
+cp "$TICKET_DIR/pdf/CSSVD-FLEX-JS-API-implementation-and-user-guide.pdf" /tmp/cssvd-flex-api-implementation.pdf
+remarquee cloud put /tmp/cssvd-flex-api-implementation.pdf /ai/2026/04/24 --non-interactive
+remarquee cloud ls /ai/2026/04/24 --long --non-interactive
+```
