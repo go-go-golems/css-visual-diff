@@ -1,0 +1,86 @@
+mkdir -p /home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/.bin/
+GOBIN=/home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/.bin/ GOWORK=off go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.2
+GOWORK=off /home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/.bin/golangci-lint config verify
+GOWORK=off /home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/.bin/golangci-lint run -v --timeout=5m ./cmd/... ./internal/... ./pkg/...
+level=info msg="golangci-lint has version 2.11.2 built with go1.26.2 from (unknown, modified: ?, mod sum: \"h1:4Icd3mEqthcFcFww8L67OBtfKB/obXxko8aFUMqP/5w=\") on (unknown)"
+level=info msg="[config_reader] Config search paths: [./ /home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/cmd /home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff /home/manuel/workspaces/2026-04-21/hair-v2 /home/manuel/workspaces/2026-04-21 /home/manuel/workspaces /home/manuel /home /]"
+level=info msg="[config_reader] Used config file .golangci.yml"
+level=info msg="[config_reader] Module name \"github.com/go-go-golems/css-visual-diff\""
+level=info msg="[goenv] Read go env for 7.26274ms: map[string]string{\"GOCACHE\":\"/home/manuel/.cache/go-build\", \"GOROOT\":\"/home/manuel/go/pkg/mod/golang.org/toolchain@v0.0.1-go1.26.2.linux-amd64\"}"
+level=info msg="[lintersdb] Active 9 linters: [errcheck exhaustive gofmt govet ineffassign nonamedreturns predeclared staticcheck unused]"
+level=info msg="[loader] Go packages loading at mode 8767 (compiled_files|deps|files|name|types_sizes|exports_file|imports) took 294.64506ms"
+level=info msg="[runner/filename_unadjuster] Pre-built 0 adjustments in 6.762589ms"
+level=info msg="[linters_context/goanalysis] analyzers took 0s with no stages"
+level=info msg="[runner/exclusion_rules] Skipped 0 issues by rules: [Text: \"SA1019: cli.CreateProcessorLegacy\", Linters: \"staticcheck\"]"
+level=info msg="[runner/max_same_issues] 29/32 issues with text \"QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...))\" were hidden, use --max-same-issues"
+level=info msg="[runner] Issues before processing: 49, after processing: 19"
+level=info msg="[runner] Processors filtering stat (in/out): exclusion_paths: 49/49, diff: 49/49, severity-rules: 19/19, path_prettifier: 19/19, invalid_issue: 49/49, nolint_filter: 49/49, fixer: 49/49, max_same_issues: 48/19, path_absoluter: 49/49, filename_unadjuster: 49/49, generated_file_filter: 49/49, max_per_file_from_linter: 48/48, source_code: 19/19, path_shortener: 19/19, sort_results: 19/19, exclusion_rules: 49/49, uniq_by_line: 49/48, max_from_linter: 19/19, cgo: 49/49, path_relativity: 49/49"
+level=info msg="[runner] processing took 11.46062ms with stages: nolint_filter: 10.956856ms, generated_file_filter: 199.416µs, source_code: 139.526µs, path_relativity: 66.384µs, exclusion_rules: 50.561µs, max_same_issues: 17.591µs, uniq_by_line: 10.489µs, sort_results: 4.549µs, max_per_file_from_linter: 2.461µs, path_shortener: 2.276µs, invalid_issue: 2.075µs, cgo: 1.988µs, max_from_linter: 1.923µs, exclusion_paths: 1.319µs, path_absoluter: 1.097µs, filename_unadjuster: 802ns, fixer: 535ns, path_prettifier: 469ns, diff: 210ns, severity-rules: 93ns"
+level=info msg="[runner] linters took 167.587027ms with stages: goanalysis_metalinter: 156.05915ms"
+internal/cssvisualdiff/service/pixel.go:42:15: Error return value of `f.Close` is not checked (errcheck)
+	defer f.Close()
+	             ^
+internal/cssvisualdiff/service/pixel.go:58:15: Error return value of `f.Close` is not checked (errcheck)
+	defer f.Close()
+	             ^
+internal/cssvisualdiff/jsapi/module.go:135:1: named return "className" with type "string" found (nonamedreturns)
+func classifyCVDError(op string, err error) (className string, code string) {
+^
+internal/cssvisualdiff/modes/matched_styles.go:676:50: param close has same name as predeclared identifier (predeclared)
+func scanEnclosed(input string, start int, open, close byte) (string, int) {
+                                                 ^
+internal/cssvisualdiff/jsapi/compare.go:362:3: QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...)) (staticcheck)
+		b.WriteString(fmt.Sprintf("- Name: %s\n", data.Name))
+		^
+internal/cssvisualdiff/jsapi/compare.go:364:2: QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...)) (staticcheck)
+	b.WriteString(fmt.Sprintf("- Left selector: `%s`\n", data.Left.Selector))
+	^
+internal/cssvisualdiff/jsapi/compare.go:365:2: QF1012: Use fmt.Fprintf(...) instead of WriteString(fmt.Sprintf(...)) (staticcheck)
+	b.WriteString(fmt.Sprintf("- Right selector: `%s`\n", data.Right.Selector))
+	^
+internal/cssvisualdiff/modes/capture.go:346:3: QF1003: could use tagged switch on prefix (staticcheck)
+		if prefix == "original" {
+		^
+internal/cssvisualdiff/service/style.go:56:9: S1016: should convert out (type styleEvalResult) to StyleSnapshot instead of using struct literal (staticcheck)
+	return StyleSnapshot{
+	       ^
+internal/cssvisualdiff/modes/inspect.go:228:6: func writeInspectArtifacts is unused (unused)
+func writeInspectArtifacts(page *driver.Page, target config.Target, side string, req InspectRequest, format, outDir, outputFile string) (InspectArtifactResult, error) {
+     ^
+internal/cssvisualdiff/modes/inspect.go:322:6: func ensureInspectSelectorExists is unused (unused)
+func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
+     ^
+internal/cssvisualdiff/modes/inspect.go:344:6: func writeSingleInspectArtifact is unused (unused)
+func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata InspectMetadata, format, path string) (InspectArtifactResult, error) {
+     ^
+internal/cssvisualdiff/modes/inspect.go:395:6: func writeInspectCSSMarkdown is unused (unused)
+func writeInspectCSSMarkdown(path string, req InspectRequest, style StyleSnapshot) error {
+     ^
+internal/cssvisualdiff/modes/inspect.go:409:6: func writeInspectIndex is unused (unused)
+func writeInspectIndex(outDir string, result InspectResult) error {
+     ^
+internal/cssvisualdiff/modes/pixeldiff_util.go:21:6: func padToSameSize is unused (unused)
+func padToSameSize(a, b image.Image) (*image.NRGBA, *image.NRGBA) {
+     ^
+internal/cssvisualdiff/modes/pixeldiff_util.go:30:6: func combineSideBySide is unused (unused)
+func combineSideBySide(url1, url2, diff *image.NRGBA) *image.NRGBA {
+     ^
+internal/cssvisualdiff/modes/prepare.go:13:6: func runScriptPrepare is unused (unused)
+func runScriptPrepare(page *driver.Page, prepare *config.PrepareSpec) error {
+     ^
+internal/cssvisualdiff/modes/prepare.go:17:6: func runDirectReactGlobalPrepare is unused (unused)
+func runDirectReactGlobalPrepare(page *driver.Page, prepare *config.PrepareSpec) error {
+     ^
+internal/cssvisualdiff/modes/prepare.go:21:6: type directReactGlobalPrepareResult is unused (unused)
+type directReactGlobalPrepareResult = service.DirectReactGlobalPrepareResult
+     ^
+19 issues:
+* errcheck: 2
+* nonamedreturns: 1
+* predeclared: 1
+* staticcheck: 5
+* unused: 10
+level=info msg="File cache stats: 9 entries of total size 89.6KiB"
+level=info msg="Memory: 6 samples, avg is 58.5MB, max is 99.7MB"
+level=info msg="Execution took 476.768223ms"
+make: *** [Makefile:27: lint] Error 1

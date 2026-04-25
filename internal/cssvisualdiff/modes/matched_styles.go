@@ -673,8 +673,8 @@ func skipIdent(input string, start int) int {
 	return next
 }
 
-func scanEnclosed(input string, start int, open, close byte) (string, int) {
-	if start >= len(input) || input[start] != open {
+func scanEnclosed(input string, start int, openDelim, closeDelim byte) (string, int) {
+	if start >= len(input) || input[start] != openDelim {
 		return "", start
 	}
 	depth := 1
@@ -694,9 +694,9 @@ func scanEnclosed(input string, start int, open, close byte) (string, int) {
 		switch ch {
 		case '\'', '"':
 			inString = ch
-		case open:
+		case openDelim:
 			depth++
-		case close:
+		case closeDelim:
 			depth--
 			if depth == 0 {
 				return input[start+1 : i], i + 1

@@ -342,17 +342,13 @@ func rootSelectorForTarget(target config.Target) string {
 
 func selectorForSection(section config.SectionSpec, prefix string) string {
 	selector := section.Selector
-	if selector == "" {
-		if prefix == "original" {
-			selector = section.SelectorOriginal
-		} else if prefix == "react" {
-			selector = section.SelectorReact
-		}
-	} else {
-		if prefix == "original" && section.SelectorOriginal != "" {
+	switch prefix {
+	case "original":
+		if section.SelectorOriginal != "" {
 			selector = section.SelectorOriginal
 		}
-		if prefix == "react" && section.SelectorReact != "" {
+	case "react":
+		if section.SelectorReact != "" {
 			selector = section.SelectorReact
 		}
 	}

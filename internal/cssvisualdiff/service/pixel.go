@@ -39,10 +39,13 @@ func ReadPNG(path string) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	img, err := png.Decode(f)
-	if err != nil {
-		return nil, err
+	img, decodeErr := png.Decode(f)
+	closeErr := f.Close()
+	if decodeErr != nil {
+		return nil, decodeErr
+	}
+	if closeErr != nil {
+		return nil, closeErr
 	}
 	return img, nil
 }
@@ -55,8 +58,12 @@ func WritePNG(path string, img image.Image) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
-	return png.Encode(f, img)
+	encodeErr := png.Encode(f, img)
+	closeErr := f.Close()
+	if encodeErr != nil {
+		return encodeErr
+	}
+	return closeErr
 }
 
 func ToNRGBA(img image.Image) *image.NRGBA {

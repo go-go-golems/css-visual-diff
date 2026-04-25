@@ -18,17 +18,9 @@ func toNRGBA(img image.Image) *image.NRGBA {
 	return service.ToNRGBA(img)
 }
 
-func padToSameSize(a, b image.Image) (*image.NRGBA, *image.NRGBA) {
-	return service.PadToSameSize(a, b)
-}
-
 func computePixelDiff(url1, url2 *image.NRGBA, threshold int) (PixelDiffStats, *image.NRGBA) {
 	result, overlay := service.ComputePixelDiff(url1, url2, threshold)
 	return pixelDiffStatsFromService(result), overlay
-}
-
-func combineSideBySide(url1, url2, diff *image.NRGBA) *image.NRGBA {
-	return service.CombineSideBySide(url1, url2, diff)
 }
 
 func pixelDiffStatsFromService(result service.PixelDiffResult) PixelDiffStats {

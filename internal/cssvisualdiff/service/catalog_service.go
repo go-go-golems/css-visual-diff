@@ -246,17 +246,17 @@ func (c *Catalog) WriteIndex() (string, error) {
 	b.WriteString("# ")
 	b.WriteString(manifest.Title)
 	b.WriteString("\n\n")
-	b.WriteString(fmt.Sprintf("Schema: `%s`\n\n", manifest.SchemaVersion))
+	fmt.Fprintf(&b, "Schema: `%s`\n\n", manifest.SchemaVersion)
 	b.WriteString("## Summary\n\n")
 	b.WriteString("| Targets | Preflights | Results | Comparisons | Failures | Artifacts |\n")
 	b.WriteString("| ---: | ---: | ---: | ---: | ---: | ---: |\n")
-	b.WriteString(fmt.Sprintf("| %d | %d | %d | %d | %d | %d |\n\n", manifest.Summary.TargetCount, manifest.Summary.PreflightCount, manifest.Summary.ResultCount, manifest.Summary.ComparisonCount, manifest.Summary.FailureCount, manifest.Summary.ArtifactCount))
+	fmt.Fprintf(&b, "| %d | %d | %d | %d | %d | %d |\n\n", manifest.Summary.TargetCount, manifest.Summary.PreflightCount, manifest.Summary.ResultCount, manifest.Summary.ComparisonCount, manifest.Summary.FailureCount, manifest.Summary.ArtifactCount)
 	if len(manifest.Targets) > 0 {
 		b.WriteString("## Targets\n\n")
 		b.WriteString("| Slug | Name | URL | Selector |\n")
 		b.WriteString("| --- | --- | --- | --- |\n")
 		for _, target := range manifest.Targets {
-			b.WriteString(fmt.Sprintf("| %s | %s | %s | `%s` |\n", target.Slug, target.Name, target.URL, target.Selector))
+			fmt.Fprintf(&b, "| %s | %s | %s | `%s` |\n", target.Slug, target.Name, target.URL, target.Selector)
 		}
 		b.WriteString("\n")
 	}
@@ -265,7 +265,7 @@ func (c *Catalog) WriteIndex() (string, error) {
 		b.WriteString("| Target | Output Dir | Items |\n")
 		b.WriteString("| --- | --- | ---: |\n")
 		for _, result := range manifest.Results {
-			b.WriteString(fmt.Sprintf("| %s | `%s` | %d |\n", result.Target.Slug, result.Result.OutputDir, len(result.Result.Results)))
+			fmt.Fprintf(&b, "| %s | `%s` | %d |\n", result.Target.Slug, result.Result.OutputDir, len(result.Result.Results))
 		}
 		b.WriteString("\n")
 	}
@@ -278,7 +278,7 @@ func (c *Catalog) WriteIndex() (string, error) {
 			if comparison.Comparison.Pixel != nil {
 				changed = comparison.Comparison.Pixel.ChangedPercent
 			}
-			b.WriteString(fmt.Sprintf("| %s | %s | %.4f%% | %d | %d | %d |\n", comparison.Target.Slug, comparison.Comparison.Name, changed, len(comparison.Comparison.Styles), len(comparison.Comparison.Attributes), len(comparison.Comparison.Artifacts)))
+			fmt.Fprintf(&b, "| %s | %s | %.4f%% | %d | %d | %d |\n", comparison.Target.Slug, comparison.Comparison.Name, changed, len(comparison.Comparison.Styles), len(comparison.Comparison.Attributes), len(comparison.Comparison.Artifacts))
 		}
 		b.WriteString("\n")
 	}
@@ -287,7 +287,7 @@ func (c *Catalog) WriteIndex() (string, error) {
 		b.WriteString("| Target | Code | Operation | Message |\n")
 		b.WriteString("| --- | --- | --- | --- |\n")
 		for _, failure := range manifest.Failures {
-			b.WriteString(fmt.Sprintf("| %s | %s | `%s` | %s |\n", failure.Target.Slug, failure.Code, failure.Operation, failure.Message))
+			fmt.Fprintf(&b, "| %s | %s | `%s` | %s |\n", failure.Target.Slug, failure.Code, failure.Operation, failure.Message)
 		}
 		b.WriteString("\n")
 	}

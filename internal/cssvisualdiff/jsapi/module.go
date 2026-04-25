@@ -132,7 +132,7 @@ func cvdErrorValue(vm *goja.Runtime, op string, err error) goja.Value {
 	return obj
 }
 
-func classifyCVDError(op string, err error) (className string, code string) {
+func classifyCVDError(op string, err error) (string, string) {
 	message := ""
 	if err != nil {
 		message = strings.ToLower(err.Error())

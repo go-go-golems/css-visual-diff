@@ -359,28 +359,28 @@ func renderSelectionComparisonMarkdown(data service.SelectionComparisonData) str
 	var b strings.Builder
 	b.WriteString("# Selection Comparison\n\n")
 	if data.Name != "" {
-		b.WriteString(fmt.Sprintf("- Name: %s\n", data.Name))
+		fmt.Fprintf(&b, "- Name: %s\n", data.Name)
 	}
-	b.WriteString(fmt.Sprintf("- Left selector: `%s`\n", data.Left.Selector))
-	b.WriteString(fmt.Sprintf("- Right selector: `%s`\n", data.Right.Selector))
+	fmt.Fprintf(&b, "- Left selector: `%s`\n", data.Left.Selector)
+	fmt.Fprintf(&b, "- Right selector: `%s`\n", data.Right.Selector)
 	if data.Pixel != nil {
-		b.WriteString(fmt.Sprintf("- Changed pixels: %d/%d (%.4f%%)\n", data.Pixel.ChangedPixels, data.Pixel.TotalPixels, data.Pixel.ChangedPercent))
+		fmt.Fprintf(&b, "- Changed pixels: %d/%d (%.4f%%)\n", data.Pixel.ChangedPixels, data.Pixel.TotalPixels, data.Pixel.ChangedPercent)
 	}
-	b.WriteString(fmt.Sprintf("- Bounds changed: %t\n", data.Bounds.Changed))
-	b.WriteString(fmt.Sprintf("- Text changed: %t\n", data.Text.Changed))
-	b.WriteString(fmt.Sprintf("- Style changes: %d\n", len(data.Styles)))
-	b.WriteString(fmt.Sprintf("- Attribute changes: %d\n\n", len(data.Attributes)))
+	fmt.Fprintf(&b, "- Bounds changed: %t\n", data.Bounds.Changed)
+	fmt.Fprintf(&b, "- Text changed: %t\n", data.Text.Changed)
+	fmt.Fprintf(&b, "- Style changes: %d\n", len(data.Styles))
+	fmt.Fprintf(&b, "- Attribute changes: %d\n\n", len(data.Attributes))
 	if len(data.Styles) > 0 {
 		b.WriteString("## Style diffs\n\n| Property | Left | Right |\n| --- | --- | --- |\n")
 		for _, diff := range data.Styles {
-			b.WriteString(fmt.Sprintf("| %s | %s | %s |\n", diff.Name, diff.Left, diff.Right))
+			fmt.Fprintf(&b, "| %s | %s | %s |\n", diff.Name, diff.Left, diff.Right)
 		}
 		b.WriteString("\n")
 	}
 	if len(data.Attributes) > 0 {
 		b.WriteString("## Attribute diffs\n\n| Attribute | Left | Right |\n| --- | --- | --- |\n")
 		for _, diff := range data.Attributes {
-			b.WriteString(fmt.Sprintf("| %s | %s | %s |\n", diff.Name, diff.Left, diff.Right))
+			fmt.Fprintf(&b, "| %s | %s | %s |\n", diff.Name, diff.Left, diff.Right)
 		}
 		b.WriteString("\n")
 	}

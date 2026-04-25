@@ -3,10 +3,8 @@ package modes
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
@@ -225,214 +223,6 @@ func BuildInspectRequests(cfg *config.Config, opts InspectOptions) ([]InspectReq
 	}
 }
 
-func writeInspectArtifacts(page *driver.Page, target config.Target, side string, req InspectRequest, format, outDir, outputFile string) (InspectArtifactResult, error) {
-	format, err := canonicalInspectFormat(format)
-	if err != nil {
-		return InspectArtifactResult{}, err
-	}
-	metadata := InspectMetadata{
-		Side:           side,
-		TargetName:     target.Name,
-		URL:            target.URL,
-		Viewport:       target.Viewport,
-		Name:           req.Name,
-		Selector:       req.Selector,
-		SelectorSource: req.Source,
-		RootSelector:   rootSelectorForTarget(target),
-		Format:         format,
-		CreatedAt:      time.Now().UTC(),
-	}
-	if target.Prepare != nil {
-		metadata.PrepareType = target.Prepare.Type
-	}
-	artifact := InspectArtifactResult{Metadata: metadata}
-
-	if outputFile != "" {
-		if err := os.MkdirAll(filepath.Dir(outputFile), 0o755); err != nil && filepath.Dir(outputFile) != "." {
-			return artifact, err
-		}
-		return writeSingleInspectArtifact(page, req, metadata, format, outputFile)
-	}
-
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return artifact, err
-	}
-
-	metadataPath := filepath.Join(outDir, "metadata.json")
-	if err := writeJSON(metadataPath, metadata); err != nil {
-		return artifact, err
-	}
-
-	if inspectFormatRequiresExistingSelector(format) {
-		if err := ensureInspectSelectorExists(page, req); err != nil {
-			return artifact, err
-		}
-	}
-
-	if format == InspectFormatBundle || format == InspectFormatHTML {
-		htmlPath := filepath.Join(outDir, "prepared.html")
-		if err := writePreparedHTML(page, req.Selector, htmlPath); err != nil {
-			return artifact, err
-		}
-		artifact.HTML = htmlPath
-	}
-	if format == InspectFormatBundle || format == InspectFormatPNG {
-		pngPath := filepath.Join(outDir, "screenshot.png")
-		if err := page.Screenshot(req.Selector, pngPath); err != nil {
-			return artifact, err
-		}
-		artifact.Screenshot = pngPath
-	}
-	if format == InspectFormatBundle || format == InspectFormatCSSJSON || format == InspectFormatCSSMarkdown {
-		style, err := evaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
-		if err != nil {
-			return artifact, err
-		}
-		artifact.Style = &style
-		if format == InspectFormatBundle || format == InspectFormatCSSJSON {
-			if err := writeJSON(filepath.Join(outDir, "computed-css.json"), style); err != nil {
-				return artifact, err
-			}
-		}
-		if format == InspectFormatBundle || format == InspectFormatCSSMarkdown {
-			if err := writeInspectCSSMarkdown(filepath.Join(outDir, "computed-css.md"), req, style); err != nil {
-				return artifact, err
-			}
-		}
-	}
-	if format == InspectFormatBundle || format == InspectFormatInspectJSON {
-		inspectPath := filepath.Join(outDir, "inspect.json")
-		if err := writeInspectJSON(page, req.Selector, inspectPath); err != nil {
-			return artifact, err
-		}
-		artifact.InspectJSON = inspectPath
-	}
-	return artifact, nil
-}
-
-func inspectFormatRequiresExistingSelector(format string) bool {
-	switch format {
-	case InspectFormatBundle, InspectFormatPNG, InspectFormatHTML, InspectFormatInspectJSON:
-		return true
-	default:
-		return false
-	}
-}
-
-func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
-	statuses, err := service.PreflightProbes(page, []service.ProbeSpec{{
-		Name:     req.Name,
-		Selector: req.Selector,
-		Source:   req.Source,
-	}})
-	if err != nil {
-		return fmt.Errorf("preflight selector %q for %s %q: %w", req.Selector, req.Source, req.Name, err)
-	}
-	if len(statuses) != 1 {
-		return fmt.Errorf("preflight selector %q for %s %q returned %d statuses", req.Selector, req.Source, req.Name, len(statuses))
-	}
-	status := statuses[0]
-	if status.Error != "" {
-		return fmt.Errorf("preflight selector %q for %s %q: %s", req.Selector, req.Source, req.Name, status.Error)
-	}
-	if !status.Exists {
-		return fmt.Errorf("%s %q selector did not match: %s", req.Source, req.Name, req.Selector)
-	}
-	return nil
-}
-
-func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata InspectMetadata, format, path string) (InspectArtifactResult, error) {
-	artifact := InspectArtifactResult{Metadata: metadata}
-	if inspectFormatRequiresExistingSelector(format) {
-		if err := ensureInspectSelectorExists(page, req); err != nil {
-			return artifact, err
-		}
-	}
-	switch format {
-	case InspectFormatPNG:
-		if err := page.Screenshot(req.Selector, path); err != nil {
-			return artifact, err
-		}
-		artifact.Screenshot = path
-	case InspectFormatHTML:
-		if err := writePreparedHTML(page, req.Selector, path); err != nil {
-			return artifact, err
-		}
-		artifact.HTML = path
-	case InspectFormatCSSJSON:
-		style, err := evaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
-		if err != nil {
-			return artifact, err
-		}
-		artifact.Style = &style
-		if err := writeJSON(path, style); err != nil {
-			return artifact, err
-		}
-	case InspectFormatCSSMarkdown:
-		style, err := evaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
-		if err != nil {
-			return artifact, err
-		}
-		artifact.Style = &style
-		if err := writeInspectCSSMarkdown(path, req, style); err != nil {
-			return artifact, err
-		}
-	case InspectFormatInspectJSON:
-		if err := writeInspectJSON(page, req.Selector, path); err != nil {
-			return artifact, err
-		}
-		artifact.InspectJSON = path
-	case InspectFormatMetadataJSON:
-		if err := writeJSON(path, metadata); err != nil {
-			return artifact, err
-		}
-	default:
-		return artifact, fmt.Errorf("format %q does not support --output-file", format)
-	}
-	return artifact, nil
-}
-
-func writeInspectCSSMarkdown(path string, req InspectRequest, style StyleSnapshot) error {
-	content := fmt.Sprintf("# css-visual-diff CSS Inspect: %s\n\n", req.Name)
-	content += fmt.Sprintf("Selector: `%s`\n\n", req.Selector)
-	content += fmt.Sprintf("Exists: `%t`\n\n", style.Exists)
-	if style.Bounds != nil {
-		content += fmt.Sprintf("Bounds: x=%.2f y=%.2f width=%.2f height=%.2f\n\n", style.Bounds.X, style.Bounds.Y, style.Bounds.Width, style.Bounds.Height)
-	}
-	content += "| Property | Value |\n| --- | --- |\n"
-	for _, prop := range req.Props {
-		content += fmt.Sprintf("| %s | %s |\n", prop, style.Computed[prop])
-	}
-	return os.WriteFile(path, []byte(content), 0o644)
-}
-
-func writeInspectIndex(outDir string, result InspectResult) error {
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return err
-	}
-	if err := writeJSON(filepath.Join(outDir, "index.json"), result); err != nil {
-		return err
-	}
-	content := "# css-visual-diff Inspect Index\n\n"
-	content += "| Name | Source | Selector | Screenshot | HTML | CSS JSON | CSS Markdown | Inspect JSON |\n"
-	content += "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
-	for _, r := range result.Results {
-		name := r.Metadata.Name
-		base := sanitizeName(name)
-		content += fmt.Sprintf("| %s | %s | `%s` | %s | %s | %s | %s | %s |\n",
-			name,
-			r.Metadata.SelectorSource,
-			r.Metadata.Selector,
-			filepath.Join(base, "screenshot.png"),
-			filepath.Join(base, "prepared.html"),
-			filepath.Join(base, "computed-css.json"),
-			filepath.Join(base, "computed-css.md"),
-			filepath.Join(base, "inspect.json"),
-		)
-	}
-	return os.WriteFile(filepath.Join(outDir, "index.md"), []byte(content), 0o644)
-}
-
 func inspectTargetForSide(cfg *config.Config, side string) (config.Target, string, error) {
 	switch strings.TrimSpace(strings.ToLower(side)) {
 	case "original", "orig":
@@ -497,24 +287,11 @@ func normalizeInspectFormat(format, outputFile string) string {
 }
 
 func canonicalInspectFormat(format string) (string, error) {
-	switch strings.TrimSpace(strings.ToLower(format)) {
-	case "", InspectFormatBundle:
-		return InspectFormatBundle, nil
-	case InspectFormatPNG, "screenshot":
-		return InspectFormatPNG, nil
-	case InspectFormatHTML:
-		return InspectFormatHTML, nil
-	case InspectFormatCSSJSON:
-		return InspectFormatCSSJSON, nil
-	case InspectFormatCSSMarkdown, "css", "css-markdown":
-		return InspectFormatCSSMarkdown, nil
-	case InspectFormatInspectJSON:
-		return InspectFormatInspectJSON, nil
-	case InspectFormatMetadataJSON:
-		return InspectFormatMetadataJSON, nil
-	default:
-		return "", fmt.Errorf("unsupported inspect format %q", format)
-	}
+	return service.CanonicalInspectFormat(strings.TrimSpace(strings.ToLower(format)))
+}
+
+func inspectFormatRequiresExistingSelector(format string) bool {
+	return service.InspectFormatRequiresExistingSelector(format)
 }
 
 func defaultInspectProps() []string {
