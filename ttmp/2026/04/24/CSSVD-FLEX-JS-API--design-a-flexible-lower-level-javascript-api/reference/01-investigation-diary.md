@@ -956,3 +956,130 @@ func (s *pageState) runExclusive(work func() (any, error)) (any, error) {
 ```
 
 Each Promise work closure calls `state.runExclusive(...)`, so the work still runs asynchronously from JavaScript's perspective but only one operation touches the underlying page at a time.
+
+## Step 10: Complete Phase 4 service DOM locator primitives
+
+I completed Phase 4 by adding pure Go service-layer DOM locator primitives. These functions are intentionally independent of Goja and provide the reusable browser-page operations that the future `page.locator()` JavaScript API will wrap.
+
+The new service file covers selector status, text, HTML, bounds, attributes, and computed style. Missing selectors return empty/structured results where that is natural, while invalid selectors return errors for direct locator operations. `LocatorStatus` reuses the existing preflight implementation so status behavior stays aligned with the current high-level API.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 4"
+
+**Assistant interpretation:** Implement Phase 4 from the ticket: add pure Go DOM locator primitives, test them, update docs/diary/tasks, and commit.
+
+**Inferred user intent:** Build the Go service foundation required before exposing `page.locator()` in the JS API.
+
+### What I did
+
+- Added `internal/cssvisualdiff/service/dom.go`.
+- Defined:
+  - `LocatorSpec`
+  - `TextOptions`
+  - `ElementHTML`
+- Implemented:
+  - `LocatorStatus(...)`
+  - `LocatorText(...)`
+  - `LocatorHTML(...)`
+  - `LocatorBounds(...)`
+  - `LocatorAttributes(...)`
+  - `LocatorComputedStyle(...)`
+- Added `internal/cssvisualdiff/service/dom_test.go`.
+- Added tests for:
+  - existing visible selector,
+  - missing selector,
+  - hidden selector,
+  - invalid selector,
+  - text normalization,
+  - inner/outer HTML,
+  - bounds,
+  - attributes including missing attributes,
+  - computed styles.
+- Marked Phase 4 tasks complete and set the active phase to Phase 5.
+
+### Why
+
+The lower-level JavaScript API should wrap reusable Go services rather than putting DOM logic directly in Goja adapters. This keeps service behavior testable without JavaScript runtime concerns and gives future CLI modes a shared implementation path.
+
+### What worked
+
+`LocatorStatus(...)` could reuse `PreflightProbes(...)`, preserving existing selector status behavior. `LocatorComputedStyle(...)` could reuse `EvaluateStyle(...)`, preserving current computed-style extraction semantics.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestLocatorDOMPrimitives' -count=1
+
+go test ./internal/cssvisualdiff/service -count=1
+
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+The first `TestLocatorDOMPrimitives` run failed because the test HTML contained a literal backslash-n sequence instead of an actual newline:
+
+```text
+Error: "Book\\n now" does not contain "Book now"
+```
+
+I fixed the fixture to use a real newline inside the button text so the existing whitespace normalization behavior matched the assertion.
+
+### What I learned
+
+The current preflight text normalization collapses real whitespace, but not a literal `\\n` sequence. That is correct browser behavior, and the test fixture was wrong.
+
+For missing selectors, empty direct results are more useful than errors:
+
+- text -> `""`
+- HTML -> `{ exists: false, html: "" }`
+- bounds -> `nil`
+- attributes -> empty map
+- computed style -> empty map
+
+For invalid selectors, direct operations should return errors because the selector itself is malformed.
+
+### What was tricky to build
+
+The tricky part was deciding how much behavior to duplicate versus reuse. `LocatorStatus(...)` reuses `PreflightProbes(...)` and `LocatorComputedStyle(...)` reuses `EvaluateStyle(...)`. The direct text/html/bounds/attributes functions use small focused page scripts because the existing service layer did not expose those exact data shapes yet.
+
+Another subtle point is attribute handling. DOM `getAttribute(...)` can return `null`, but the Go API returns `map[string]string`, so the script normalizes missing attributes to an empty string to avoid JSON unmarshalling surprises.
+
+### What warrants a second pair of eyes
+
+- Whether `LocatorText` defaults should eventually normalize/trim by default in the JS API, even though the service options are explicit.
+- Whether `LocatorComputedStyle` should avoid the small `configStyleSpec(...)` adapter helper and instead have `EvaluateStyle` accept a service-native spec later.
+- Whether missing selectors should be configurable as strict errors for some future extraction modes.
+
+### What should be done in the future
+
+Phase 5 should expose these service functions through a Go-backed `LocatorHandle` Proxy returned by `page.locator(selector)`.
+
+### Code review instructions
+
+Start with:
+
+```text
+internal/cssvisualdiff/service/dom.go
+```
+
+Then review tests:
+
+```text
+internal/cssvisualdiff/service/dom_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestLocatorDOMPrimitives' -count=1
+go test ./internal/cssvisualdiff/service -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+The service functions are intentionally Goja-free and operate on `*driver.Page`. The future JS adapter should only decode inputs, call these functions through the per-page serialization guard, and lower results into JavaScript values.

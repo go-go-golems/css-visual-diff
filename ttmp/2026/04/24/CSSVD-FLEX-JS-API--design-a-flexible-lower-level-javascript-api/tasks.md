@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 4 — service DOM locator primitives**.
+- Current active implementation phase: **Phase 5 — `page.locator()` and locator methods**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -130,17 +130,17 @@ Goal: make lower-level locator APIs safe when users call several page operations
 
 Goal: add Go service functions for locator status/text/html/bounds/attributes/style without importing Goja.
 
-- [ ] Add `internal/cssvisualdiff/service/dom.go`.
-- [ ] Define `LocatorSpec`, `TextOptions`, `ElementHTML`, and related option/result structs if needed.
-- [ ] Implement `LocatorStatus` reusing selector readiness logic from `PreflightProbes` where possible.
-- [ ] Implement `LocatorText`.
-- [ ] Implement `LocatorHTML`.
-- [ ] Implement `LocatorBounds`.
-- [ ] Implement `LocatorAttributes`.
-- [ ] Implement `LocatorComputedStyle` reusing `EvaluateStyle` where possible.
-- [ ] Add `internal/cssvisualdiff/service/dom_test.go` with existing/missing/hidden/invalid selector cases.
-- [ ] Run `go test ./internal/cssvisualdiff/service -count=1`.
-- [ ] Update diary/changelog and commit Phase 4.
+- [x] Add `internal/cssvisualdiff/service/dom.go`.
+- [x] Define `LocatorSpec`, `TextOptions`, `ElementHTML`, and related option/result structs if needed.
+- [x] Implement `LocatorStatus` reusing selector readiness logic from `PreflightProbes` where possible.
+- [x] Implement `LocatorText`.
+- [x] Implement `LocatorHTML`.
+- [x] Implement `LocatorBounds`.
+- [x] Implement `LocatorAttributes`.
+- [x] Implement `LocatorComputedStyle` reusing `EvaluateStyle` where possible.
+- [x] Add `internal/cssvisualdiff/service/dom_test.go` with existing/missing/hidden/invalid selector cases.
+- [x] Run `go test ./internal/cssvisualdiff/service -count=1`.
+- [x] Update diary/changelog and commit Phase 4.
 
 ## Phase 5 — Expose `page.locator()` and locator methods as Go-backed Proxy handles
 

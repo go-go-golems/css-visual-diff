@@ -54,3 +54,14 @@
   - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(SerializesSamePagePromiseAll|AllowsConcurrentOperationsOnSeparatePages)' -count=1`
   - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 4 service DOM locator primitives
+
+- Completed Phase 4 by adding `internal/cssvisualdiff/service/dom.go`.
+- Added service-layer locator primitives for status, text, HTML, bounds, attributes, and computed style.
+- Added `internal/cssvisualdiff/service/dom_test.go` with existing, missing, hidden, invalid selector, text, HTML, bounds, attributes, and style coverage.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/service -run 'TestLocatorDOMPrimitives' -count=1`
+  - `go test ./internal/cssvisualdiff/service -count=1`
+  - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`
