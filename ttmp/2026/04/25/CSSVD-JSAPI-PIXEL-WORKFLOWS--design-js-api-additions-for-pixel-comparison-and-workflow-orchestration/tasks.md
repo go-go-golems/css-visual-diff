@@ -114,46 +114,46 @@ Goal: move image comparison out of the mode-shaped implementation and into reusa
 
 ### Implementation tasks
 
-- [ ] Identify private helpers in `internal/cssvisualdiff/modes/compare.go`:
+- [x] Identify private helpers in `internal/cssvisualdiff/modes/compare.go`:
   - PNG reading,
   - image padding/normalization,
   - threshold comparison,
   - diff-only image creation,
   - side-by-side comparison image creation,
   - PNG writing.
-- [ ] Add `internal/cssvisualdiff/service/pixel.go`.
-- [ ] Define `PixelDiffOptions` and `PixelDiffResult` with lowerCamel JS/JSON semantics.
-- [ ] Implement image-level functions:
+- [x] Add `internal/cssvisualdiff/service/pixel.go`.
+- [x] Define `PixelDiffOptions` and `PixelDiffResult` with lowerCamel JS/JSON semantics.
+- [x] Implement image-level functions:
   - `DiffImages(left image.Image, right image.Image, opts PixelDiffOptions)`,
   - `DiffPNGFiles(leftPath, rightPath string, opts PixelDiffOptions)`,
   - writer helpers for diff-only and comparison images.
-- [ ] Ensure image service functions do not depend on CLI mode types.
-- [ ] Update `modes/compare.go` to call the service functions where still needed.
-- [ ] Make writer helpers create parent directories.
+- [x] Ensure image service functions do not depend on CLI mode types.
+- [x] Update `modes/compare.go` to call the service functions where still needed.
+- [x] Make writer helpers create parent directories.
 
 ### Tests
 
-- [ ] Add `internal/cssvisualdiff/service/pixel_test.go`.
-- [ ] Test identical images produce zero changed pixels.
-- [ ] Test one changed pixel above threshold.
-- [ ] Test threshold behavior.
-- [ ] Test different-size images normalize/pad consistently.
-- [ ] Test diff-only and comparison PNG files are written.
-- [ ] Test parent directories are created.
+- [x] Add `internal/cssvisualdiff/service/pixel_test.go`.
+- [x] Test identical images produce zero changed pixels.
+- [x] Test one changed pixel above threshold.
+- [x] Test threshold behavior.
+- [x] Test different-size images normalize/pad consistently.
+- [x] Test diff-only and comparison PNG files are written.
+- [x] Test parent directories are created.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with the image/pixel primitive design:
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with the image/pixel primitive design:
   - clarify structural diffs vs pixel diffs,
   - introduce canonical namespace `cvd.image.diff(...)`,
   - document `changedPercent`, `changedPixels`, `totalPixels`, `normalizedWidth`, and `normalizedHeight`.
 
 ### Real smoke script
 
-- [ ] Add `scripts/002-pixel-service-smoke.sh`.
-- [ ] Script should run focused pixel tests and optionally generate two tiny PNG fixtures under a temp directory.
-- [ ] Script should verify diff PNG files exist and are non-empty.
-- [ ] Record smoke output in the diary.
+- [x] Add `scripts/002-pixel-service-smoke.sh`.
+- [x] Script should run focused pixel tests and optionally generate two tiny PNG fixtures under a temp directory.
+- [x] Script should verify diff PNG files exist and are non-empty.
+- [x] Record smoke output in the diary.
 
 ---
 

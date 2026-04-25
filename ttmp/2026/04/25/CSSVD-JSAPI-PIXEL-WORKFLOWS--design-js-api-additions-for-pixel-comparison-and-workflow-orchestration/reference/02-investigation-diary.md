@@ -12,25 +12,40 @@ Intent: long-term
 Owners: []
 RelatedFiles:
     - Path: internal/cssvisualdiff/doc/topics/javascript-api.md
-      Note: Phase 1 embedded JavaScript API reference update for the collected selection model (commit b13933a)
+      Note: |-
+        Phase 1 embedded JavaScript API reference update for the collected selection model (commit b13933a)
+        Phase 2 embedded JavaScript API reference update for structural vs image diff concepts (commit 6ca2498)
+    - Path: internal/cssvisualdiff/modes/compare.go
+      Note: Phase 2 compare mode now routes pixel artifact writing through service primitives (commit 6ca2498)
+    - Path: internal/cssvisualdiff/modes/pixeldiff.go
+      Note: Phase 2 pixeldiff mode now routes PNG diffing/writing through service primitives (commit 6ca2498)
+    - Path: internal/cssvisualdiff/modes/pixeldiff_util.go
+      Note: Phase 2 compatibility wrappers delegate old mode helpers to service primitives (commit 6ca2498)
     - Path: internal/cssvisualdiff/service/collection.go
       Note: Phase 1 collected selector data service model (commit b13933a)
     - Path: internal/cssvisualdiff/service/collection_test.go
       Note: Phase 1 service tests for collection profiles
+    - Path: internal/cssvisualdiff/service/pixel.go
+      Note: Phase 2 reusable image/pixel diff service primitives (commit 6ca2498)
+    - Path: internal/cssvisualdiff/service/pixel_test.go
+      Note: Phase 2 service tests for image diffing
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/design/01-elegant-javascript-api-additions-for-pixel-comparison-workflows.md
       Note: Main API design proposal produced from this investigation
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/reference/01-pyxis-user-feedback-source-analysis.md
       Note: Source analysis of Pyxis feedback and workflow documents
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/001-service-collection-smoke.sh
       Note: Phase 1 replayable service collection smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/002-pixel-service-smoke.sh
+      Note: Phase 2 replayable pixel service smoke script
 ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T11:10:00-04:00
+LastUpdated: 2026-04-25T11:35:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
+
 
 
 # Investigation Diary
@@ -489,6 +504,145 @@ minimal: status/existence/visibility/bounds
 rich:    text + common styles + common attributes + status/bounds
 debug:   HTML + all styles + all attributes + text + status/bounds
 ```
+
+## Step 15: Implement Phase 2 pixel diff service primitives
+
+Phase 2 extracts the image-level pixel-diff machinery into the service package so future JavaScript APIs can use it directly. The CLI modes still work, but the core PNG reading, normalization, threshold comparison, diff-only image rendering, side-by-side comparison rendering, and parent-directory-safe writing now live behind reusable service functions.
+
+This keeps pixel/image diffing separate from structural JSON diffing. That distinction is important for the no-backward-compat API direction: the canonical future JavaScript surface should be explicit, for example `cvd.diff.structural(...)` for plain data and `cvd.image.diff(...)` for rendered images.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue phase 2"
+
+**Assistant interpretation:** Continue the implementation plan by completing Phase 2: extract pixel diff service primitives, add tests, update the JS API reference, write a real smoke script, update the diary/changelog/tasks, and commit.
+
+**Inferred user intent:** Progress the implementation ticket incrementally while preserving validation and review trail after the completed Phase 1 service collection work.
+
+**Commit (code):** 6ca2498 — "feat: extract pixel diff service primitives"
+
+### What I did
+
+- Added `internal/cssvisualdiff/service/pixel.go`.
+- Added `PixelDiffOptions` and `PixelDiffResult` with lowerCamel JSON fields.
+- Added service functions:
+  - `ValidatePixelThreshold`,
+  - `ReadPNG`,
+  - `WritePNG`,
+  - `ToNRGBA`,
+  - `PadToSameSize`,
+  - `DiffImages`,
+  - `DiffPNGFiles`,
+  - `ComputePixelDiff`,
+  - `CombineSideBySide`,
+  - `WritePixelDiffImages`.
+- Added `internal/cssvisualdiff/service/pixel_test.go`.
+- Reworked `internal/cssvisualdiff/modes/compare.go` so `writePixelDiffImages` delegates to the service.
+- Reworked `internal/cssvisualdiff/modes/pixeldiff.go` so `RunPixelDiff` delegates to the service.
+- Replaced the old mode-local utility implementation in `internal/cssvisualdiff/modes/pixeldiff_util.go` with wrappers around service primitives.
+- Updated `internal/cssvisualdiff/doc/topics/javascript-api.md` to distinguish structural diffs from image/pixel diffs and to preview canonical `cvd.image.diff(...)`.
+- Added `scripts/002-pixel-service-smoke.sh`.
+- Marked Phase 2 tasks complete in `tasks.md`.
+- Related implementation files and the smoke script to this diary.
+
+### Why
+
+- The upcoming `cvd.compare.selections(...)` and `cvd.compare.region(...)` APIs need a reusable image diff primitive that is not trapped inside CLI mode code.
+- Future `cvd.image.diff(...)` should be backed by the same Go service used by built-ins and modes.
+- Writer helpers need to create parent directories because JS APIs should make artifact writing low-effort and predictable.
+
+### What worked
+
+- Focused service tests passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestDiffImages|TestWritePixelDiff|TestValidatePixel' -count=1
+```
+
+- Modes and services passed together:
+
+```bash
+go test ./internal/cssvisualdiff/modes ./internal/cssvisualdiff/service -count=1
+```
+
+- The Phase 2 smoke script passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/002-pixel-service-smoke.sh
+```
+
+- Full test suite passed:
+
+```bash
+go test ./... -count=1
+```
+
+### What didn't work
+
+- The first `gofmt` run failed because I accidentally wrote two statements on one line in `pixel_test.go`:
+
+```text
+internal/cssvisualdiff/service/pixel_test.go:75:47: expected ';', found require
+```
+
+The bad line combined `rightPath := ...` and `require.NoError(...)`. I split it into separate lines and reran `gofmt` and tests.
+
+### What I learned
+
+- The old mode-local helpers already had a clean enough algorithmic boundary; extracting them mostly required defining the right service result shape and keeping mode JSON schemas stable.
+- LowerCamel service JSON fields are useful now even before the JS binding exists, because they clarify the future `cvd.image.diff(...)` contract.
+- Keeping small wrappers in `modes/pixeldiff_util.go` lets existing mode tests continue to validate behavior while the implementation is now service-backed.
+
+### What was tricky to build
+
+- The modes currently expose snake_case JSON structs (`PixelDiffStats`, `PixelDiffEntry`) while the future JS service result should be lowerCamel. I kept the mode structs stable and added `pixelDiffStatsFromService(...)` as an adapter. That preserves current mode behavior without making backward compatibility a public JS API constraint.
+- The threshold semantics are based on squared RGB distance. A threshold of `255` does not ignore a full black-to-white RGB change because the three-channel squared distance exceeds `255^2`. The test documents that behavior explicitly.
+- Parent-directory creation belongs in `service.WritePNG`, because every higher-level writer benefits from it and smoke scripts should not need to pre-create nested artifact directories.
+
+### What warrants a second pair of eyes
+
+- Review whether `PixelDiffOptions.Threshold` should default to `0` or whether callers should normalize to a project default such as `30` at higher API layers.
+- Review the lowerCamel `PixelDiffResult` field names before they become part of the JS API.
+- Review whether mode-local wrappers should remain until all built-ins are converted, or whether they should be removed in a later cleanup phase.
+
+### What should be done in the future
+
+- Phase 3 should use `service.PixelDiffResult` when comparing collected selections that include screenshot/image descriptors.
+- A future `cvd.image.diff(...)` binding can call `service.DiffPNGFiles` / `service.WritePixelDiffImages` directly.
+- Built-in compare verbs should eventually dogfood the public `cvd.compare.region(...)` path instead of internal helper modules.
+
+### Code review instructions
+
+- Start with `internal/cssvisualdiff/service/pixel.go`.
+- Review `PixelDiffResult` and `WritePixelDiffImages` first, because those define the reusable service contract.
+- Review `internal/cssvisualdiff/modes/compare.go` and `internal/cssvisualdiff/modes/pixeldiff.go` to confirm behavior still flows through the service.
+- Validate with:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestDiffImages|TestWritePixelDiff|TestValidatePixel' -count=1
+go test ./internal/cssvisualdiff/modes ./internal/cssvisualdiff/service -count=1
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/002-pixel-service-smoke.sh
+go test ./... -count=1
+```
+
+### Technical details
+
+The service result uses lowerCamel fields for future JS lowering:
+
+```json
+{
+  "threshold": 30,
+  "totalPixels": 10000,
+  "changedPixels": 713,
+  "changedPercent": 7.13,
+  "normalizedWidth": 500,
+  "normalizedHeight": 20,
+  "diffOnlyPath": "artifacts/diff_only.png",
+  "diffComparisonPath": "artifacts/diff_comparison.png"
+}
+```
+
+The service normalizes different-size images by padding both sides to the larger width and height with opaque white pixels before comparing.
 
 ## Issues and assumptions
 

@@ -22,6 +22,15 @@
   - added `scripts/001-service-collection-smoke.sh`,
   - marked Phase 1 tasks complete in `tasks.md`.
 - Validation for Phase 1 passed with focused service tests, the ticket smoke script, embedded help rendering, and `go test ./... -count=1`.
+- Implemented Phase 2 pixel diff service primitives in commit `6ca2498`:
+  - added `internal/cssvisualdiff/service/pixel.go`,
+  - added `internal/cssvisualdiff/service/pixel_test.go`,
+  - routed compare and pixeldiff modes through the new service,
+  - kept mode-local helper names as wrappers around service primitives,
+  - updated `internal/cssvisualdiff/doc/topics/javascript-api.md` with structural-vs-image diff guidance and future `cvd.image.diff(...)`,
+  - added `scripts/002-pixel-service-smoke.sh`,
+  - marked Phase 2 tasks complete in `tasks.md`.
+- Validation for Phase 2 passed with focused service tests, modes integration tests, the ticket smoke script, embedded help checks, and `go test ./... -count=1`.
 
 ## Key decision
 
