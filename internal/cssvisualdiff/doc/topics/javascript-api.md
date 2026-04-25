@@ -87,7 +87,8 @@ Exports:
 - `cvd.extractors.*`
 - `cvd.extract(locator, extractors)`
 - `cvd.snapshot(page, probes, options?)`
-- Upcoming from `CSSVD-JSAPI-PIXEL-WORKFLOWS`: `locator.collect(options?)` and `cvd.collect.selection(locator, options?)` for immutable collected selector data.
+- `locator.collect(options?)` and `cvd.collect.selection(locator, options?)` for immutable collected selector data.
+- `cvd.compare.selections(left, right, options?)` for comparing collected selector data.
 - `cvd.diff(before, after, options?)` for the current structural JSON diff
 - Upcoming canonical names from `CSSVD-JSAPI-PIXEL-WORKFLOWS`: `cvd.diff.structural(before, after, options?)` and `cvd.image.diff(options)`
 - `cvd.write.json(path, value)`
@@ -330,7 +331,7 @@ Operations on one page are serialized internally, so `Promise.all` is safe for p
 
 `CSSVD-JSAPI-PIXEL-WORKFLOWS` introduces a JavaScript-first collection primitive. A locator is live: it says “find this element on this loaded page.” A collected selection is immutable data: it says “these were the browser facts for this selector at this moment.”
 
-The Go service model is implemented as `CollectedSelectionData` with schema version `cssvd.collectedSelection.v1`. The JavaScript handle will be exposed as:
+The Go service model is implemented as `CollectedSelectionData` with schema version `cssvd.collectedSelection.v1`. The JavaScript handle is exposed as:
 
 ```js
 const selected = await page.locator("#cta").collect({ inspect: "rich" })
@@ -343,7 +344,7 @@ Collection profiles:
 - `inspect: "minimal"` — selector status, existence, visibility, and bounds.
 - `inspect: "rich"` — default profile for scripts; includes normalized text, common computed styles, common attributes, and status/bounds.
 - `inspect: "debug"` — intended for deeper diagnostics; includes HTML, all computed styles, and all attributes.
-- object form — future custom profile equivalent to the Go `CollectOptions` fields.
+- object form — custom profile equivalent to the Go `CollectOptions` fields.
 
 Collected data lowers to plain JSON:
 
@@ -369,7 +370,7 @@ Use collected selections when later JavaScript wants to compare, filter, seriali
 
 A `SelectionComparison` compares two collected selections. It is data-centered: it does not re-query the browser. It compares the immutable facts already captured in the left and right `CollectedSelection` values.
 
-The Go service model is implemented as `SelectionComparisonData` with schema version `cssvd.selectionComparison.v1`. The future JavaScript handle will be exposed as:
+The Go service model is implemented as `SelectionComparisonData` with schema version `cssvd.selectionComparison.v1`. The JavaScript handle is exposed as:
 
 ```js
 const left = await leftPage.locator("#cta").collect({ inspect: "rich" })
@@ -414,7 +415,7 @@ A lowered comparison has stable lowerCamel data:
 }
 ```
 
-The JavaScript handle should expose query methods over this data rather than forcing users to parse the full JSON every time:
+The JavaScript handle exposes query methods over this data rather than forcing users to parse the full JSON every time:
 
 ```js
 comparison.pixel.summary()

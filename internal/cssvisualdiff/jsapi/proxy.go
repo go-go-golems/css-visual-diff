@@ -38,9 +38,12 @@ type MethodSpec struct {
 
 type ProxyMethod func(call goja.FunctionCall, receiver goja.Value) goja.Value
 
+type ProxyProperty func(receiver goja.Value) goja.Value
+
 type ProxySpec struct {
 	Owner        string
 	Methods      map[string]ProxyMethod
+	Properties   map[string]ProxyProperty
 	MethodOwners map[string]MethodSpec
 }
 
@@ -65,6 +68,12 @@ func newProxyValue(vm *goja.Runtime, registry *ProxyRegistry, spec ProxySpec, ba
 		Get: func(target *goja.Object, property string, receiver goja.Value) goja.Value {
 			if property == proxyIDProperty {
 				return vm.ToValue(id)
+			}
+			if property == "then" {
+				return goja.Undefined()
+			}
+			if propertyValue, ok := spec.Properties[property]; ok {
+				return propertyValue(receiver)
 			}
 			if method, ok := spec.Methods[property]; ok {
 				return vm.ToValue(func(call goja.FunctionCall) goja.Value {

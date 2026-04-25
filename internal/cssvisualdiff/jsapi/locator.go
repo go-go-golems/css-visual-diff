@@ -25,12 +25,14 @@ func wrapLocator(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *page
 			"bounds":        locator.bounds(ctx, vm),
 			"computedStyle": locator.computedStyle(ctx, vm),
 			"attributes":    locator.attributes(ctx, vm),
+			"collect":       locator.collect(ctx, vm),
 		},
 		MethodOwners: map[string]MethodSpec{
 			"selector": {Owner: "cvd.probe", Hint: "A locator already has a selector. For reusable inspection recipes, use cvd.probe(\"name\").selector(\"#selector\")."},
 			"styles":   {Owner: "cvd.probe", Hint: "For direct style reads on a locator, use .computedStyle([\"color\"]) instead."},
 			"required": {Owner: "cvd.probe", Hint: "Required/missing-selector policy belongs to reusable probes, not page-bound locators."},
 			"build":    {Owner: "cvd.probe", Hint: "Locators are live page-bound handles and do not need .build()."},
+			"diff":     {Owner: "cvd.selectionComparison", Hint: "Collect locators first with await locator.collect(), then compare with cvd.compare.selections(left, right), or use cvd.compare.region({ left, right })."},
 		},
 	}, locator)
 }

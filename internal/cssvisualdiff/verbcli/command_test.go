@@ -969,3 +969,137 @@ func (c *captureProcessor) AddRow(_ context.Context, row types.Row) error {
 func (c *captureProcessor) Close(context.Context) error {
 	return nil
 }
+
+func TestCVDModuleCollectsLocatorSelection(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" style="color: rgb(255, 0, 0)">  Book
+now  </button></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "collect.js"), `
+async function collectSmoke(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.page(url, { viewport: { width: 320, height: 240 } });
+    const selected = await page.locator("#cta").collect({ inspect: "rich" });
+    const viaNamespace = await cvd.collect.selection(page.locator("#cta"), { inspect: "minimal" });
+    const json = selected.toJSON();
+    return {
+      schemaVersion: json.schemaVersion,
+      summaryExists: selected.summary().exists,
+      text: selected.text(),
+      color: selected.styles(["color"]).color,
+      attrClass: selected.attributes(["class"]).class,
+      minimalExists: viaNamespace.summary().exists,
+      minimalTextEmpty: viaNamespace.text() === ""
+    };
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("collectSmoke", { parents: ["custom"], fields: { url: { argument: true, required: true } } });
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{"default": {"url": server.URL}}))
+	require.NoError(t, err)
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, "cssvd.collectedSelection.v1", row["schemaVersion"])
+	require.Equal(t, true, row["summaryExists"])
+	require.Equal(t, "Book now", row["text"])
+	require.Equal(t, "rgb(255, 0, 0)", row["color"])
+	require.Equal(t, "primary", row["attrClass"])
+	require.Equal(t, true, row["minimalExists"])
+	require.Equal(t, true, row["minimalTextEmpty"])
+}
+
+func TestCVDModuleComparesCollectedSelections(t *testing.T) {
+	left := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" style="color: rgb(0, 0, 0); font-size: 16px">Book now</button></body></html>`)
+	}))
+	defer left.Close()
+	right := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="secondary" style="color: rgb(255, 0, 0); font-size: 18px">Book now</button></body></html>`)
+	}))
+	defer right.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "compare-selections.js"), `
+async function compareSelectionsSmoke(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let leftPage, rightPage;
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: { width: 320, height: 240 } });
+    rightPage = await browser.page(rightUrl, { viewport: { width: 320, height: 240 } });
+    const left = await leftPage.locator("#cta").collect({ inspect: "rich" });
+    const right = await rightPage.locator("#cta").collect({ inspect: "rich" });
+    const comparison = await cvd.compare.selections(left, right, {
+      styleProps: ["color", "font-size"],
+      attributes: ["class"]
+    });
+    const writeResult = await comparison.artifacts.write(outDir, ["json", "markdown"]);
+    return {
+      schemaVersion: comparison.toJSON().schemaVersion,
+      boundsChanged: comparison.bounds.diff().changed,
+      styleCount: comparison.styles.diff().length,
+      firstStyle: comparison.styles.diff(["color"])[0].name,
+      attrName: comparison.attributes.diff(["class"])[0].name,
+      markdownHasTitle: comparison.report.markdown().includes("Selection Comparison"),
+      writtenCount: writeResult.written.length
+    };
+  } finally {
+    if (leftPage) await leftPage.close();
+    if (rightPage) await rightPage.close();
+    await browser.close();
+  }
+}
+__verb__("compareSelectionsSmoke", { parents: ["custom"], fields: { leftUrl: { argument: true, required: true }, rightUrl: { argument: true, required: true }, outDir: { argument: true, required: true } } });
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{"default": {"leftUrl": left.URL, "rightUrl": right.URL, "outDir": outDir}}))
+	require.NoError(t, err)
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, "cssvd.selectionComparison.v1", row["schemaVersion"])
+	require.Equal(t, true, row["boundsChanged"])
+	require.EqualValues(t, 2, row["styleCount"])
+	require.Equal(t, "color", row["firstStyle"])
+	require.Equal(t, "class", row["attrName"])
+	require.Equal(t, true, row["markdownHasTitle"])
+	require.EqualValues(t, 2, row["writtenCount"])
+	_, err = os.Stat(filepath.Join(outDir, "compare.json"))
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Join(outDir, "compare.md"))
+	require.NoError(t, err)
+}
