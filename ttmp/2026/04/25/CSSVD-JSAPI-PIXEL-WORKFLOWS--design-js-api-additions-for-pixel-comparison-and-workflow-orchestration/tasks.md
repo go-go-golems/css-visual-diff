@@ -163,8 +163,8 @@ Goal: compare two collected selection values without requiring JavaScript or CLI
 
 ### Implementation tasks
 
-- [ ] Add `internal/cssvisualdiff/service/selection_compare.go`.
-- [ ] Define `SelectionComparisonData` with:
+- [x] Add `internal/cssvisualdiff/service/selection_compare.go`.
+- [x] Define `SelectionComparisonData` with:
   - schema version,
   - name,
   - left/right collected data summaries,
@@ -174,40 +174,40 @@ Goal: compare two collected selection values without requiring JavaScript or CLI
   - style diffs,
   - attribute diffs,
   - artifact descriptors.
-- [ ] Define `CompareSelectionOptions`:
+- [x] Define `CompareSelectionOptions`:
   - threshold,
   - include/exclude style props,
   - normalization options if needed,
   - artifact planning options if needed.
-- [ ] Implement `CompareSelections(left SelectionData, right SelectionData, opts CompareSelectionOptions) (SelectionComparisonData, error)`.
-- [ ] Use the new pixel service when both selections include screenshot/image data.
-- [ ] Implement pure data diff helpers for bounds, text, styles, and attributes.
-- [ ] Keep comparison deterministic: sorted diff ordering, stable paths, stable schema.
-- [ ] Ensure comparison does not re-query the browser.
+- [x] Implement `CompareSelections(left SelectionData, right SelectionData, opts CompareSelectionOptions) (SelectionComparisonData, error)`.
+- [x] Use the new pixel service when both selections include screenshot/image data.
+- [x] Implement pure data diff helpers for bounds, text, styles, and attributes.
+- [x] Keep comparison deterministic: sorted diff ordering, stable paths, stable schema.
+- [x] Ensure comparison does not re-query the browser.
 
 ### Tests
 
-- [ ] Add `internal/cssvisualdiff/service/selection_compare_test.go`.
-- [ ] Test style diff filtering.
-- [ ] Test attribute diff filtering.
-- [ ] Test bounds diff output.
-- [ ] Test pixel diff integration with collected screenshot data.
-- [ ] Test deterministic ordering of diffs.
-- [ ] Test JSON serialization and schema version.
+- [x] Add `internal/cssvisualdiff/service/selection_compare_test.go`.
+- [x] Test style diff filtering.
+- [x] Test attribute diff filtering.
+- [x] Test bounds diff output.
+- [x] Test pixel diff integration with collected screenshot data.
+- [x] Test deterministic ordering of diffs.
+- [x] Test JSON serialization and schema version.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with `SelectionComparison` concepts:
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with `SelectionComparison` concepts:
   - compare collected selections,
   - distinguish comparison data from reports/artifacts,
   - show planned methods `styles.diff`, `bounds.diff`, `attributes.diff`, and `pixel.summary`.
 
 ### Real smoke script
 
-- [ ] Add `scripts/003-selection-compare-service-smoke.sh`.
-- [ ] Script should run focused service comparison tests.
-- [ ] Script should verify a JSON fixture/result can be produced from two simple collected selections.
-- [ ] Record smoke output in the diary.
+- [x] Add `scripts/003-selection-compare-service-smoke.sh`.
+- [x] Script should run focused service comparison tests.
+- [x] Script should verify a JSON fixture/result can be produced from two simple collected selections.
+- [x] Record smoke output in the diary.
 
 ---
 

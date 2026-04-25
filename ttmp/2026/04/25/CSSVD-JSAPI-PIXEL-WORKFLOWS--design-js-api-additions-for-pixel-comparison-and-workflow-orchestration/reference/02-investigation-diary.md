@@ -15,6 +15,7 @@ RelatedFiles:
       Note: |-
         Phase 1 embedded JavaScript API reference update for the collected selection model (commit b13933a)
         Phase 2 embedded JavaScript API reference update for structural vs image diff concepts (commit 6ca2498)
+        Phase 3 embedded JavaScript API reference update for SelectionComparison concepts (commit 29c8aca)
     - Path: internal/cssvisualdiff/modes/compare.go
       Note: Phase 2 compare mode now routes pixel artifact writing through service primitives (commit 6ca2498)
     - Path: internal/cssvisualdiff/modes/pixeldiff.go
@@ -29,6 +30,10 @@ RelatedFiles:
       Note: Phase 2 reusable image/pixel diff service primitives (commit 6ca2498)
     - Path: internal/cssvisualdiff/service/pixel_test.go
       Note: Phase 2 service tests for image diffing
+    - Path: internal/cssvisualdiff/service/selection_compare.go
+      Note: Phase 3 service-level selection comparison model and pure data diff helpers (commit 29c8aca)
+    - Path: internal/cssvisualdiff/service/selection_compare_test.go
+      Note: Phase 3 service tests for style
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/design/01-elegant-javascript-api-additions-for-pixel-comparison-workflows.md
       Note: Main API design proposal produced from this investigation
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/reference/01-pyxis-user-feedback-source-analysis.md
@@ -37,14 +42,17 @@ RelatedFiles:
       Note: Phase 1 replayable service collection smoke script
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/002-pixel-service-smoke.sh
       Note: Phase 2 replayable pixel service smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/003-selection-compare-service-smoke.sh
+      Note: Phase 3 replayable selection comparison service smoke script
 ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T11:35:00-04:00
+LastUpdated: 2026-04-25T12:00:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
+
 
 
 
@@ -643,6 +651,128 @@ The service result uses lowerCamel fields for future JS lowering:
 ```
 
 The service normalizes different-size images by padding both sides to the larger width and height with opaque white pixels before comparing.
+
+## Step 16: Implement Phase 3 service-level selection comparison
+
+Phase 3 adds the pure service layer that compares two collected selections. The important constraint is that comparison does not talk to the browser: it operates only on immutable `SelectionData` captured earlier, which keeps analysis deterministic and prepares the ground for JavaScript `SelectionComparison` handles.
+
+The new service compares bounds, text, computed style maps, attribute maps, and optional screenshots. If both collected selections contain screenshot paths, it delegates pixel/image comparison to the Phase 2 pixel service and can write diff artifacts when paths are provided.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Phase 3"
+
+**Assistant interpretation:** Implement the third ticket phase: service-level selection comparison, tests, API reference update, smoke script, diary/changelog/task updates, and commits.
+
+**Inferred user intent:** Continue the phase-by-phase implementation plan and create the data model that future JS `cvd.compare.selections(...)` and `cvd.compare.region(...)` APIs will wrap.
+
+**Commit (code):** 29c8aca — "feat: add selection comparison service"
+
+### What I did
+
+- Added `internal/cssvisualdiff/service/selection_compare.go`.
+- Added schema version `cssvd.selectionComparison.v1`.
+- Added `CompareSelectionOptions` with threshold, include/exclude style props, include/exclude attributes, and optional pixel artifact paths.
+- Added `SelectionComparisonData` with left/right summaries, pixel summary, bounds diff, text diff, style diffs, attribute diffs, and artifact descriptors.
+- Implemented `CompareSelections(left, right, opts)`.
+- Implemented deterministic pure-data diff helpers for bounds, text, style maps, and attribute maps.
+- Integrated screenshot comparison through the Phase 2 pixel service when both selections include screenshot paths.
+- Added `internal/cssvisualdiff/service/selection_compare_test.go`.
+- Updated `internal/cssvisualdiff/doc/topics/javascript-api.md` with `SelectionComparison` concepts and future JS handle methods.
+- Added `scripts/003-selection-compare-service-smoke.sh`.
+- Marked Phase 3 tasks complete in `tasks.md`.
+- Related implementation files and the smoke script to this diary.
+
+### Why
+
+- Future JavaScript comparison handles need a typed Go service result to wrap.
+- The comparison layer should not re-query browser state; that belongs to collection.
+- Pixel summaries and artifacts need to compose with style/bounds/attribute/text diffs under one durable comparison object.
+
+### What worked
+
+- Focused selection comparison tests passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestCompareSelections' -count=1
+```
+
+- The Phase 3 smoke script passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/003-selection-compare-service-smoke.sh
+```
+
+- Full test suite passed:
+
+```bash
+go test ./... -count=1
+```
+
+### What didn't work
+
+- The first version of the smoke script wrote a temporary test package under `/tmp` and tried to import the repository's internal service package. Go rejected that with:
+
+```text
+use of internal package github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service not allowed
+```
+
+I fixed the script to create the temporary smoke test directory inside the repository root with `mktemp -d "$PWD/.tmp-selection-compare-smoke-XXXXXX"`, so the import is allowed by Go's `internal` package rules. The script removes the directory on exit.
+
+- While drafting the pixel integration test I again accidentally put `rightPath := ...` and `require.NoError(...)` on the same line. I fixed the line before the final `gofmt`/test run.
+
+### What I learned
+
+- The service-level comparison boundary is naturally a pure data operation, except optional screenshot paths. That makes it easier to reason about deadlocks and page serialization later, because Phase 3 does not hold or need page locks.
+- Smoke scripts that compile ad hoc Go files must live inside the repository when importing `internal/...` packages.
+- The lowerCamel schema shape should be decided now because Phase 4/5 JS handles will use `toJSON()` to lower into this data.
+
+### What was tricky to build
+
+- Style and attribute diff ordering needs to be deterministic. I implemented selected key calculation with sorted keys, while preserving explicit include filters and exclude filters.
+- Pixel integration has two modes: compute stats only if no artifact paths are provided, or write artifacts if both `diffOnlyPath` and `diffComparisonPath` are provided. Providing only one path is rejected because partial artifact writes would make the result ambiguous.
+- Bounds diff has to handle nil bounds on either side. The service marks that changed if one side is nil and keeps a nil delta because there is no meaningful numeric delta.
+
+### What warrants a second pair of eyes
+
+- Review the `SelectionComparisonData` JSON shape before it becomes wrapped by the JS `SelectionComparison` handle.
+- Review whether unchanged style/attribute values should be omitted, as implemented now, or optionally included later for richer debug reports.
+- Review `Name` defaulting. It currently uses explicit option name, then left name, then right name.
+
+### What should be done in the future
+
+- Phase 4 should expose collected selection handles in JavaScript.
+- Phase 5 should wrap `SelectionComparisonData` in a Go-backed JS handle with `summary()`, `toJSON()`, `styles.diff`, `bounds.diff`, `attributes.diff`, `pixel.summary`, reports, and artifacts.
+- Phase 6 should implement `cvd.compare.region(...)` as collect-left, collect-right, compare-selections.
+
+### Code review instructions
+
+- Start with `internal/cssvisualdiff/service/selection_compare.go`, especially `CompareSelections`, `diffStringMaps`, and `compareSelectionScreenshots`.
+- Then review `internal/cssvisualdiff/service/selection_compare_test.go` for expected behavior and JSON shape.
+- Review `internal/cssvisualdiff/doc/topics/javascript-api.md` for the user-facing comparison model.
+- Validate with:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestCompareSelections' -count=1
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/003-selection-compare-service-smoke.sh
+go test ./... -count=1
+```
+
+### Technical details
+
+The Phase 3 schema version is:
+
+```text
+cssvd.selectionComparison.v1
+```
+
+The main service entry point is:
+
+```go
+func CompareSelections(left SelectionData, right SelectionData, opts CompareSelectionOptions) (SelectionComparisonData, error)
+```
+
+Comparison does not query the browser. It only compares data already present in `SelectionData`.
 
 ## Issues and assumptions
 

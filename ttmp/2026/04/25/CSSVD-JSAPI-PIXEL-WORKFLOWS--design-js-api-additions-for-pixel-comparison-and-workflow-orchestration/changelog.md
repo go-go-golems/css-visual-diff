@@ -31,6 +31,16 @@
   - added `scripts/002-pixel-service-smoke.sh`,
   - marked Phase 2 tasks complete in `tasks.md`.
 - Validation for Phase 2 passed with focused service tests, modes integration tests, the ticket smoke script, embedded help checks, and `go test ./... -count=1`.
+- Implemented Phase 3 service-level selection comparison in commit `29c8aca`:
+  - added `internal/cssvisualdiff/service/selection_compare.go`,
+  - added `internal/cssvisualdiff/service/selection_compare_test.go`,
+  - implemented `SelectionComparisonData` with schema version `cssvd.selectionComparison.v1`,
+  - added bounds/text/style/attribute diff helpers,
+  - integrated screenshot pixel comparison through the Phase 2 pixel service,
+  - updated `internal/cssvisualdiff/doc/topics/javascript-api.md` with `SelectionComparison` concepts,
+  - added `scripts/003-selection-compare-service-smoke.sh`,
+  - marked Phase 3 tasks complete in `tasks.md`.
+- Validation for Phase 3 passed with focused comparison tests, JSON fixture smoke generation, embedded help checks, and `go test ./... -count=1`.
 
 ## Key decision
 
