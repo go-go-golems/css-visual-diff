@@ -87,6 +87,7 @@ Exports:
 - `cvd.extractors.*`
 - `cvd.extract(locator, extractors)`
 - `cvd.snapshot(page, probes, options?)`
+- Upcoming from `CSSVD-JSAPI-PIXEL-WORKFLOWS`: `locator.collect(options?)` and `cvd.collect.selection(locator, options?)` for immutable collected selector data.
 - `cvd.diff(before, after, options?)`
 - `cvd.report(diff)`
 - `cvd.write.json(path, value)`
@@ -324,6 +325,45 @@ const [text, bounds, styles] = await Promise.all([
 ```
 
 Operations on one page are serialized internally, so `Promise.all` is safe for page-bound reads.
+
+## Collected selection model
+
+`CSSVD-JSAPI-PIXEL-WORKFLOWS` introduces a JavaScript-first collection primitive. A locator is live: it says “find this element on this loaded page.” A collected selection is immutable data: it says “these were the browser facts for this selector at this moment.”
+
+The Go service model is implemented as `CollectedSelectionData` with schema version `cssvd.collectedSelection.v1`. The JavaScript handle will be exposed as:
+
+```js
+const selected = await page.locator("#cta").collect({ inspect: "rich" })
+// equivalent namespace form:
+const same = await cvd.collect.selection(page.locator("#cta"), { inspect: "rich" })
+```
+
+Collection profiles:
+
+- `inspect: "minimal"` — selector status, existence, visibility, and bounds.
+- `inspect: "rich"` — default profile for scripts; includes normalized text, common computed styles, common attributes, and status/bounds.
+- `inspect: "debug"` — intended for deeper diagnostics; includes HTML, all computed styles, and all attributes.
+- object form — future custom profile equivalent to the Go `CollectOptions` fields.
+
+Collected data lowers to plain JSON:
+
+```js
+{
+  schemaVersion: "cssvd.collectedSelection.v1",
+  name: "cta",
+  url: "http://localhost:3000/",
+  selector: "#cta",
+  source: "script",
+  exists: true,
+  visible: true,
+  bounds: { x: 32, y: 48, width: 120, height: 40 },
+  text: "Book now",
+  computedStyles: { color: "rgb(255, 0, 0)", display: "inline-block" },
+  attributes: { id: "cta", class: "primary" }
+}
+```
+
+Use collected selections when later JavaScript wants to compare, filter, serialize, or report on browser facts without re-querying the page. The comparison API will build on this model with `cvd.compare.selections(left, right)` and the low-effort `cvd.compare.region({ left, right })` helper.
 
 ### `await page.close()`
 
