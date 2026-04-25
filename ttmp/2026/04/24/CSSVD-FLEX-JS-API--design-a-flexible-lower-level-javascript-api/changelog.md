@@ -44,3 +44,13 @@
   - `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff ./internal/cssvisualdiff/service -count=1`
   - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 3 page operation serialization
+
+- Completed Phase 3 by adding a per-page mutex to `pageState` in `internal/cssvisualdiff/jsapi/module.go`.
+- Routed `goto`, `prepare`, `preflight`, `inspect`, `inspectAll`, and `close` through `pageState.runExclusive(...)`.
+- Added repository-scanned JS verb tests for same-page `Promise.all(...)` safety and separate-page concurrent operations.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(SerializesSamePagePromiseAll|AllowsConcurrentOperationsOnSeparatePages)' -count=1`
+  - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`

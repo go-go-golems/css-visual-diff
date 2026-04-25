@@ -826,3 +826,133 @@ Important implementation details:
   - returns the hidden proxy id,
   - throws wrong-parent errors for known methods owned by another object,
   - throws unknown-method errors with available methods and did-you-mean suggestions otherwise.
+
+## Step 9: Complete Phase 3 page operation serialization
+
+I completed Phase 3 by adding a per-page mutex to the JavaScript API page state and routing every existing page operation through that guard. This keeps concurrent JavaScript calls such as `Promise.all([page.preflight(...), page.preflight(...)])` safe on a single page while still allowing independent pages to proceed through their own page-level locks.
+
+This phase does not add new public API methods. It hardens the current Promise-first browser/page API so future locator and extraction methods can safely share the same page handle without racing CDP operations or mutating page target state concurrently.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 3"
+
+**Assistant interpretation:** Implement Phase 3 from the ticket: add per-page operation serialization, validate it, update docs/diary/tasks, and commit.
+
+**Inferred user intent:** Prepare the current page API for lower-level locator/extractor methods by making same-page concurrent calls safe.
+
+### What I did
+
+- Added a `sync.Mutex` to `pageState` in `internal/cssvisualdiff/jsapi/module.go`.
+- Added `pageState.runExclusive(...)`.
+- Wrapped all current page operations in `runExclusive(...)`:
+  - `page.goto(...)`
+  - `page.prepare(...)`
+  - `page.preflight(...)`
+  - `page.inspect(...)`
+  - `page.inspectAll(...)`
+  - `page.close()`
+- Added repository-scanned JS verb tests in `internal/cssvisualdiff/verbcli/command_test.go`:
+  - `TestCVDModuleSerializesSamePagePromiseAll`
+  - `TestCVDModuleAllowsConcurrentOperationsOnSeparatePages`
+- Marked Phase 3 tasks complete and set the active phase to Phase 4.
+
+### Why
+
+Chromedp/CDP operations on a single page are not a good fit for unguarded concurrent use. The existing API returns Promises, so JavaScript users can naturally write `Promise.all(...)`. Rather than forbid that pattern, the page handle should serialize operations internally and preserve safety.
+
+This is especially important before adding `page.locator()` and `locator.*` methods because users are likely to query several locators at once.
+
+### What worked
+
+The per-page mutex was a small focused change. Same-page concurrent calls now complete safely in a repository-scanned JS verb test. Separate page handles also complete concurrently from the JavaScript point of view because each page has its own `pageState` and lock.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(SerializesSamePagePromiseAll|AllowsConcurrentOperationsOnSeparatePages)' -count=1
+
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+My first version of the same-page concurrency test used:
+
+```js
+page.inspect({ name: "a", selector: "#a" }, { artifacts: "json" })
+```
+
+That failed because `"json"` is not a supported inspect artifact format:
+
+```text
+promise rejected: ArtifactError: unsupported inspect format "json"
+```
+
+I changed the test to use three concurrent `page.preflight(...)` calls instead. That still exercises concurrent same-page CDP script evaluation without introducing artifact-format concerns.
+
+### What I learned
+
+The current `inspect` API expects the existing inspect format names such as `bundle`, `css-json`, or `html`; raw `json` is not a valid shortcut. For Phase 3, preflight is the cleaner concurrency smoke because it avoids filesystem artifact output and focuses on page-operation safety.
+
+### What was tricky to build
+
+The key subtlety is the target state on `pageState`. `goto` mutates `state.target`, and `prepare` mutates `state.target.Prepare`, while `inspect` and `inspectAll` read `state.target`. The lock needs to cover both CDP calls and target state access; otherwise a future concurrent `goto` plus `inspect` could read a half-updated target.
+
+The lock is intentionally per page rather than per browser. That keeps operations on one page serialized while preserving concurrency between independent pages.
+
+### What warrants a second pair of eyes
+
+- Whether `page.close()` should set a closed flag and reject later operations with a clearer error.
+- Whether long-running operations should support cancellation or timeouts at this layer.
+- Whether Phase 5 locator methods should reuse this same `runExclusive(...)` helper or introduce batch operations to reduce queuing overhead.
+
+### What should be done in the future
+
+Phase 4 should add pure Go DOM locator primitives in `internal/cssvisualdiff/service/dom.go`. Phase 5 can then expose those primitives through `page.locator()` and the Proxy infrastructure.
+
+### Code review instructions
+
+Start with:
+
+```text
+internal/cssvisualdiff/jsapi/module.go
+```
+
+Review `pageState`, `runExclusive(...)`, and the wrappers in `wrapPage(...)`.
+
+Then review tests:
+
+```text
+internal/cssvisualdiff/verbcli/command_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(SerializesSamePagePromiseAll|AllowsConcurrentOperationsOnSeparatePages)' -count=1
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+`pageState` now owns the synchronization primitive:
+
+```go
+type pageState struct {
+    mu     sync.Mutex
+    page   *service.PageService
+    target config.Target
+}
+
+func (s *pageState) runExclusive(work func() (any, error)) (any, error) {
+    s.mu.Lock()
+    defer s.mu.Unlock()
+    return work()
+}
+```
+
+Each Promise work closure calls `state.runExclusive(...)`, so the work still runs asynchronously from JavaScript's perspective but only one operation touches the underlying page at a time.

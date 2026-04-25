@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 3 — per-page operation serialization**.
+- Current active implementation phase: **Phase 4 — service DOM locator primitives**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -118,13 +118,13 @@ Goal: establish the Go-backed object model before adding new public lower-level 
 
 Goal: make lower-level locator APIs safe when users call several page operations concurrently.
 
-- [ ] Add a per-page mutex or queue to the page handle/state.
-- [ ] Wrap `goto`, `prepare`, `preflight`, `inspect`, `inspectAll`, and `close` in the per-page operation guard.
-- [ ] Ensure operations on different pages can still run concurrently.
-- [ ] Add a test using `Promise.all` on one page that proves calls complete without races/panics/hangs.
-- [ ] Add a test using two pages to ensure page-level isolation.
-- [ ] Run targeted and full tests.
-- [ ] Update diary/changelog and commit Phase 3.
+- [x] Add a per-page mutex or queue to the page handle/state.
+- [x] Wrap `goto`, `prepare`, `preflight`, `inspect`, `inspectAll`, and `close` in the per-page operation guard.
+- [x] Ensure operations on different pages can still run concurrently.
+- [x] Add a test using `Promise.all` on one page that proves calls complete without races/panics/hangs.
+- [x] Add a test using two pages to ensure page-level isolation.
+- [x] Run targeted and full tests.
+- [x] Update diary/changelog and commit Phase 3.
 
 ## Phase 4 — Implement service DOM locator primitives
 

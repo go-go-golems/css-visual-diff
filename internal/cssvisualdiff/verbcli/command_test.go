@@ -231,6 +231,130 @@ __verb__("catalogSmoke", {
 	require.Contains(t, string(indexBytes), "# Verb Catalog Smoke")
 }
 
+func TestCVDModuleSerializesSamePagePromiseAll(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><main id="app"><p id="a">A</p><p id="b">B</p></main></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "same-page-concurrent.js"), `
+async function samePageConcurrent(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.page(url, { viewport: { width: 320, height: 240 } });
+    const [first, second, third] = await Promise.all([
+      page.preflight([{ name: "a", selector: "#a" }]),
+      page.preflight([{ name: "b", selector: "#b" }]),
+      page.preflight([{ name: "app", selector: "#app" }])
+    ]);
+    return {
+      firstExists: first[0].exists,
+      secondExists: second[0].exists,
+      thirdExists: third[0].exists
+    };
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("samePageConcurrent", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, true, row["firstExists"])
+	require.Equal(t, true, row["secondExists"])
+	require.Equal(t, true, row["thirdExists"])
+}
+
+func TestCVDModuleAllowsConcurrentOperationsOnSeparatePages(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><main id="app"><p id="a">A</p><p id="b">B</p></main></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "separate-pages-concurrent.js"), `
+async function separatePagesConcurrent(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let left;
+  let right;
+  try {
+    [left, right] = await Promise.all([
+      browser.page(url, { viewport: { width: 320, height: 240 }, name: "left" }),
+      browser.page(url, { viewport: { width: 480, height: 320 }, name: "right" })
+    ]);
+    const [leftStatus, rightStatus] = await Promise.all([
+      left.preflight([{ name: "a", selector: "#a" }]),
+      right.preflight([{ name: "b", selector: "#b" }])
+    ]);
+    return {
+      leftExists: leftStatus[0].exists,
+      rightExists: rightStatus[0].exists
+    };
+  } finally {
+    if (left) await left.close();
+    if (right) await right.close();
+    await browser.close();
+  }
+}
+__verb__("separatePagesConcurrent", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, true, row["leftExists"])
+	require.Equal(t, true, row["rightExists"])
+}
+
 func TestCVDModuleExposesLowerCamelGotoInspectAndTypedErrors(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><main id="app"><p>Ready</p></main></body></html>`)
