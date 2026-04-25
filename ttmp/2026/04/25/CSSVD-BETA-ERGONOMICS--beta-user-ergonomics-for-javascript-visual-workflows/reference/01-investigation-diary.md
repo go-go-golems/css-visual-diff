@@ -151,3 +151,33 @@ make lint
 ```
 
 Both passed. `make lint` reported `0 issues`.
+
+## 2026-04-25 — Phase 3 multi-section catalog example
+
+### What changed
+
+- Added `examples/verbs/compare-page-catalog.js`.
+- The example loads left/right pages once, waits for each section selector with `locator.waitFor(...)`, compares `page` and `cta` sections, writes per-section JSON/Markdown/PNG artifacts, records comparisons into a catalog, and returns compact JSON.
+- Updated `examples/verbs/README.md` with the command, expected artifacts, and why it demonstrates the project-local CLI pattern.
+- Added `scripts/001-beta-multisection-example-smoke.sh` under this ticket.
+
+### Validation
+
+```bash
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/scripts/001-beta-multisection-example-smoke.sh
+```
+
+Passed. The smoke validates:
+
+- stdout JSON has two summaries,
+- catalog comparison count is 2,
+- each summary includes artifact paths from `comparison.artifacts.write(...)`,
+- `manifest.json` and `index.md` exist,
+- per-section PNG/JSON/Markdown artifacts exist for `page` and `cta`.
+
+```bash
+go test ./... -count=1
+make lint
+```
+
+Both passed. `make lint` reported `0 issues`.

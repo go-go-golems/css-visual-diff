@@ -50,6 +50,29 @@ The command writes:
 - `/tmp/cssvd-collect-analyze/compare.json`
 - `/tmp/cssvd-collect-analyze/compare.md`
 
+## Multi-section page comparison catalog
+
+Use `examples compare page-catalog` when you want the reusable project pattern: load two pages once, wait for each important selector, compare multiple sections, write per-section artifacts, record each comparison in a catalog, and return compact JSON for CI or agents.
+
+```bash
+css-visual-diff verbs --repository examples/verbs examples compare page-catalog \
+  http://127.0.0.1:8767/left.html \
+  http://127.0.0.1:8767/right.html \
+  /tmp/cssvd-page-catalog \
+  --output json
+```
+
+The command writes:
+
+- `/tmp/cssvd-page-catalog/manifest.json`
+- `/tmp/cssvd-page-catalog/index.md`
+- `/tmp/cssvd-page-catalog/artifacts/page/diff_comparison.png`
+- `/tmp/cssvd-page-catalog/artifacts/page/compare.json`
+- `/tmp/cssvd-page-catalog/artifacts/cta/diff_comparison.png`
+- `/tmp/cssvd-page-catalog/artifacts/cta/compare.json`
+
+It also demonstrates `locator.waitFor(...)` and the stable artifact path map returned by `comparison.artifacts.write(...)`.
+
 ## Inspect one page into a catalog
 
 Start or choose a local page, then run:

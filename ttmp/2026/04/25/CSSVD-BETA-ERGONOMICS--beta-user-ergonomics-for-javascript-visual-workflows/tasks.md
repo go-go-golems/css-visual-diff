@@ -41,10 +41,10 @@ Owners: []
 
 ## Phase 3 — Multi-section catalog example
 
-- [ ] Add `examples/verbs/compare-page-catalog.js`.
-- [ ] Update `examples/verbs/README.md`.
-- [ ] Add ticket smoke `scripts/001-beta-multisection-example-smoke.sh`.
-- [ ] Smoke should validate `manifest.json`, `index.md`, per-section artifacts, and stdout artifact paths.
+- [x] Add `examples/verbs/compare-page-catalog.js`.
+- [x] Update `examples/verbs/README.md`.
+- [x] Add ticket smoke `scripts/001-beta-multisection-example-smoke.sh`.
+- [x] Smoke should validate `manifest.json`, `index.md`, per-section artifacts, and stdout artifact paths.
 
 ## Phase 4 — Collection profile docs
 

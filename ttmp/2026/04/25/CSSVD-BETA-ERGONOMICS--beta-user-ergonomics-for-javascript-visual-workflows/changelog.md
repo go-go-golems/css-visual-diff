@@ -28,3 +28,4 @@ Owners: []
 - Explicitly deferred bounds tolerances, CSS normalization hooks, and style presets as higher-complexity ideas to revisit after more beta usage.
 - Implemented Phase 1 selector wait helper: added service-level `WaitForLocator`, JS `locator.waitFor(...)`, JS `page.waitForSelector(...)`, service tests for existing/delayed/visible/timeout/invalid selectors, verbcli integration coverage, and embedded docs for readiness waits.
 - Implemented Phase 2 stable artifact write result: `comparison.artifacts.write(...)` now returns keyed `json`, `markdown`, `leftRegion`, `rightRegion`, `diffOnly`, `diffComparison`, and `written` paths; updated verbcli coverage and embedded docs.
+- Implemented Phase 3 multi-section catalog example: added `examples/verbs/compare-page-catalog.js`, documented it in `examples/verbs/README.md`, added `scripts/001-beta-multisection-example-smoke.sh`, and validated manifest/index/per-section artifacts/stdout artifact paths.
