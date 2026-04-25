@@ -18,6 +18,7 @@ RelatedFiles:
         Phase 3 embedded JavaScript API reference update for SelectionComparison concepts (commit 29c8aca)
         Phases 4-5 embedded JS API reference updates for real collect/compare handles (commit 5c76cd7)
         Phases 6-8 embedded API docs for compare.region
+        Phase 9 embedded docs for catalog.record comparison integration (commit 1227f1a)
     - Path: internal/cssvisualdiff/doc/topics/javascript-verbs.md
       Note: Phase 8 verbs docs explain built-ins as public API dogfood (commit 88ddac5)
     - Path: internal/cssvisualdiff/dsl/host_test.go
@@ -26,6 +27,8 @@ RelatedFiles:
       Note: Phase 7 built-in catalog scripts use canonical catalog.create/config.load namespaces (commit 88ddac5)
     - Path: internal/cssvisualdiff/dsl/scripts/compare.js
       Note: Phase 8 built-in compare verbs dogfood public cvd.compare.region API (commit 88ddac5)
+    - Path: internal/cssvisualdiff/jsapi/catalog.go
+      Note: Phase 9 JS catalog.record(comparison
     - Path: internal/cssvisualdiff/jsapi/collect.go
       Note: Phases 4-5 Goja collected selection API handle and cvd.collect namespace (commit 5c76cd7)
     - Path: internal/cssvisualdiff/jsapi/compare.go
@@ -50,6 +53,8 @@ RelatedFiles:
       Note: Phase 2 pixeldiff mode now routes PNG diffing/writing through service primitives (commit 6ca2498)
     - Path: internal/cssvisualdiff/modes/pixeldiff_util.go
       Note: Phase 2 compatibility wrappers delegate old mode helpers to service primitives (commit 6ca2498)
+    - Path: internal/cssvisualdiff/service/catalog_service.go
+      Note: Phase 9 catalog manifest/index support for selection comparison records (commit 1227f1a)
     - Path: internal/cssvisualdiff/service/collection.go
       Note: Phase 1 collected selector data service model (commit b13933a)
     - Path: internal/cssvisualdiff/service/collection_test.go
@@ -66,6 +71,7 @@ RelatedFiles:
       Note: |-
         Phases 4-5 repository-scanned JS integration tests for collection and comparison handles (commit 5c76cd7)
         Phases 6-7 JS verb integration tests for compare.region and canonical namespaces (commit 88ddac5)
+        Phase 9 repository-scanned JS smoke for recording comparisons in catalogs (commit 1227f1a)
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/design/01-elegant-javascript-api-additions-for-pixel-comparison-workflows.md
       Note: Main API design proposal produced from this investigation
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/reference/01-pyxis-user-feedback-source-analysis.md
@@ -86,14 +92,17 @@ RelatedFiles:
       Note: Phase 7 replayable canonical namespace smoke script
     - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/008-built-in-compare-dogfood-smoke.sh
       Note: Phase 8 replayable built-in dogfood smoke script
+    - Path: ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/009-comparison-catalog-smoke.sh
+      Note: Phase 9 replayable comparison catalog smoke script
 ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T13:45:00-04:00
+LastUpdated: 2026-04-25T14:05:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
+
 
 
 
@@ -1240,6 +1249,106 @@ go run ./cmd/css-visual-diff verbs script compare region \
   --writeMarkdown \
   --writePngs \
   --output json
+```
+
+## Step 20: Implement Phase 9 comparison catalog integration
+
+Phase 9 connects rich `SelectionComparison` handles to catalogs. A comparison is now not only something a script can inspect or write as standalone JSON/Markdown; it can be recorded into a Go-backed catalog manifest and rendered into the catalog index.
+
+This matters because visual regression workflows often compare many sections, then need one durable index of what happened. The catalog is the natural owner of that index.
+
+### Prompt Context
+
+**User prompt (verbatim):** "do catalog 9"
+
+**Assistant interpretation:** Implement Phase 9 catalog/report/artifact integration for comparison objects, with service model changes, JS API, tests, docs, smoke script, diary/changelog/task updates, and commits.
+
+**Inferred user intent:** Make the new comparison API useful for multi-comparison workflows and durable artifact catalogs.
+
+**Commit (code):** 1227f1a — "feat: record selection comparisons in catalogs"
+
+### What I did
+
+- Added `CatalogComparisonRecord` to the service catalog model.
+- Added `Comparisons []CatalogComparisonRecord` to `CatalogManifest`.
+- Added `ComparisonCount` to `CatalogSummary`.
+- Added `Catalog.AddComparison(target, comparison)`.
+- Updated catalog artifact counting to include comparison artifacts.
+- Updated catalog index rendering with a `## Comparisons` table showing target, comparison name, changed percent, style changes, attribute changes, and artifact count.
+- Added JS `catalog.record(comparison, target?)`.
+- Updated JS manifest lowering to include `comparisons` and lowerCamel `comparisonCount`.
+- Added integration coverage in `TestCVDModuleRecordsComparisonInCatalog`.
+- Updated embedded JavaScript API docs with `catalog.record(...)`.
+- Added `scripts/009-comparison-catalog-smoke.sh`.
+- Marked Phase 9 tasks complete in `tasks.md`.
+
+### Why
+
+- `SelectionComparison` is the central analysis object, but workflows need to collect many comparisons into one durable output.
+- The catalog service already owns manifests, path normalization, summaries, and index rendering. It should own comparison records too.
+- Scripts should be able to do: compare, write artifacts, record comparison, write manifest/index.
+
+### What worked
+
+- Focused integration smoke passed:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleRecordsComparisonInCatalog' -count=1
+```
+
+- Service catalog regression passed:
+
+```bash
+go test ./internal/cssvisualdiff/service -run 'TestCatalogWritesManifestAndIndex' -count=1
+```
+
+- Ticket smoke passed:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/009-comparison-catalog-smoke.sh
+```
+
+- Full test suite passed:
+
+```bash
+go test ./... -count=1
+```
+
+### What didn't work
+
+- The first integration test run returned `nil` for `manifest.summary.comparisonCount`. The service summary had `ComparisonCount`, but the JS lowering function `lowerCatalogSummary` had not been updated to expose lowerCamel `comparisonCount`. I added it and reran the focused test successfully.
+
+### What I learned
+
+- Whenever service manifests gain fields, the JS lowerers must be updated immediately. Otherwise scripts see a partially upgraded API.
+- Catalog integration is most useful when the catalog index renders the comparison summary directly, not only stores raw JSON in the manifest.
+
+### What was tricky to build
+
+- Catalog artifact counting previously only counted inspect artifacts. Comparisons have a different artifact shape, so the summary now counts `comparison.Comparison.Artifacts`.
+- `catalog.record(comparison, target?)` must unwrap a strict `cvd.selectionComparison` handle. Raw comparison JSON is not accepted in this API because Phase 9 is still handle-oriented.
+- When `target` is omitted, the JS adapter derives one from comparison metadata. Explicit target records remain better for production catalogs.
+
+### What warrants a second pair of eyes
+
+- Review whether `CatalogComparisonRecord` should store full `SelectionComparisonData` or a compact summary plus artifact links. Full data is useful now but may make manifests large.
+- Review the catalog index table fields. They are intentionally compact, but richer report links may belong in Phase 10.
+
+### What should be done in the future
+
+- Phase 10 should refresh public examples and the pixel-accuracy guide around comparison catalogs.
+- A future API could add `catalog.recordMany(comparisons)` for batch workflows.
+
+### Code review instructions
+
+- Start with `internal/cssvisualdiff/service/catalog_service.go`, especially `CatalogComparisonRecord`, `AddComparison`, `Summary`, and `WriteIndex`.
+- Review `internal/cssvisualdiff/jsapi/catalog.go`, especially `catalog.record`.
+- Review `TestCVDModuleRecordsComparisonInCatalog` for end-to-end JS usage.
+- Validate with:
+
+```bash
+ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/scripts/009-comparison-catalog-smoke.sh
+go test ./... -count=1
 ```
 
 ## Issues and assumptions

@@ -470,40 +470,40 @@ Goal: make rich comparison objects useful in catalogs and reports, not only stan
 
 ### Implementation tasks
 
-- [ ] Redesign catalog public API as `cvd.catalog.create(options)` if selected as canonical.
-- [ ] Add `catalog.record(comparison)` or equivalent for `cvd.selectionComparison` handles.
-- [ ] Ensure catalog manifests can include comparison summaries and artifact paths.
-- [ ] Add report rendering for comparison objects:
+- [x] Redesign catalog public API as `cvd.catalog.create(options)` if selected as canonical.
+- [x] Add `catalog.record(comparison)` or equivalent for `cvd.selectionComparison` handles.
+- [x] Ensure catalog manifests can include comparison summaries and artifact paths.
+- [x] Add report rendering for comparison objects:
   - summary,
   - pixel stats,
   - bounds diffs,
   - filtered style diffs,
   - artifact links.
-- [ ] Ensure `comparison.artifacts.write(...)` and `catalog.artifactDir(...)` work together.
-- [ ] Ensure all file writers create parent directories.
+- [x] Ensure `comparison.artifacts.write(...)` and `catalog.artifactDir(...)` work together.
+- [x] Ensure all file writers create parent directories.
 
 ### Tests
 
-- [ ] Add jsapi catalog/comparison integration tests.
-- [ ] Add service catalog tests for comparison records if catalog service changes.
-- [ ] Test manifest JSON contains comparison records.
-- [ ] Test index Markdown links to comparison artifacts.
+- [x] Add jsapi catalog/comparison integration tests.
+- [x] Add service catalog tests for comparison records if catalog service changes.
+- [x] Test manifest JSON contains comparison records.
+- [x] Test index Markdown links to comparison artifacts.
 
 ### JavaScript API reference update
 
-- [ ] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with catalog + comparison integration.
-- [ ] Add an example that compares multiple sections and records them into a catalog.
+- [x] Update `internal/cssvisualdiff/doc/topics/javascript-api.md` with catalog + comparison integration.
+- [x] Add an example that compares multiple sections and records them into a catalog.
 
 ### Real smoke script
 
-- [ ] Add `scripts/009-comparison-catalog-smoke.sh`.
-- [ ] Script should run a JS verb that:
+- [x] Add `scripts/009-comparison-catalog-smoke.sh`.
+- [x] Script should run a JS verb that:
   - compares two or more sections,
   - writes artifacts,
   - records comparisons in a catalog,
   - writes manifest and index.
-- [ ] Script should assert manifest/index/artifact files exist and contain expected entries.
-- [ ] Record smoke output in the diary.
+- [x] Script should assert manifest/index/artifact files exist and contain expected entries.
+- [x] Record smoke output in the diary.
 
 ---
 
