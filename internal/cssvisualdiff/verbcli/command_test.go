@@ -112,6 +112,101 @@ __verb__("hello", {
 	require.Contains(t, out.String(), "hello Manuel")
 }
 
+func TestRepositoryVerbSupportsObjectFromFileFields(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "spec.js"), `
+function specSmoke(spec) {
+  return { count: spec.sections.length, firstName: spec.sections[0].name, firstSelector: spec.sections[0].selector };
+}
+__verb__("specSmoke", {
+  parents: ["custom"],
+  fields: {
+    spec: { type: "objectFromFile", required: true, help: "JSON/YAML visual spec" }
+  }
+});
+`)
+	specPath := filepath.Join(dir, "visual.yml")
+	writeFile(t, specPath, `
+sections:
+  - name: hero
+    selector: "[data-section='hero']"
+  - name: cta
+    selector: "#cta"
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"spec": specPath},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.EqualValues(t, 2, row["count"])
+	require.Equal(t, "hero", row["firstName"])
+	require.Equal(t, "[data-section='hero']", row["firstSelector"])
+}
+
+func TestRepositoryVerbRuntimeProvidesFilesystemModule(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "fs.js"), `
+async function fsSmoke(outDir) {
+  const fs = require("fs");
+  const path = require("path");
+  const file = path.join(outDir, "message.txt");
+  await fs.mkdir(outDir, { recursive: true });
+  await fs.writeFile(file, "hello from fs", "utf8");
+  const text = await fs.readFile(file, "utf8");
+  return { ok: text === "hello from fs", file, text };
+}
+__verb__("fsSmoke", {
+  parents: ["custom"],
+  fields: {
+    outDir: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"outDir": outDir},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, true, row["ok"])
+	require.Equal(t, "hello from fs", row["text"])
+	require.Equal(t, filepath.Join(outDir, "message.txt"), row["file"])
+
+	content, err := os.ReadFile(filepath.Join(outDir, "message.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "hello from fs", string(content))
+}
+
 func TestRepositoryVerbUsesPromiseFirstCVDModule(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><button id="cta" style="color: rgb(255, 0, 0)">Book</button></body></html>`)

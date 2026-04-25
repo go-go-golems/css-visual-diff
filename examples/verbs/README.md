@@ -8,7 +8,29 @@ All examples use the canonical JavaScript API names:
 - `page.locator(...).collect(...)` and `cvd.compare.selections(...)` for the primitive collect-and-analyze path.
 - `cvd.snapshot.page(...)` for probe snapshots.
 - `cvd.catalog.create(...)` for catalog workflows.
-- `cvd.config.load(...)` when loading YAML config files.
+- `cvd.config.load(...)` when loading css-visual-diff YAML config files.
+
+Repository-scanned verbs can also use Glazed file-backed field types. For project-local scripts, `objectFromFile` is often the best way to load JSON/YAML selector inventories, viewport matrices, thresholds, or route lists directly into a JS argument:
+
+```js
+async function validateFromSpec(leftUrl, rightUrl, outDir, spec) {
+  for (const section of spec.sections || []) {
+    // section.name, section.selector, section.threshold, ...
+  }
+}
+
+__verb__("validateFromSpec", {
+  parents: ["site"],
+  fields: {
+    leftUrl: { argument: true, required: true },
+    rightUrl: { argument: true, required: true },
+    outDir: { argument: true, required: true },
+    spec: { type: "objectFromFile", required: true, help: "JSON/YAML visual spec" },
+  },
+})
+```
+
+Run it with `--spec ./visual.yml`; the JS function receives `spec` as an object, not as a filename string.
 
 ## Quick region comparison
 

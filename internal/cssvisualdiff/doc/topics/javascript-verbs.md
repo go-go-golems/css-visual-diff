@@ -121,10 +121,10 @@ visual-verbs/
   checkout.js
 ```
 
-A page-specific verb can compare multiple sections, write a catalog, and return compact JSON:
+A page-specific verb can compare multiple sections, write a catalog, and return compact JSON. For larger projects, prefer passing page/section definitions as `objectFromFile` JSON/YAML instead of hard-coding every selector in the script:
 
 ```js
-async function validateHomepage(leftUrl, rightUrl, outDir) {
+async function validateHomepage(leftUrl, rightUrl, outDir, visualSpec) {
   const cvd = require("css-visual-diff")
   const browser = await cvd.browser()
   const catalog = cvd.catalog.create({
@@ -133,11 +133,7 @@ async function validateHomepage(leftUrl, rightUrl, outDir) {
     artifactRoot: "artifacts",
   })
 
-  const sections = [
-    { name: "hero", selector: "[data-section='hero']" },
-    { name: "primary-cta", selector: "[data-testid='primary-cta']" },
-    { name: "footer", selector: "footer" },
-  ]
+  const sections = visualSpec.sections || []
 
   const summaries = []
   let leftPage, rightPage
@@ -178,8 +174,21 @@ __verb__("validateHomepage", {
     leftUrl: { argument: true, required: true, help: "Reference/baseline URL" },
     rightUrl: { argument: true, required: true, help: "Implementation/current URL" },
     outDir: { argument: true, required: true, help: "Artifact output directory" },
+    visualSpec: { type: "objectFromFile", required: true, help: "JSON/YAML file with sections to compare" },
   },
 })
+```
+
+Example `visual-homepage.yml`:
+
+```yaml
+sections:
+  - name: hero
+    selector: "[data-section='hero']"
+  - name: primary-cta
+    selector: "[data-testid='primary-cta']"
+  - name: footer
+    selector: "footer"
 ```
 
 Run it directly:
@@ -189,6 +198,7 @@ css-visual-diff verbs --repository ./visual-verbs site validate-homepage \
   http://localhost:4100 \
   http://localhost:4200 \
   ./artifacts/visual/homepage/latest \
+  --visualSpec ./visual-homepage.yml \
   --output json
 ```
 
@@ -288,6 +298,14 @@ Supported field types:
 - `stringList` / `list` / `[]string`
 - `choice`
 - `choiceList`
+- `file` / `fileList`
+- `stringFromFile` / `stringFromFiles`
+- `stringListFromFile` / `stringListFromFiles`
+- `objectFromFile`
+- `objectListFromFile` / `objectListFromFiles`
+- `keyValue`
+
+The file-backed object types are especially useful for visual scripts. `objectFromFile` parses a JSON/YAML file and passes the resulting JavaScript object to your verb function. Use it for selector inventories, viewport matrices, thresholds, route lists, and other project policy that should live outside code. `objectListFromFile` expects a file containing a list of objects, and `objectListFromFiles` merges lists from multiple files.
 
 Argument fields become positional arguments. Other fields become flags.
 
@@ -301,6 +319,11 @@ fields: {
     choices: ["bundle", "css-json", "html"],
     default: "css-json",
   },
+  visualSpec: {
+    type: "objectFromFile",
+    help: "JSON/YAML file with selectors, thresholds, and viewport settings",
+    required: true,
+  },
   failOnMissing: { type: "bool", default: false },
 }
 ```
@@ -310,7 +333,18 @@ Generates usage like:
 ```text
 verbs examples catalog inspect-page <url> [flags]
   --artifacts css-json
+  --visualSpec ./visual-homepage.yml
   --failOnMissing
+```
+
+Inside the JavaScript function, `visualSpec` is already an object:
+
+```js
+async function inspect(url, values) {
+  for (const section of values.visualSpec.sections || []) {
+    // section.name, section.selector, section.threshold, ...
+  }
+}
 ```
 
 ## Binding modes
