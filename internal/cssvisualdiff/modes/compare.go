@@ -11,6 +11,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 type CompareSettings struct {
@@ -350,28 +351,9 @@ func writeCompareMarkdown(path string, result CompareResult) error {
 }
 
 func writePixelDiffImages(url1Path, url2Path, diffComparisonPath, diffOnlyPath string, threshold int) (PixelDiffStats, error) {
-	img1, err := readPNG(url1Path)
+	result, err := service.WritePixelDiffImages(url1Path, url2Path, diffComparisonPath, diffOnlyPath, service.PixelDiffOptions{Threshold: threshold})
 	if err != nil {
 		return PixelDiffStats{}, err
 	}
-	img2, err := readPNG(url2Path)
-	if err != nil {
-		return PixelDiffStats{}, err
-	}
-
-	n1, n2 := padToSameSize(img1, img2)
-	stats, diffOnly := computePixelDiff(n1, n2, threshold)
-	stats.DiffComparisonPath = diffComparisonPath
-	stats.DiffOnlyPath = diffOnlyPath
-
-	if err := writePNG(diffOnlyPath, diffOnly); err != nil {
-		return PixelDiffStats{}, err
-	}
-
-	diffComparison := combineSideBySide(n1, n2, diffOnly)
-	if err := writePNG(diffComparisonPath, diffComparison); err != nil {
-		return PixelDiffStats{}, err
-	}
-
-	return stats, nil
+	return pixelDiffStatsFromService(result), nil
 }

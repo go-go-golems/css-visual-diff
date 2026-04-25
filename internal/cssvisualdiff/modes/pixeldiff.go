@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 type PixelDiffEntry struct {
@@ -70,44 +72,19 @@ func RunPixelDiff(ctx context.Context, cfgDir string, threshold int) error {
 			continue
 		}
 
-		img1, err := readPNG(entry.OriginalScreenshot)
-		if err != nil {
-			entry.Skipped = true
-			entry.SkipReason = fmt.Sprintf("failed to read original screenshot: %v", err)
-			result.Entries = append(result.Entries, entry)
-			continue
-		}
-		img2, err := readPNG(entry.ReactScreenshot)
-		if err != nil {
-			entry.Skipped = true
-			entry.SkipReason = fmt.Sprintf("failed to read react screenshot: %v", err)
-			result.Entries = append(result.Entries, entry)
-			continue
-		}
-
-		n1, n2 := padToSameSize(img1, img2)
-		stats, diffOnly := computePixelDiff(n1, n2, threshold)
-
 		diffOnlyPath := filepath.Join(cfgDir, fmt.Sprintf("pixeldiff_%s_diff_only.png", sanitizeName(entry.Section)))
 		diffComparisonPath := filepath.Join(cfgDir, fmt.Sprintf("pixeldiff_%s_diff_comparison.png", sanitizeName(entry.Section)))
 
-		if err := writePNG(diffOnlyPath, diffOnly); err != nil {
+		stats, err := service.WritePixelDiffImages(entry.OriginalScreenshot, entry.ReactScreenshot, diffComparisonPath, diffOnlyPath, service.PixelDiffOptions{Threshold: threshold})
+		if err != nil {
 			entry.Skipped = true
-			entry.SkipReason = fmt.Sprintf("failed to write diff-only: %v", err)
+			entry.SkipReason = fmt.Sprintf("failed to diff screenshots: %v", err)
 			result.Entries = append(result.Entries, entry)
 			continue
 		}
 
-		diffComparison := combineSideBySide(n1, n2, diffOnly)
-		if err := writePNG(diffComparisonPath, diffComparison); err != nil {
-			entry.Skipped = true
-			entry.SkipReason = fmt.Sprintf("failed to write diff-comparison: %v", err)
-			result.Entries = append(result.Entries, entry)
-			continue
-		}
-
-		entry.DiffOnlyPath = diffOnlyPath
-		entry.DiffComparisonPath = diffComparisonPath
+		entry.DiffOnlyPath = stats.DiffOnlyPath
+		entry.DiffComparisonPath = stats.DiffComparisonPath
 		entry.TotalPixels = stats.TotalPixels
 		entry.ChangedPixels = stats.ChangedPixels
 		entry.ChangedPercent = stats.ChangedPercent

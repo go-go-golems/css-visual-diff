@@ -88,8 +88,8 @@ Exports:
 - `cvd.extract(locator, extractors)`
 - `cvd.snapshot(page, probes, options?)`
 - Upcoming from `CSSVD-JSAPI-PIXEL-WORKFLOWS`: `locator.collect(options?)` and `cvd.collect.selection(locator, options?)` for immutable collected selector data.
-- `cvd.diff(before, after, options?)`
-- `cvd.report(diff)`
+- `cvd.diff(before, after, options?)` for the current structural JSON diff
+- Upcoming canonical names from `CSSVD-JSAPI-PIXEL-WORKFLOWS`: `cvd.diff.structural(before, after, options?)` and `cvd.image.diff(options)`
 - `cvd.write.json(path, value)`
 - `cvd.write.markdown(path, markdown)`
 - `cvd.CvdError`
@@ -454,9 +454,14 @@ const snapshot = await cvd.snapshot(page, [
 
 Raw object probes are rejected. Use `cvd.probe("name").selector("...")` builders.
 
-### `cvd.diff(...)`, `cvd.report(...)`, and `cvd.write.*`
+### Structural diffs and image/pixel diffs
 
-Compare two plain snapshot-like values and write evidence.
+There are two different kinds of diffing in css-visual-diff:
+
+1. **Structural JSON diffs** compare plain values, snapshots, and extracted data.
+2. **Image/pixel diffs** compare rendered PNGs or screenshots.
+
+The current public function is the older structural diff helper:
 
 ```js
 const diff = cvd.diff(before, after, {
@@ -468,7 +473,35 @@ await cvd.write.json("out/diff.json", diff)
 await cvd.report(diff).writeMarkdown("out/diff.md")
 ```
 
-The current diff is a deterministic structural JSON diff. CSS-aware normalization and numeric tolerances can be layered on top later.
+Because this ticket does not require backward compatibility, the canonical future names should be explicit:
+
+```js
+const structural = cvd.diff.structural(before, after)
+const pixels = await cvd.image.diff({
+  left: "artifacts/left.png",
+  right: "artifacts/right.png",
+  threshold: 30,
+  diffOnlyPath: "artifacts/diff_only.png",
+  diffComparisonPath: "artifacts/diff_comparison.png",
+})
+```
+
+The Go service primitive for image diffs now returns lowerCamel data shaped like:
+
+```js
+{
+  threshold: 30,
+  totalPixels: 10000,
+  changedPixels: 713,
+  changedPercent: 7.13,
+  normalizedWidth: 500,
+  normalizedHeight: 20,
+  diffOnlyPath: "artifacts/diff_only.png",
+  diffComparisonPath: "artifacts/diff_comparison.png"
+}
+```
+
+`threshold` is an RGB distance threshold from `0` to `255`. Images with different sizes are normalized by padding to the larger width and height before pixels are compared. Writer helpers create parent directories before writing diff PNG artifacts.
 
 ## Artifact formats
 
