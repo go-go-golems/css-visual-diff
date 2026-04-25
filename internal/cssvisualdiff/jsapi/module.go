@@ -199,6 +199,9 @@ func (s *pageState) runExclusive(work func() (any, error)) (any, error) {
 
 func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageState) *goja.Object {
 	obj := vm.NewObject()
+	_ = obj.Set("locator", func(selector string) goja.Value {
+		return wrapLocator(ctx, vm, state, selector)
+	})
 	_ = obj.Set("goto", func(rawURL string, rawOptions map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.goto", func() (any, error) {
 			return state.runExclusive(func() (any, error) {

@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 5 — `page.locator()` and locator methods**.
+- Current active implementation phase: **Phase 6 — Go-backed target/probe/extractor builders**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -146,19 +146,19 @@ Goal: add Go service functions for locator status/text/html/bounds/attributes/st
 
 Goal: ship the first visible lower-level JS API.
 
-- [ ] Add `internal/cssvisualdiff/jsapi/locator.go`.
-- [ ] Add `page.locator(selector)` as a synchronous method returning a Go-backed Proxy handle.
-- [ ] Add Promise-returning `locator.status()`.
-- [ ] Add Promise-returning `locator.exists()`.
-- [ ] Add Promise-returning `locator.visible()`.
-- [ ] Add Promise-returning `locator.text(options)`.
-- [ ] Add Promise-returning `locator.bounds()`.
-- [ ] Add Promise-returning `locator.computedStyle(props)`.
-- [ ] Add Promise-returning `locator.attributes(names)`.
-- [ ] Add wrong-parent guidance for probe/extractor methods accidentally called on locators.
-- [ ] Add repository-scanned JS verb tests for locator methods.
-- [ ] Update docs/examples if public API is considered ready.
-- [ ] Update diary/changelog and commit Phase 5.
+- [x] Add `internal/cssvisualdiff/jsapi/locator.go`.
+- [x] Add `page.locator(selector)` as a synchronous method returning a Go-backed Proxy handle.
+- [x] Add Promise-returning `locator.status()`.
+- [x] Add Promise-returning `locator.exists()`.
+- [x] Add Promise-returning `locator.visible()`.
+- [x] Add Promise-returning `locator.text(options)`.
+- [x] Add Promise-returning `locator.bounds()`.
+- [x] Add Promise-returning `locator.computedStyle(props)`.
+- [x] Add Promise-returning `locator.attributes(names)`.
+- [x] Add wrong-parent guidance for probe/extractor methods accidentally called on locators.
+- [x] Add repository-scanned JS verb tests for locator methods.
+- [x] Update docs/examples if public API is considered ready.
+- [x] Update diary/changelog and commit Phase 5.
 
 ## Phase 6 — Add Go-backed target/probe/extractor builders
 

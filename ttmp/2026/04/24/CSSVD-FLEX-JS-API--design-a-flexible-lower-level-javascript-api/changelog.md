@@ -65,3 +65,16 @@
   - `go test ./internal/cssvisualdiff/service -count=1`
   - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 5 `page.locator()` JavaScript API
+
+- Completed Phase 5 by adding `internal/cssvisualdiff/jsapi/locator.go`.
+- Added synchronous `page.locator(selector)` returning a Go-backed Proxy locator handle.
+- Added Promise-returning locator methods for status, exists, visible, text, bounds, computedStyle, and attributes.
+- Routed locator browser work through per-page operation serialization.
+- Added wrong-parent Proxy guidance for probe methods accidentally called on locators.
+- Added repository-scanned JS verb tests for locator method behavior and wrong-parent errors.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(ExposesLocatorMethods|LocatorWrongParentError)' -count=1`
+  - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`

@@ -1083,3 +1083,127 @@ go test ./... -count=1
 ### Technical details
 
 The service functions are intentionally Goja-free and operate on `*driver.Page`. The future JS adapter should only decode inputs, call these functions through the per-page serialization guard, and lower results into JavaScript values.
+
+## Step 11: Complete Phase 5 `page.locator()` JavaScript API
+
+I completed Phase 5 by exposing the new service DOM primitives through a Go-backed Proxy locator handle. `page.locator(selector)` is synchronous and returns a page-bound handle; methods that touch Chromium return Promises and run through the existing per-page serialization guard from Phase 3.
+
+This is the first visible lower-level JS API milestone. It lets scripts query element status, existence, visibility, text, bounds, computed styles, and attributes without writing inspect artifacts or using YAML-style probe objects.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 5"
+
+**Assistant interpretation:** Implement Phase 5 from the ticket: expose `page.locator(selector)` and async locator methods as Go-backed Proxy handles, validate behavior, update docs/diary/tasks, and commit.
+
+**Inferred user intent:** Make the first lower-level JS API available on top of the Phase 4 DOM service primitives.
+
+### What I did
+
+- Added `internal/cssvisualdiff/jsapi/locator.go`.
+- Added `locatorHandle` with references to the owning `pageState` and selector.
+- Added `wrapLocator(...)` using the Phase 2 `newProxyValue(...)` helper.
+- Added synchronous `page.locator(selector)` in `wrapPage(...)`.
+- Implemented Promise-returning locator methods:
+  - `locator.status()`
+  - `locator.exists()`
+  - `locator.visible()`
+  - `locator.text(options)`
+  - `locator.bounds()`
+  - `locator.computedStyle(props)`
+  - `locator.attributes(names)`
+- Routed all locator browser work through `pageState.runExclusive(...)`.
+- Added wrong-parent Proxy guidance for common probe methods accidentally called on locators:
+  - `.selector(...)`
+  - `.styles(...)`
+  - `.required(...)`
+  - `.build()`
+- Added repository-scanned JS verb tests:
+  - `TestCVDModuleExposesLocatorMethods`
+  - `TestCVDModuleLocatorWrongParentError`
+- Marked Phase 5 tasks complete and set the active phase to Phase 6.
+
+### Why
+
+The lower-level API should let JavaScript inspect the current page directly without forcing users through high-level artifact-writing `inspect` calls. A Go-backed Proxy handle gives us controlled method access, useful wrong-parent errors, and future typed unwrapping for strict APIs such as `cvd.extract(locator, extractors)`.
+
+### What worked
+
+The Phase 4 service functions mapped cleanly into locator methods. The Phase 3 page operation lock also made it straightforward to safely run locator methods under `Promise.all(...)`.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(ExposesLocatorMethods|LocatorWrongParentError)' -count=1
+
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+No test failure occurred during Phase 5 after implementation. The main thing to watch is that locator Proxy errors are currently `TypeError`s, not `CvdError` subclasses.
+
+### What I learned
+
+The Proxy infrastructure is now doing useful public API work. The wrong-parent error for `page.locator("#cta").styles(["color"])` produces an actionable message that points users to `.computedStyle(...)` on locators and explains that `.styles(...)` belongs to future probe builders.
+
+### What was tricky to build
+
+The tricky part was argument handling for methods like `computedStyle(props)` and `attributes(names)`. These methods should reject non-array arguments immediately and clearly because future LLM-generated code may pass strings or object literals. I added a small `stringListArg(...)` helper that validates array inputs before starting async browser work.
+
+Another subtle point is that `page.locator(selector)` itself is synchronous and does not validate selector syntax immediately. Syntax errors surface when a method queries the DOM. This matches the intended handle semantics: constructing a locator is cheap and page-bound, while evaluating it is async.
+
+### What warrants a second pair of eyes
+
+- Whether `locator.text()` should default to normalized/trimmed text in the JS API. It currently follows explicit `TextOptions`, so callers use `{ normalizeWhitespace: true, trim: true }`.
+- Whether locator handles should include a `.toString()` or `.selector` read-only property in the public API later.
+- Whether Proxy registries should become module-scoped so future strict APIs can unwrap locator handles created by `page.locator(...)`. The current locator uses `newProxyValue` with a local registry because no strict cross-call unwrapping exists yet.
+
+### What should be done in the future
+
+Phase 6 should add Go-backed target, probe, viewport, and extractor builders. Once extractor handles exist, Phase 7 can implement strict `cvd.extract(locator, extractors)` and should revisit the locator Proxy registry/unwrapping story.
+
+### Code review instructions
+
+Start with:
+
+```text
+internal/cssvisualdiff/jsapi/locator.go
+internal/cssvisualdiff/jsapi/module.go
+```
+
+Then review tests:
+
+```text
+internal/cssvisualdiff/verbcli/command_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(ExposesLocatorMethods|LocatorWrongParentError)' -count=1
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+Example supported JS:
+
+```js
+const cta = page.locator("#cta")
+const [status, text, styles, attrs] = await Promise.all([
+  cta.status(),
+  cta.text({ normalizeWhitespace: true, trim: true }),
+  cta.computedStyle(["color", "display"]),
+  cta.attributes(["id", "class"]),
+])
+```
+
+All methods that touch Chromium run through:
+
+```go
+l.page.runExclusive(func() (any, error) { ... })
+```

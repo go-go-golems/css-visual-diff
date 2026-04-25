@@ -231,6 +231,148 @@ __verb__("catalogSmoke", {
 	require.Contains(t, string(indexBytes), "# Verb Catalog Smoke")
 }
 
+func TestCVDModuleExposesLocatorMethods(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" data-kind="booking" style="color: rgb(255, 0, 0)">  Book
+now  </button><div id="hidden" style="display:none">Hidden</div></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "locator.js"), `
+async function locatorSmoke(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.page(url, { viewport: { width: 320, height: 240 } });
+    const cta = page.locator("#cta");
+    const [status, exists, visible, text, bounds, styles, attrs, missingExists, hiddenVisible] = await Promise.all([
+      cta.status(),
+      cta.exists(),
+      cta.visible(),
+      cta.text({ normalizeWhitespace: true, trim: true }),
+      cta.bounds(),
+      cta.computedStyle(["color", "display"]),
+      cta.attributes(["id", "class", "data-kind", "missing"]),
+      page.locator("#missing").exists(),
+      page.locator("#hidden").visible()
+    ]);
+    return {
+      statusExists: status.exists,
+      exists,
+      visible,
+      text,
+      widthPositive: bounds.width > 0,
+      color: styles.color,
+      attrClass: attrs.class,
+      attrMissing: attrs.missing,
+      missingExists,
+      hiddenVisible
+    };
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("locatorSmoke", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, true, row["statusExists"])
+	require.Equal(t, true, row["exists"])
+	require.Equal(t, true, row["visible"])
+	require.Equal(t, "Book now", row["text"])
+	require.Equal(t, true, row["widthPositive"])
+	require.Equal(t, "rgb(255, 0, 0)", row["color"])
+	require.Equal(t, "primary", row["attrClass"])
+	require.Equal(t, "", row["attrMissing"])
+	require.Equal(t, false, row["missingExists"])
+	require.Equal(t, false, row["hiddenVisible"])
+}
+
+func TestCVDModuleLocatorWrongParentError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta">Book</button></body></html>`)
+	}))
+	defer server.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "locator-error.js"), `
+async function locatorError(url) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let page;
+  try {
+    page = await browser.page(url, { viewport: { width: 320, height: 240 } });
+    try {
+      page.locator("#cta").styles(["color"]);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, name: err.name, message: err.message };
+    }
+  } finally {
+    if (page) await page.close();
+    await browser.close();
+  }
+}
+__verb__("locatorError", {
+  parents: ["custom"],
+  fields: {
+    url: { argument: true, required: true }
+  }
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
+		"default": {"url": server.URL},
+	}))
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, false, row["ok"])
+	require.Equal(t, "TypeError", row["name"])
+	require.Contains(t, row["message"], ".styles() is not available here")
+	require.Contains(t, row["message"], "belongs to cvd.probe")
+	require.Contains(t, row["message"], "computedStyle")
+}
+
 func TestCVDModuleSerializesSamePagePromiseAll(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><main id="app"><p id="a">A</p><p id="b">B</p></main></body></html>`)
