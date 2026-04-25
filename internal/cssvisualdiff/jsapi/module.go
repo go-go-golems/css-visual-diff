@@ -27,20 +27,28 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 		installCollectAPI(ctx, vm, exports)
 		installCompareAPI(ctx, vm, exports)
 		installDiffAPI(ctx, vm, exports)
-		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
+		catalogCreate := func(raw map[string]any) (*goja.Object, error) {
 			catalog, err := newCatalogFromJS(raw)
 			if err != nil {
 				return nil, err
 			}
 			return wrapCatalog(ctx, vm, catalog), nil
-		})
-		_ = exports.Set("loadConfig", func(path string) goja.Value {
-			return promiseValue(ctx, vm, "css-visual-diff.loadConfig", func() (any, error) {
+		}
+		_ = exports.Set("catalog", catalogCreate)
+		if catalogValue := exports.Get("catalog"); catalogValue != nil {
+			_ = catalogValue.ToObject(vm).Set("create", catalogCreate)
+		}
+		configNS := vm.NewObject()
+		configLoad := func(path string) goja.Value {
+			return promiseValue(ctx, vm, "css-visual-diff.config.load", func() (any, error) {
 				return config.Load(path)
 			}, func(vm *goja.Runtime, value any) goja.Value {
 				return vm.ToValue(lowerConfig(value.(*config.Config)))
 			})
-		})
+		}
+		_ = configNS.Set("load", configLoad)
+		_ = exports.Set("config", configNS)
+		_ = exports.Set("loadConfig", configLoad)
 		_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
 			return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {
 				return service.NewBrowserService(ctx.Context)

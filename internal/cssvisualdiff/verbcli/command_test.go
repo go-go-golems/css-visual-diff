@@ -175,7 +175,7 @@ func TestRepositoryVerbWritesCatalogManifestAndIndex(t *testing.T) {
 	writeFile(t, filepath.Join(dir, "catalog.js"), `
 async function catalogSmoke(outDir) {
   const cvd = require("css-visual-diff");
-  const catalog = cvd.catalog({ title: "Verb Catalog Smoke", outDir, artifactRoot: "../artifacts" });
+  const catalog = cvd.catalog.create({ title: "Verb Catalog Smoke", outDir, artifactRoot: "../artifacts" });
   const target = { slug: "../Demo Target!", name: "Demo Target", url: "http://example.test", selector: "#root", viewport: { width: 320, height: 240 } };
   catalog.addTarget(target);
   catalog.recordPreflight(target, [{ name: "root", selector: "#root", exists: true, visible: true, textStart: "Ready" }]);
@@ -238,13 +238,13 @@ async function diffSmoke(outDir) {
   const cvd = require("css-visual-diff");
   const before = { results: [{ name: "cta", snapshot: { text: "Book", computed: { color: "red" } } }] };
   const after = { results: [{ name: "cta", snapshot: { text: "Book now", computed: { color: "red" } } }] };
-  const diff = cvd.diff(before, after);
+  const diff = cvd.diff.structural(before, after);
   const markdown = cvd.report(diff).markdown();
   const jsonPath = outDir + "/diff.json";
   const markdownPath = outDir + "/diff.md";
   await cvd.write.json(jsonPath, diff);
   await cvd.report(diff).writeMarkdown(markdownPath);
-  const ignored = cvd.diff(before, after, { ignorePaths: ["results[0].snapshot.text"] });
+  const ignored = cvd.diff.structural(before, after, { ignorePaths: ["results[0].snapshot.text"] });
   return {
     equal: diff.equal,
     changeCount: diff.changeCount,
@@ -311,7 +311,7 @@ async function snapshotSmoke(url) {
   let page;
   try {
     page = await browser.page(url, { viewport: { width: 320, height: 240 } });
-    const snapshot = await cvd.snapshot(page, [
+    const snapshot = await cvd.snapshot.page(page, [
       cvd.probe("cta").selector("#cta").required().text().styles(["color"]),
       cvd.probe("copy").selector("#copy").text()
     ]);
@@ -376,7 +376,7 @@ async function snapshotError(url) {
   try {
     page = await browser.page(url, { viewport: { width: 320, height: 240 } });
     try {
-      await cvd.snapshot(page, [{ name: "cta", selector: "#cta" }]);
+      await cvd.snapshot.page(page, [{ name: "cta", selector: "#cta" }]);
       return { ok: true };
     } catch (err) {
       return { ok: false, name: err.name, message: err.message };
@@ -1102,4 +1102,108 @@ __verb__("compareSelectionsSmoke", { parents: ["custom"], fields: { leftUrl: { a
 	require.NoError(t, err)
 	_, err = os.Stat(filepath.Join(outDir, "compare.md"))
 	require.NoError(t, err)
+}
+
+func TestCVDModuleCompareRegionLowEffortAPI(t *testing.T) {
+	left := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" style="color: rgb(0, 0, 0); font-size: 16px; padding: 8px">Book now</button></body></html>`)
+	}))
+	defer left.Close()
+	right := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="secondary" style="color: rgb(255, 0, 0); font-size: 18px; padding: 12px">Book now</button></body></html>`)
+	}))
+	defer right.Close()
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "compare-region.js"), `
+async function compareRegionSmoke(leftUrl, rightUrl, outDir) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let leftPage, rightPage;
+  try {
+    leftPage = await browser.page(leftUrl, { viewport: { width: 320, height: 240 } });
+    rightPage = await browser.page(rightUrl, { viewport: { width: 320, height: 240 } });
+    const comparison = await cvd.compare.region({
+      name: "cta",
+      left: leftPage.locator("#cta"),
+      right: rightPage.locator("#cta"),
+      outDir,
+      styleProps: ["color", "font-size"],
+      attributes: ["class"]
+    });
+    await comparison.artifacts.write(outDir, ["json", "markdown"]);
+    return {
+      schemaVersion: comparison.toJSON().schemaVersion,
+      changedPercent: comparison.pixel.summary().changedPercent,
+      styleCount: comparison.styles.diff().length,
+      boundsChanged: comparison.bounds.diff().changed,
+      attrName: comparison.attributes.diff()[0].name
+    };
+  } finally {
+    if (leftPage) await leftPage.close();
+    if (rightPage) await rightPage.close();
+    await browser.close();
+  }
+}
+__verb__("compareRegionSmoke", { parents: ["custom"], fields: { leftUrl: { argument: true, required: true }, rightUrl: { argument: true, required: true }, outDir: { argument: true, required: true } } });
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	outDir := t.TempDir()
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{"default": {"leftUrl": left.URL, "rightUrl": right.URL, "outDir": outDir}}))
+	require.NoError(t, err)
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, "cssvd.selectionComparison.v1", row["schemaVersion"])
+	require.Greater(t, row["changedPercent"].(float64), 0.0)
+	require.EqualValues(t, 2, row["styleCount"])
+	require.Equal(t, true, row["boundsChanged"])
+	require.Equal(t, "class", row["attrName"])
+	for _, name := range []string{"left_region.png", "right_region.png", "diff_only.png", "diff_comparison.png", "compare.json", "compare.md"} {
+		_, err = os.Stat(filepath.Join(outDir, name))
+		require.NoError(t, err, name)
+	}
+}
+
+func TestCVDModuleCompareRegionRejectsRawObjects(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "compare-region-error.js"), `
+async function compareRegionError() {
+  const cvd = require("css-visual-diff");
+  try {
+    await cvd.compare.region({ left: { selector: "#cta" }, right: { selector: "#cta" } });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, name: err.name, message: err.message };
+  }
+}
+__verb__("compareRegionError", { parents: ["custom"], fields: {} });
+`)
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0])
+	require.NoError(t, err)
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, false, row["ok"])
+	require.Equal(t, "TypeError", row["name"])
+	require.Contains(t, row["message"], "css-visual-diff.compare.region: expected cvd.locator")
 }

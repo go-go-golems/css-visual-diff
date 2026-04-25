@@ -6,7 +6,7 @@
 async function inspectPage(url, selector, outDir, values) {
   values = values || {};
   const cvd = require("css-visual-diff");
-  const catalog = cvd.catalog({
+  const catalog = cvd.catalog.create({
     title: values.title || "Example Visual Catalog",
     outDir,
     artifactRoot: "artifacts",

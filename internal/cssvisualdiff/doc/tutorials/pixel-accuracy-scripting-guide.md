@@ -39,8 +39,8 @@ A visual comparison has three different layers. Keeping them separate makes scri
 | Locator | Which element on this loaded page matters now? | `const cta = page.locator("#cta")` |
 | Probe | What reusable recipe should I apply to a page? | `cvd.probe("cta").selector("#cta").text().styles([...])` |
 | Extractor | What facts should I read from an element? | `cvd.extractors.text()`, `cvd.extractors.computedStyle([...])` |
-| Snapshot | What did a set of probes observe on this page? | `await cvd.snapshot(page, probes)` |
-| Diff | What changed between two snapshots? | `cvd.diff(before, after)` |
+| Snapshot | What did a set of probes observe on this page? | `await cvd.snapshot.page(page, probes)` |
+| Diff | What changed between two snapshots? | `cvd.diff.structural(before, after)` |
 | Report | How do I show the difference to a human or CI log? | `cvd.report(diff).markdown()` |
 
 The distinction between a locator and a probe is the most important one. A locator is bound to one live page. It answers: “on this loaded page, find `#cta`.” A probe is a reusable recipe. It answers: “whenever I inspect a page, call this thing `cta`, use selector `#cta`, and extract text plus these CSS properties.”
@@ -158,7 +158,7 @@ async function snapshotHome(url) {
   const browser = await cvd.browser()
   try {
     const page = await browser.page(url, { viewport: cvd.viewport.desktop() })
-    return await cvd.snapshot(page, [
+    return await cvd.snapshot.page(page, [
       cvd.probe("hero-title").selector("h1").text().styles(["font-size", "line-height", "color"]),
       cvd.probe("primary-cta").selector("[data-testid='primary-cta']").text().bounds().styles(["height", "background-color", "border-radius"]),
     ])
@@ -178,7 +178,7 @@ The simplest useful comparison is structural: take two snapshots and ask what ch
 const before = await snapshotHome("http://localhost:3000/before")
 const after = await snapshotHome("http://localhost:3000/after")
 
-const diff = cvd.diff(before, after, {
+const diff = cvd.diff.structural(before, after, {
   ignorePaths: [
     "results[1].snapshot.bounds.x",
     "results[1].snapshot.bounds.y",
@@ -200,7 +200,7 @@ A script becomes useful to a team when it leaves evidence behind. `cvd.write.jso
 async function compareAndWrite(beforeUrl, afterUrl, outDir) {
   const before = await snapshotHome(beforeUrl)
   const after = await snapshotHome(afterUrl)
-  const diff = cvd.diff(before, after)
+  const diff = cvd.diff.structural(before, after)
 
   await cvd.write.json(`${outDir}/before.json`, before)
   await cvd.write.json(`${outDir}/after.json`, after)
@@ -242,7 +242,7 @@ async function compareCheckout(beforeUrl, afterUrl, outDir) {
     const browser = await cvd.browser()
     try {
       const page = await browser.page(url, { viewport: cvd.viewport.desktop(), waitMs: 250 })
-      return await cvd.snapshot(page, [
+      return await cvd.snapshot.page(page, [
         cvd.probe("checkout-title").selector("h1").text().styles(["font-size", "font-weight", "line-height", "color"]),
         cvd.probe("checkout-card").selector("[data-testid='checkout-card']").bounds().styles(["background-color", "border-radius", "box-shadow", "padding"]),
         cvd.probe("pay-button").selector("[data-testid='pay-button']").text().bounds().styles(["height", "font-size", "background-color", "color", "border-radius"]),
@@ -254,7 +254,7 @@ async function compareCheckout(beforeUrl, afterUrl, outDir) {
 
   const before = await capture(beforeUrl)
   const after = await capture(afterUrl)
-  const diff = cvd.diff(before, after)
+  const diff = cvd.diff.structural(before, after)
 
   await cvd.write.json(`${outDir}/before.json`, before)
   await cvd.write.json(`${outDir}/after.json`, after)

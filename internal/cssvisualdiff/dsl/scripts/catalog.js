@@ -62,7 +62,7 @@ function _probesFromConfig(cfg, side) {
 async function inspectConfig(configPath, side, outDir, values) {
   values = values || {};
   const cvd = require("css-visual-diff");
-  const cfg = await cvd.loadConfig(configPath);
+  const cfg = await cvd.config.load(configPath);
   const targetConfig = side === "react" ? cfg.react : cfg.original;
   const probes = _probesFromConfig(cfg, side);
   const slug = values.slug || `${cfg.metadata.slug || "config"}-${side}`;
@@ -78,7 +78,7 @@ async function inspectConfig(configPath, side, outDir, values) {
       side,
     },
   };
-  const catalog = cvd.catalog({
+  const catalog = cvd.catalog.create({
     title: values.title || `${cfg.metadata.title || cfg.metadata.slug || "css-visual-diff Config"} (${side})`,
     outDir,
     artifactRoot: values.artifactRoot || "artifacts",
@@ -224,7 +224,7 @@ async function inspectPage(url, selector, outDir, values) {
     required: failOnMissing,
   };
 
-  const catalog = cvd.catalog({
+  const catalog = cvd.catalog.create({
     title: values.title || "css-visual-diff Page Catalog",
     outDir,
     artifactRoot: values.artifactRoot || "artifacts",

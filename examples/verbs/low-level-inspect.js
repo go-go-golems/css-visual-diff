@@ -25,7 +25,7 @@ async function inspect(url, selector, outDir, values) {
       cvd.extractors.attributes(["id", "class", "aria-label"]),
     ]);
 
-    const snapshot = await cvd.snapshot(page, [
+    const snapshot = await cvd.snapshot.page(page, [
       cvd.probe(values.name || "target")
         .selector(selector)
         .required()

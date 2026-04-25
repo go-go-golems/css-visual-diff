@@ -20,39 +20,54 @@ __section__("selectors", {
   }
 });
 
-function region(targets, viewport, output, selectors) {
-  return require("diff").compareRegion({
-    left: {
-      url: targets.leftUrl,
-      selector: selectors.leftSelector,
+async function region(targets, viewport, output, selectors) {
+  const cvd = require("css-visual-diff");
+  const browser = await cvd.browser();
+  let leftPage;
+  let rightPage;
+  try {
+    leftPage = await browser.page(targets.leftUrl, {
+      viewport: { width: viewport.width, height: viewport.height },
       waitMs: targets.leftWaitMs,
-    },
-    right: {
-      url: targets.rightUrl,
-      selector: selectors.rightSelector || selectors.leftSelector,
+      name: "left"
+    });
+    rightPage = await browser.page(targets.rightUrl, {
+      viewport: { width: viewport.width, height: viewport.height },
       waitMs: targets.rightWaitMs,
-    },
-    viewport: {
-      width: viewport.width,
-      height: viewport.height,
-    },
-    output,
-    computed: [
-      "font-family",
-      "font-size",
-      "font-weight",
-      "line-height",
-      "padding-top",
-      "padding-right",
-      "padding-bottom",
-      "padding-left",
-      "border-radius",
-      "color",
-      "background-color",
-      "box-shadow"
-    ],
-    attributes: ["id", "class"]
-  });
+      name: "right"
+    });
+    const comparison = await cvd.compare.region({
+      name: "region",
+      left: leftPage.locator(selectors.leftSelector),
+      right: rightPage.locator(selectors.rightSelector || selectors.leftSelector),
+      threshold: output.threshold || 30,
+      inspect: "rich",
+      outDir: output.outDir,
+      styleProps: [
+        "font-family",
+        "font-size",
+        "font-weight",
+        "line-height",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
+        "border-radius",
+        "color",
+        "background-color",
+        "box-shadow"
+      ],
+      attributes: ["id", "class"]
+    });
+    const json = comparison.toJSON();
+    if (output.writeJson) await cvd.write.json(`${output.outDir}/compare.json`, json);
+    if (output.writeMarkdown) await comparison.report.writeMarkdown(`${output.outDir}/compare.md`);
+    return json;
+  } finally {
+    if (leftPage) await leftPage.close();
+    if (rightPage) await rightPage.close();
+    await browser.close();
+  }
 }
 
 __verb__("region", {
@@ -65,13 +80,22 @@ __verb__("region", {
   }
 });
 
-function brief(targets, viewport, output, selectors, question) {
-  const result = region(targets, viewport, output, selectors);
-  return require("report").renderAgentBrief({
-    question: question,
-    evidence: result,
-    maxBullets: 8,
-  });
+async function brief(targets, viewport, output, selectors, question) {
+  const result = await region(targets, viewport, output, selectors);
+  const lines = [
+    `# ${question || "Comparison brief"}`,
+    "",
+    `- Changed pixels: ${result.pixel ? result.pixel.changedPixels : 0}/${result.pixel ? result.pixel.totalPixels : 0} (${result.pixel ? result.pixel.changedPercent.toFixed(4) : "0.0000"}%)`,
+    `- Bounds changed: ${result.bounds.changed}`,
+    `- Text changed: ${result.text.changed}`,
+    `- Style changes: ${result.styles ? result.styles.length : 0}`,
+    `- Attribute changes: ${result.attributes ? result.attributes.length : 0}`,
+  ];
+  if (result.styles && result.styles.length) {
+    lines.push("", "Style diffs:");
+    result.styles.slice(0, 8).forEach((diff) => lines.push(`- ${diff.name}: ${diff.left} -> ${diff.right}`));
+  }
+  return lines.join("\n");
 }
 
 __verb__("brief", {

@@ -9,13 +9,13 @@ import (
 )
 
 func installSnapshotAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
-	_ = exports.Set("snapshot", func(call goja.FunctionCall) goja.Value {
-		page := mustUnwrapProxyBacking[pageState](vm, defaultProxyRegistry, "css-visual-diff.snapshot", call.Argument(0), "cvd.page")
+	snapshotPage := func(call goja.FunctionCall) goja.Value {
+		page := mustUnwrapProxyBacking[pageState](vm, defaultProxyRegistry, "css-visual-diff.snapshot.page", call.Argument(0), "cvd.page")
 		probes, err := unwrapSnapshotProbes(vm, call.Argument(1))
 		if err != nil {
 			panic(typeMismatchError(vm, "css-visual-diff.snapshot", "array of cvd.probe() builders", call.Argument(1)))
 		}
-		return promiseValue(ctx, vm, "css-visual-diff.snapshot", func() (any, error) {
+		return promiseValue(ctx, vm, "css-visual-diff.snapshot.page", func() (any, error) {
 			return page.runExclusive(func() (any, error) {
 				snapshot, err := service.SnapshotPage(page.page.Page(), probes)
 				if err != nil {
@@ -24,7 +24,11 @@ func installSnapshotAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, expo
 				return lowerPageSnapshot(snapshot), nil
 			})
 		}, nil)
-	})
+	}
+	_ = exports.Set("snapshot", snapshotPage)
+	if snapshotValue := exports.Get("snapshot"); snapshotValue != nil {
+		_ = snapshotValue.ToObject(vm).Set("page", snapshotPage)
+	}
 }
 
 func unwrapSnapshotProbes(vm *goja.Runtime, value goja.Value) ([]service.SnapshotProbeSpec, error) {

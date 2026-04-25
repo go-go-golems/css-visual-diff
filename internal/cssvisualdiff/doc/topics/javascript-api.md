@@ -79,18 +79,20 @@ const cvd = require("css-visual-diff")
 Exports:
 
 - `cvd.browser(options?)`
-- `cvd.catalog(options)`
-- `cvd.loadConfig(path)`
 - `cvd.viewport(width, height)` and named viewport helpers
 - `cvd.target(name)`
 - `cvd.probe(name)`
 - `cvd.extractors.*`
 - `cvd.extract(locator, extractors)`
-- `cvd.snapshot(page, probes, options?)`
-- `locator.collect(options?)` and `cvd.collect.selection(locator, options?)` for immutable collected selector data.
-- `cvd.compare.selections(left, right, options?)` for comparing collected selector data.
-- `cvd.diff(before, after, options?)` for the current structural JSON diff
-- Upcoming canonical names from `CSSVD-JSAPI-PIXEL-WORKFLOWS`: `cvd.diff.structural(before, after, options?)` and `cvd.image.diff(options)`
+- `cvd.snapshot.page(page, probes, options?)`
+- `locator.collect(options?)`
+- `cvd.collect.selection(locator, options?)`
+- `cvd.compare.region({ left, right, ... })`
+- `cvd.compare.selections(left, right, options?)`
+- `cvd.diff.structural(before, after, options?)`
+- `cvd.image.diff(options)`
+- `cvd.catalog.create(options)`
+- `cvd.config.load(path)`
 - `cvd.write.json(path, value)`
 - `cvd.write.markdown(path, markdown)`
 - `cvd.CvdError`
@@ -98,6 +100,34 @@ Exports:
 - `cvd.PrepareError`
 - `cvd.BrowserError`
 - `cvd.ArtifactError`
+
+## Quick path vs primitive path
+
+For most visual region comparisons, use the opinionated quick path:
+
+```js
+const comparison = await cvd.compare.region({
+  left: leftPage.locator("#cta"),
+  right: rightPage.locator("#cta"),
+  outDir: "artifacts/cta",
+})
+
+return comparison.summary()
+```
+
+For custom analysis, use the primitive path:
+
+```js
+const left = await leftPage.locator("#cta").collect({ inspect: "rich" })
+const right = await rightPage.locator("#cta").collect({ inspect: "rich" })
+const comparison = await cvd.compare.selections(left, right, {
+  styleProps: ["font-size", "line-height", "color"],
+})
+
+return comparison.toJSON()
+```
+
+The quick path is just collect-left, collect-right, compare-selections, plus sensible artifact defaults.
 
 ## Browser and page API
 
@@ -366,6 +396,46 @@ Collected data lowers to plain JSON:
 
 Use collected selections when later JavaScript wants to compare, filter, serialize, or report on browser facts without re-querying the page. The comparison API builds on this model with `cvd.compare.selections(left, right)` and the low-effort `cvd.compare.region({ left, right })` helper.
 
+### `await cvd.compare.region({ left, right, ... })`
+
+`cvd.compare.region(...)` is the first API to reach for when you already have two loaded pages and want one visual answer with low ceremony.
+
+```js
+const comparison = await cvd.compare.region({
+  name: "cta",
+  left: leftPage.locator("#cta"),
+  right: rightPage.locator("#cta"),
+  threshold: 30,
+  inspect: "rich",
+  outDir: "artifacts/cta",
+  styleProps: ["font-size", "line-height", "color"],
+  attributes: ["class"],
+})
+
+await comparison.artifacts.write("artifacts/cta", ["json", "markdown"])
+return comparison.summary()
+```
+
+Arguments:
+
+- `left` — required `page.locator(...)` handle.
+- `right` — required `page.locator(...)` handle.
+- `name` — optional comparison name.
+- `threshold` — pixel threshold, default `30`.
+- `inspect` — collection profile, default `"rich"`.
+- `outDir` — optional directory for region screenshots and diff PNG artifacts.
+- `styleProps` / `attributes` — optional filters for collection and comparison.
+
+It is equivalent to:
+
+```js
+const left = await leftPage.locator("#cta").collect({ inspect: "rich" })
+const right = await rightPage.locator("#cta").collect({ inspect: "rich" })
+const comparison = await cvd.compare.selections(left, right, { threshold: 30 })
+```
+
+but it also captures region screenshots and writes pixel diff artifacts when `outDir` is provided.
+
 ## Selection comparison model
 
 A `SelectionComparison` compares two collected selections. It is data-centered: it does not re-query the browser. It compares the immutable facts already captured in the left and right `CollectedSelection` values.
@@ -473,7 +543,7 @@ const probe = cvd.probe("cta")
   .attributes(["class"])
 ```
 
-Use probes with `cvd.snapshot(...)`. Use locators when you want to inspect one already-loaded page directly.
+Use probes with `cvd.snapshot.page(...)`. Use locators when you want to inspect one already-loaded page directly.
 
 ### `cvd.extractors.*`
 
@@ -504,12 +574,12 @@ const snapshot = await cvd.extract(page.locator("#cta"), [
 
 Raw object locators are rejected. Use `page.locator("#selector")` instead.
 
-### `await cvd.snapshot(page, probes, options?)`
+### `await cvd.snapshot.page(page, probes, options?)`
 
 Strictly evaluates probe builders against a page.
 
 ```js
-const snapshot = await cvd.snapshot(page, [
+const snapshot = await cvd.snapshot.page(page, [
   cvd.probe("title").selector("h1").text().styles(["font-size", "color"]),
   cvd.probe("cta").selector("#cta").text().bounds().styles(["background-color"]),
 ])
@@ -524,22 +594,15 @@ There are two different kinds of diffing in css-visual-diff:
 1. **Structural JSON diffs** compare plain values, snapshots, and extracted data.
 2. **Image/pixel diffs** compare rendered PNGs or screenshots.
 
-The current public function is the older structural diff helper:
+Use explicit canonical names:
 
 ```js
-const diff = cvd.diff(before, after, {
+const structural = cvd.diff.structural(before, after, {
   ignorePaths: ["results[0].snapshot.bounds.x"],
 })
 
-const markdown = cvd.report(diff).markdown()
-await cvd.write.json("out/diff.json", diff)
-await cvd.report(diff).writeMarkdown("out/diff.md")
-```
+await cvd.write.json("out/diff.json", structural)
 
-Because this ticket does not require backward compatibility, the canonical future names should be explicit:
-
-```js
-const structural = cvd.diff.structural(before, after)
 const pixels = await cvd.image.diff({
   left: "artifacts/left.png",
   right: "artifacts/right.png",
@@ -583,7 +646,7 @@ Supported `artifacts` / `format` values:
 The catalog implementation is Go-backed. JavaScript orchestrates workflows, while Go owns schema versioning, path normalization, summaries, manifest writing, and index writing.
 
 ```js
-const catalog = cvd.catalog({
+const catalog = cvd.catalog.create({
   title: "Prototype Catalog",
   outDir: "/tmp/catalog",
   artifactRoot: "artifacts",
@@ -667,10 +730,10 @@ Returns the index path.
 
 ## YAML interop
 
-`cvd.loadConfig(path)` loads an existing `*.css-visual-diff.yml` file through the Go config loader and returns a lowerCamel JS object.
+`cvd.config.load(path)` loads an existing `*.css-visual-diff.yml` file through the Go config loader and returns a lowerCamel JS object.
 
 ```js
-const cfg = await cvd.loadConfig("examples/pyxis-public-shows.yaml")
+const cfg = await cvd.config.load("examples/pyxis-public-shows.yaml")
 const target = cfg.original
 const probes = cfg.styles.map((style) => ({
   name: style.name,

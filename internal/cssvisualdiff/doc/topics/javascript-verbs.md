@@ -40,6 +40,8 @@ css-visual-diff verbs catalog inspect-page ...
 css-visual-diff verbs catalog inspect-config ...
 ```
 
+The built-in `script compare` verbs are ordinary dogfood examples of the public `require("css-visual-diff")` API. In particular, `script compare region` uses `cvd.compare.region(...)` rather than the older internal helper modules. Treat `require("diff")` and `require("report")` as private implementation details, not public scripting APIs.
+
 ## Repository sources
 
 The lazy `verbs` command discovers scripts from four sources:

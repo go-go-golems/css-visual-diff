@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
@@ -17,6 +18,14 @@ type selectionComparisonHandle struct {
 
 func installCompareAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
 	compare := vm.NewObject()
+	_ = compare.Set("region", func(call goja.FunctionCall) goja.Value {
+		opts := decodeCompareRegionOptions(vm, call.Argument(0))
+		return promiseValue(ctx, vm, "css-visual-diff.compare.region", func() (any, error) {
+			return compareRegion(opts)
+		}, func(vm *goja.Runtime, value any) goja.Value {
+			return wrapSelectionComparison(ctx, vm, value.(service.SelectionComparisonData))
+		})
+	})
 	_ = compare.Set("selections", func(call goja.FunctionCall) goja.Value {
 		left := mustUnwrapProxyBacking[collectedSelectionHandle](vm, defaultProxyRegistry, "css-visual-diff.compare.selections", call.Argument(0), "cvd.collectedSelection")
 		right := mustUnwrapProxyBacking[collectedSelectionHandle](vm, defaultProxyRegistry, "css-visual-diff.compare.selections", call.Argument(1), "cvd.collectedSelection")
@@ -32,6 +41,146 @@ func installCompareAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, expor
 		})
 	})
 	_ = exports.Set("compare", compare)
+}
+
+type compareRegionOptions struct {
+	Left       *locatorHandle
+	Right      *locatorHandle
+	Name       string
+	Threshold  int
+	Inspect    string
+	OutDir     string
+	StyleProps []string
+	Attributes []string
+}
+
+func decodeCompareRegionOptions(vm *goja.Runtime, value goja.Value) compareRegionOptions {
+	if value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+		panic(typeMismatchError(vm, "css-visual-diff.compare.region", "options object with left and right locators", value))
+	}
+	obj := value.ToObject(vm)
+	left := mustUnwrapProxyBacking[locatorHandle](vm, defaultProxyRegistry, "css-visual-diff.compare.region", obj.Get("left"), "cvd.locator")
+	right := mustUnwrapProxyBacking[locatorHandle](vm, defaultProxyRegistry, "css-visual-diff.compare.region", obj.Get("right"), "cvd.locator")
+	raw := exportOptionalObject(vm, "css-visual-diff.compare.region", value)
+	threshold := 30
+	if rawThreshold, ok := raw["threshold"]; ok {
+		threshold = intNumber(rawThreshold)
+	}
+	inspect := service.CollectInspectRich
+	if rawInspect, ok := raw["inspect"].(string); ok && rawInspect != "" {
+		inspect = rawInspect
+	}
+	styleProps, _ := stringSliceFromAny(raw["styleProps"])
+	if len(styleProps) == 0 {
+		styleProps, _ = stringSliceFromAny(raw["styles"])
+	}
+	attributes, _ := stringSliceFromAny(raw["attributes"])
+	return compareRegionOptions{
+		Left:       left,
+		Right:      right,
+		Name:       stringFromAny(raw["name"]),
+		Threshold:  threshold,
+		Inspect:    inspect,
+		OutDir:     stringFromAny(raw["outDir"]),
+		StyleProps: styleProps,
+		Attributes: attributes,
+	}
+}
+
+func compareRegion(opts compareRegionOptions) (service.SelectionComparisonData, error) {
+	if opts.Left == nil || opts.Right == nil {
+		return service.SelectionComparisonData{}, fmt.Errorf("css-visual-diff.compare.region requires left and right page.locator(selector) handles")
+	}
+	if opts.Inspect == "" {
+		opts.Inspect = service.CollectInspectRich
+	}
+	outDir := opts.OutDir
+	if outDir == "" {
+		outDir = filepath.Join(os.TempDir(), fmt.Sprintf("cssvd-compare-region-%d", time.Now().UnixNano()))
+	}
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return service.SelectionComparisonData{}, err
+	}
+	leftShot := filepath.Join(outDir, "left_region.png")
+	rightShot := filepath.Join(outDir, "right_region.png")
+	left, err := collectAndScreenshotRegion(opts.Left, opts.Name, opts.Inspect, opts.StyleProps, opts.Attributes, leftShot)
+	if err != nil {
+		return service.SelectionComparisonData{}, err
+	}
+	right, err := collectAndScreenshotRegion(opts.Right, opts.Name, opts.Inspect, opts.StyleProps, opts.Attributes, rightShot)
+	if err != nil {
+		return service.SelectionComparisonData{}, err
+	}
+	return service.CompareSelections(left, right, service.CompareSelectionOptions{
+		Name:               opts.Name,
+		Threshold:          opts.Threshold,
+		StyleProps:         opts.StyleProps,
+		Attributes:         opts.Attributes,
+		DiffOnlyPath:       filepath.Join(outDir, "diff_only.png"),
+		DiffComparisonPath: filepath.Join(outDir, "diff_comparison.png"),
+	})
+}
+
+func collectAndScreenshotRegion(locator *locatorHandle, name, inspect string, styleProps, attributes []string, screenshotPath string) (service.SelectionData, error) {
+	value, err := locator.page.runExclusive(func() (any, error) {
+		opts := service.CollectOptions{Name: name, Inspect: inspect, StyleProps: styleProps, Attributes: attributes}
+		selected, err := service.CollectSelection(locator.page.page.Page(), locator.spec(), opts)
+		if err != nil {
+			return nil, err
+		}
+		if selected.Exists && selected.Visible {
+			if err := os.MkdirAll(filepath.Dir(screenshotPath), 0o755); err != nil {
+				return nil, err
+			}
+			if err := locator.page.page.Page().Screenshot(locator.selector, screenshotPath); err != nil {
+				return nil, err
+			}
+			selected.Screenshot = &service.ScreenshotDescriptor{Path: screenshotPath}
+		}
+		return selected, nil
+	})
+	if err != nil {
+		return service.SelectionData{}, err
+	}
+	return value.(service.SelectionData), nil
+}
+
+func intNumber(value any) int {
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	case float32:
+		return int(typed)
+	default:
+		return 0
+	}
+}
+
+func stringFromAny(value any) string {
+	if text, ok := value.(string); ok {
+		return text
+	}
+	return ""
+}
+
+func stringSliceFromAny(value any) ([]string, bool) {
+	items, ok := value.([]any)
+	if !ok {
+		return nil, false
+	}
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		text, ok := item.(string)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, text)
+	}
+	return out, true
 }
 
 func wrapSelectionComparison(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, data service.SelectionComparisonData) goja.Value {

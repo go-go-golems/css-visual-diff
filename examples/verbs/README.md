@@ -22,7 +22,7 @@ The command writes:
 
 ## Lower-level locator/extractor/snapshot example
 
-The `examples low-level inspect` command shows the newer script-native API. It uses `page.locator(...)`, `cvd.extract(...)`, `cvd.probe(...)`, `cvd.snapshot(...)`, and `cvd.write.json(...)` without writing the standard inspect artifact bundle.
+The `examples low-level inspect` command shows the newer script-native API. It uses `page.locator(...)`, `cvd.extract(...)`, `cvd.probe(...)`, `cvd.snapshot.page(...)`, and `cvd.write.json(...)` without writing the standard inspect artifact bundle.
 
 ```bash
 css-visual-diff verbs --repository examples/verbs examples low-level inspect \

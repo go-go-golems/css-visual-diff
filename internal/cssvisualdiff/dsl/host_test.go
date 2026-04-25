@@ -65,8 +65,9 @@ func TestEmbeddedCompareCommandsExecute(t *testing.T) {
 		},
 	})
 	require.Len(t, rows, 1)
-	require.NotNil(t, rows[0]["computed_diffs"])
-	require.NotNil(t, rows[0]["pixel_diff"])
+	require.Equal(t, "cssvd.selectionComparison.v1", rows[0]["schemaVersion"])
+	require.NotNil(t, rows[0]["styles"])
+	require.NotNil(t, rows[0]["pixel"])
 
 	text := runWriterCommand(t, commandMap["script compare brief"], map[string]map[string]interface{}{
 		"default": {

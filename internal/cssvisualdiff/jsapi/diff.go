@@ -10,7 +10,7 @@ import (
 )
 
 func installDiffAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
-	_ = exports.Set("diff", func(call goja.FunctionCall) goja.Value {
+	structuralDiff := func(call goja.FunctionCall) goja.Value {
 		var opts service.DiffOptions
 		if len(call.Arguments) > 2 && !goja.IsUndefined(call.Argument(2)) && !goja.IsNull(call.Argument(2)) {
 			var err error
@@ -24,7 +24,29 @@ func installDiffAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports 
 			panic(vm.NewGoError(err))
 		}
 		return vm.ToValue(lowerSnapshotDiff(diff))
+	}
+	_ = exports.Set("diff", structuralDiff)
+	if diffValue := exports.Get("diff"); diffValue != nil {
+		_ = diffValue.ToObject(vm).Set("structural", structuralDiff)
+	}
+
+	image := vm.NewObject()
+	_ = image.Set("diff", func(call goja.FunctionCall) goja.Value {
+		raw := exportOptionalObject(vm, "css-visual-diff.image.diff", call.Argument(0))
+		return promiseValue(ctx, vm, "css-visual-diff.image.diff", func() (any, error) {
+			left := stringFromAny(raw["left"])
+			right := stringFromAny(raw["right"])
+			threshold := intNumber(raw["threshold"])
+			diffOnlyPath := stringFromAny(raw["diffOnlyPath"])
+			diffComparisonPath := stringFromAny(raw["diffComparisonPath"])
+			if diffOnlyPath != "" || diffComparisonPath != "" {
+				return service.WritePixelDiffImages(left, right, diffComparisonPath, diffOnlyPath, service.PixelDiffOptions{Threshold: threshold})
+			}
+			result, _, _, _, err := service.DiffPNGFiles(left, right, service.PixelDiffOptions{Threshold: threshold})
+			return result, err
+		}, func(vm *goja.Runtime, value any) goja.Value { return vm.ToValue(lowerJSON(value)) })
 	})
+	_ = exports.Set("image", image)
 
 	_ = exports.Set("report", func(raw map[string]any) *goja.Object {
 		diff, err := decodeSnapshotDiffReport(raw)
