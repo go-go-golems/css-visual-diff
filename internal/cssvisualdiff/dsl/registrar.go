@@ -6,6 +6,7 @@ import (
 
 	"github.com/dop251/goja"
 	noderequire "github.com/dop251/goja_nodejs/require"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/jsapi"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/services"
 	"github.com/go-go-golems/go-go-goja/engine"
@@ -48,7 +49,7 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 		})
 	})
 
-	registerCVDModule(ctx, reg)
+	jsapi.Register(ctx, reg)
 
 	reg.RegisterNativeModule("report", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)

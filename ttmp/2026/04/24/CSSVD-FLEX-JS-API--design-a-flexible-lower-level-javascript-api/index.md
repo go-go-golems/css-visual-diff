@@ -15,13 +15,13 @@ RelatedFiles:
       Note: Current high-level JS API reference.
     - Path: docs/js-verbs.md
       Note: Current repository-scanned JS verbs reference.
-    - Path: internal/cssvisualdiff/dsl/cvd_module.go
-      Note: Current native module implementation that future lower-level adapters should extend/refactor.
+    - Path: internal/cssvisualdiff/jsapi/module.go
+      Note: Native css-visual-diff module implementation after Phase 1 refactor; future lower-level adapters should extend this package.
     - Path: internal/cssvisualdiff/service
       Note: Existing Go service boundary that future locator/extractor/snapshot/diff services should extend.
 ExternalSources: []
 Summary: "Ticket workspace for designing a lower-level, more flexible JavaScript API for css-visual-diff."
-LastUpdated: 2026-04-24T18:55:00-04:00
+LastUpdated: 2026-04-24T20:45:00-04:00
 WhatFor: "Use this ticket to plan and implement a JS-native API that can replace many YAML concepts with composable JavaScript objects and functions."
 WhenToUse: "When working on page locators, extractor pipelines, snapshot/diff APIs, JS target/probe builders, or YAML migration helpers."
 ---
@@ -45,7 +45,7 @@ The main deliverable is an intern-facing analysis/design/implementation guide wi
 
 Current status: **active**.
 
-The design document is drafted. Validation and reMarkable delivery are tracked in `tasks.md`.
+The design document is drafted. Validation and reMarkable delivery are tracked in `tasks.md`. Implementation is starting with the no-behavior `internal/cssvisualdiff/jsapi` package refactor.
 
 ## Topics
 

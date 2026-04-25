@@ -577,3 +577,252 @@ cp "$TICKET_DIR/pdf/CSSVD-FLEX-JS-API-flexible-javascript-api-design-guide-updat
 remarquee cloud put /tmp/cssvd-flex-api-updated.pdf /ai/2026/04/24 --non-interactive
 remarquee cloud ls /ai/2026/04/24 --long --non-interactive
 ```
+
+## Step 7: Expand ticket tasks into granular implementation phases
+
+Before continuing code work, I paused to make the ticket task list much more granular. The previous task list only had broad implementation phases, which was not detailed enough for task-by-task execution or for deciding when to commit.
+
+The ticket now has a phase-by-phase checklist from the no-behavior `jsapi` refactor through Proxy infrastructure, page serialization, DOM services, locators, builders, extraction, snapshots, diffs, docs, smoke scripts, and final delivery. This gives us a concrete progress tracker for the rest of CSSVD-FLEX-JS-API.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Let's work on CSSVD-FLEX-JS-API, task by task, keep a detailed diary (read the current diary so far), commit at appropriate intervals."
+
+**Follow-up prompt (verbatim):** "add detailed tasks split in phases to the ticket, so that we have a more granular wya of keeping track where we are."
+
+**Assistant interpretation:** Read the existing diary, then make the ticket task list detailed enough to track implementation phase by phase before continuing code.
+
+**Inferred user intent:** The user wants a disciplined implementation process with explicit checkpoints, diary updates, validation, and commits.
+
+### What I did
+
+- Read the diary skill, docmgr skill, git commit instructions, and go-go-goja module authoring skill.
+- Read the current CSSVD-FLEX-JS-API diary and tasks file.
+- Checked branch and working tree state.
+- Committed the previously untracked ticket/design documents before implementation work:
+  - `17240de docs: add flexible js api implementation ticket`
+- Rewrote `tasks.md` into detailed phased checklists:
+  - Phase 0: ticket/design/baseline bookkeeping.
+  - Phase 1: no-behavior `internal/cssvisualdiff/jsapi` package refactor.
+  - Phase 2: Proxy infrastructure and typed unwrapping.
+  - Phase 3: per-page operation serialization.
+  - Phase 4: service DOM locator primitives.
+  - Phase 5: `page.locator()` Proxy handle and locator methods.
+  - Phase 6: target/probe/extractor builders.
+  - Phase 7: strict `cvd.extract(locator, extractors)`.
+  - Phase 8: strict `cvd.snapshot(page, probes, options)`.
+  - Phase 9: diff/report/write primitives.
+  - Phase 10: docs/examples/smoke scripts/delivery.
+
+### Why
+
+The implementation will touch multiple subsystems. A granular task list prevents losing track of intermediate safety steps such as baseline tests, no-behavior refactor validation, Proxy error tests, per-page serialization tests, and documentation updates.
+
+### What worked
+
+- The existing diary had enough context to resume safely.
+- The ticket docs were committed cleanly before implementation changes.
+- The task list now separates mechanical refactoring from behavior changes.
+
+### What didn't work
+
+No command failed during this planning step.
+
+### What I learned
+
+Phase 1 needs to be treated as a no-behavior refactor and validated before adding Proxy behavior. The initial code move also makes it clear that `decodeInto(...)` currently lives in `dsl/codec.go`, so Phase 1 must either move or duplicate the codec helper into `jsapi` while keeping `toPlainValue(...)` available to the existing `diff` and `report` modules.
+
+### What was tricky to build
+
+The tricky part is that I had already started the mechanical `git mv` for Phase 1 before the follow-up request arrived. I left those implementation file moves uncommitted and used this step to improve the ticket tracking first. This keeps the task-detail commit separate from the still-in-progress code refactor.
+
+### What warrants a second pair of eyes
+
+- The Phase 1 checklist should be reviewed to ensure it really is behavior-preserving.
+- The Phase 2 Proxy checklist should be reviewed before implementation because it will define the long-term ergonomics and error model.
+
+### What should be done in the future
+
+Resume Phase 1 from the current working tree, finish the `jsapi` package move, run targeted tests, update the diary/changelog, and commit the no-behavior refactor separately.
+
+### Code review instructions
+
+Review:
+
+```text
+ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api/tasks.md
+```
+
+Validation:
+
+```bash
+docmgr doctor --root ./ttmp --ticket CSSVD-FLEX-JS-API --stale-after 30
+```
+
+### Technical details
+
+Commands included:
+
+```bash
+git status --short --branch
+git add ttmp/2026/04/24/CSSVD-FLEX-JS-API--design-a-flexible-lower-level-javascript-api
+git commit -m "docs: add flexible js api implementation ticket"
+git rev-parse HEAD
+```
+
+## Step 8: Complete Phase 1 and Phase 2 implementation
+
+I completed the first two implementation phases in one focused pass. Phase 1 was the no-behavior refactor that moves the native `require("css-visual-diff")` API out of the broad `dsl` package and into a dedicated `internal/cssvisualdiff/jsapi` package. Phase 2 added the first reusable Goja Proxy infrastructure and typed unwrapping helpers for future lower-level handles/builders.
+
+The current public API behavior should be unchanged. Existing `css-visual-diff` JS scripts still load the same module name, and the repository-scanned verb tests still exercise the same browser/page/catalog behavior. The new Proxy helpers are currently infrastructure-only; they are covered by unit tests but are not yet wired into the existing browser/page/catalog wrappers.
+
+### Prompt Context
+
+**User prompt (verbatim):** "continue, do phase 1 and phase 2 in their entirety."
+
+**Assistant interpretation:** Finish both the no-behavior `jsapi` package refactor and the initial Proxy/unwrap infrastructure, validate them, update ticket bookkeeping, and prepare for a commit.
+
+**Inferred user intent:** The user wants the implementation to progress through the granular ticket phases, not just update docs.
+
+### What I did
+
+- Moved native JS API files into `internal/cssvisualdiff/jsapi`:
+  - `dsl/cvd_module.go` -> `jsapi/module.go`
+  - `dsl/catalog_adapter.go` -> `jsapi/catalog.go`
+  - `dsl/config_adapter.go` -> `jsapi/config.go`
+- Changed the moved files to `package jsapi`.
+- Renamed `registerCVDModule(...)` to exported `Register(...)`.
+- Added `internal/cssvisualdiff/jsapi/codec.go` with a local `decodeInto(...)` helper.
+- Kept `dsl/codec.go` in place so existing `diff` and `report` native modules can still use `decodeInto(...)` and `toPlainValue(...)`.
+- Updated `internal/cssvisualdiff/dsl/registrar.go` to import `jsapi` and call `jsapi.Register(ctx, reg)`.
+- Added `internal/cssvisualdiff/jsapi/proxy.go` with:
+  - `ProxyRegistry`,
+  - `ProxySpec`,
+  - `MethodSpec`,
+  - `ProxyMethod`,
+  - `newProxyValue(...)`,
+  - unknown-method errors,
+  - wrong-parent errors,
+  - type-mismatch errors,
+  - simple did-you-mean suggestions.
+- Added `internal/cssvisualdiff/jsapi/unwrap.go` with:
+  - `unwrapProxyBacking[T](...)`,
+  - `unwrapProxyBinding(...)`,
+  - `mustUnwrapProxyBacking[T](...)`.
+- Added `internal/cssvisualdiff/jsapi/proxy_test.go` covering:
+  - unknown method errors,
+  - wrong-parent method errors,
+  - successful backing unwrap,
+  - raw object rejection,
+  - wrong-owner rejection.
+- Marked Phase 1 and Phase 2 tasks complete and set the next active phase to Phase 3.
+
+### Why
+
+The native API had grown into a large `dsl/cvd_module.go` file even though `dsl` should own jsverbs host/scanning/runtime wiring. Moving the native `require("css-visual-diff")` adapter code into `jsapi` creates a cleaner boundary before adding lower-level handles, locators, builders, snapshots, and diffs.
+
+The Proxy infrastructure is needed before adding strict lower-level APIs because those APIs should be able to distinguish Go-backed handles/builders from raw JS objects and provide LLM-friendly feedback when users call the wrong method on the wrong object.
+
+### What worked
+
+The no-behavior refactor compiled cleanly after adding the local `jsapi` codec helper and rewiring the registrar. Existing targeted tests and the full test suite passed.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/jsapi -count=1
+
+go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff ./internal/cssvisualdiff/service -count=1
+
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+The first targeted test run failed as expected after moving files but before adding the codec/helper rewiring:
+
+```text
+# github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/jsapi
+internal/cssvisualdiff/jsapi/catalog.go:21:16: undefined: decodeInto
+internal/cssvisualdiff/jsapi/catalog.go:108:16: undefined: decodeInto
+internal/cssvisualdiff/jsapi/catalog.go:135:17: undefined: decodeInto
+internal/cssvisualdiff/jsapi/catalog.go:190:16: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:152:17: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:196:17: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:328:15: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:358:16: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:402:17: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:414:17: undefined: decodeInto
+internal/cssvisualdiff/jsapi/module.go:414:17: too many errors
+FAIL	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/jsapi [build failed]
+# github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl [github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl.test]
+internal/cssvisualdiff/dsl/registrar.go:51:2: undefined: registerCVDModule
+FAIL	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl [build failed]
+```
+
+The fix was to add `internal/cssvisualdiff/jsapi/codec.go` and replace the old registrar call with `jsapi.Register(ctx, reg)`.
+
+### What I learned
+
+The file move is clean if `dsl/codec.go` remains in `dsl` for the existing `diff` and `report` native modules while `jsapi/codec.go` gets its own `decodeInto(...)`. This intentionally duplicates a tiny JSON codec helper for now rather than creating another shared internal package before it is necessary.
+
+Goja's `Runtime.NewProxy(...)` API is sufficient for the future builder/handle design. A hidden internal proxy id exposed through the `Get` trap gives strict APIs a reliable way to unwrap only values created by the `jsapi` package.
+
+### What was tricky to build
+
+The trickiest part was designing Proxy infrastructure that is useful now without prematurely converting browser/page/catalog wrappers. I kept Phase 2 infrastructure-only and added tests using a small fake `cvd.probe` Proxy. That proves the mechanics and error style without changing existing public API behavior.
+
+Another subtle point is that `mustUnwrapProxyBacking(...)` currently panics with a Goja `TypeError` via `typeMismatchError(...)`. Future integration may want to route these through the existing CSSVD typed error class hierarchy, but for Phase 2 the important behavior is that wrong raw objects fail immediately with an actionable operation-specific message.
+
+### What warrants a second pair of eyes
+
+- Whether the proxy id registry should eventually delete bindings when handles close, or whether runtime-lifetime bindings are acceptable.
+- Whether the hidden `__cssVisualDiffProxyID` property should become a symbol-like internal key later.
+- Whether `typeMismatchError(...)` should construct `CvdError` subclasses instead of `TypeError` once strict APIs are wired into the exported module.
+- Whether the simple Levenshtein did-you-mean threshold is too aggressive or too conservative.
+
+### What should be done in the future
+
+Phase 3 should add page operation serialization. After that, Phase 4 can add pure Go DOM locator services and Phase 5 can expose `page.locator()` using the new Proxy infrastructure.
+
+### Code review instructions
+
+Start review with the package boundary:
+
+```text
+internal/cssvisualdiff/dsl/registrar.go
+internal/cssvisualdiff/jsapi/module.go
+internal/cssvisualdiff/jsapi/catalog.go
+internal/cssvisualdiff/jsapi/config.go
+```
+
+Then review the new Proxy infrastructure:
+
+```text
+internal/cssvisualdiff/jsapi/proxy.go
+internal/cssvisualdiff/jsapi/unwrap.go
+internal/cssvisualdiff/jsapi/proxy_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+Important implementation details:
+
+- `jsapi.Register(ctx, reg)` preserves the public module name `require("css-visual-diff")`.
+- `dsl` still registers the legacy `diff` and `report` native modules.
+- `ProxyRegistry` stores Go backing values keyed by an internal int64 id.
+- `newProxyValue(...)` returns a Goja Proxy whose `Get` trap:
+  - returns own methods,
+  - returns a stable `toString`,
+  - returns the hidden proxy id,
+  - throws wrong-parent errors for known methods owned by another object,
+  - throws unknown-method errors with available methods and did-you-mean suggestions otherwise.

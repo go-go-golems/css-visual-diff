@@ -1,4 +1,4 @@
-package dsl
+package jsapi
 
 import (
 	"context"
@@ -13,7 +13,8 @@ import (
 	"github.com/go-go-golems/go-go-goja/engine"
 )
 
-func registerCVDModule(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
+// Register installs the native require("css-visual-diff") module into a goja require registry.
+func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 	reg.RegisterNativeModule("css-visual-diff", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		installCVDErrorClasses(vm, exports)

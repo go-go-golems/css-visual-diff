@@ -24,3 +24,23 @@
 - Removed workflow builder from the plan. Future orchestration should use ordinary JavaScript functions, loops, and branches.
 - Regenerated updated local PDF bundle at `pdf/CSSVD-FLEX-JS-API-flexible-javascript-api-design-guide-updated.pdf`.
 - Uploaded updated PDF to reMarkable as `/ai/2026/04/24/cssvd-flex-api-updated` and verified the remote listing.
+
+## 2026-04-24 — Detailed implementation task breakdown
+
+- Expanded `tasks.md` into granular phased implementation checklists so CSSVD-FLEX-JS-API can proceed task by task.
+- Added explicit validation and commit checkpoints for each phase.
+- Recorded that Phase 1 is the current active implementation phase and should remain a no-behavior `jsapi` package refactor.
+- Committed the initial ticket/design docs before continuing implementation: `17240de docs: add flexible js api implementation ticket`.
+
+## 2026-04-24 — Phase 1 and Phase 2 implementation
+
+- Completed Phase 1 no-behavior refactor by moving the native `require("css-visual-diff")` implementation into `internal/cssvisualdiff/jsapi`.
+- Updated `internal/cssvisualdiff/dsl/registrar.go` to call `jsapi.Register(ctx, reg)` while keeping `dsl` responsible for jsverbs runtime/module wiring.
+- Added `internal/cssvisualdiff/jsapi/codec.go` for local JS adapter decode helpers.
+- Completed Phase 2 initial Proxy infrastructure with `proxy.go`, `unwrap.go`, and `proxy_test.go`.
+- Added tests for unknown-method, wrong-parent, successful unwrap, raw-object rejection, and wrong-owner rejection behavior.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/jsapi -count=1`
+  - `go test ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff ./internal/cssvisualdiff/service -count=1`
+  - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`
