@@ -1,4 +1,4 @@
-package dsl
+package jsapi
 
 import (
 	"fmt"

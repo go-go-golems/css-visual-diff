@@ -1,4 +1,4 @@
-package dsl
+package jsapi
 
 import (
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"

@@ -1,4 +1,22 @@
-# JavaScript API: `require("css-visual-diff")`
+---
+Title: 'JavaScript API: require("css-visual-diff")'
+Slug: javascript-api
+Short: Use the Promise-first css-visual-diff JavaScript module for browsers, pages, locators, extraction, snapshots, diffs, catalogs, and config loading.
+Topics:
+- javascript
+- goja
+- visual-regression
+- browser-automation
+Commands:
+- verbs
+Flags:
+- repository
+- output
+IsTopLevel: true
+IsTemplate: false
+ShowPerDefault: true
+SectionType: GeneralTopic
+---
 
 `css-visual-diff` exposes a Promise-first JavaScript API for repository-scanned verbs. Scripts use it to drive Chromium pages, prepare targets, preflight selectors, inspect artifacts, and write visual catalog manifests.
 
@@ -63,6 +81,16 @@ Exports:
 - `cvd.browser(options?)`
 - `cvd.catalog(options)`
 - `cvd.loadConfig(path)`
+- `cvd.viewport(width, height)` and named viewport helpers
+- `cvd.target(name)`
+- `cvd.probe(name)`
+- `cvd.extractors.*`
+- `cvd.extract(locator, extractors)`
+- `cvd.snapshot(page, probes, options?)`
+- `cvd.diff(before, after, options?)`
+- `cvd.report(diff)`
+- `cvd.write.json(path, value)`
+- `cvd.write.markdown(path, markdown)`
 - `cvd.CvdError`
 - `cvd.SelectorError`
 - `cvd.PrepareError`
@@ -265,9 +293,142 @@ Result:
 
 For multiple probes, artifacts are written below per-probe subdirectories. For one probe, artifacts are written directly into `outDir`.
 
+### `page.locator(selector)`
+
+Creates a synchronous page-bound locator handle. Creating a locator does not query the browser. The async locator methods do.
+
+```js
+const cta = page.locator("#cta")
+const exists = await cta.exists()
+```
+
+Locator methods:
+
+- `await locator.status()` — returns selector status with existence, visibility, bounds, text start, and selector error.
+- `await locator.exists()` — returns a boolean.
+- `await locator.visible()` — returns a boolean.
+- `await locator.text(options?)` — returns text content. Use `{ normalizeWhitespace: true, trim: true }` for stable comparisons.
+- `await locator.bounds()` — returns `{ x, y, width, height }` or `null` for a missing selector.
+- `await locator.computedStyle(props)` — returns a map of CSS property values.
+- `await locator.attributes(names)` — returns a map of attribute values.
+
+Example:
+
+```js
+const cta = page.locator("#cta")
+const [text, bounds, styles] = await Promise.all([
+  cta.text({ normalizeWhitespace: true, trim: true }),
+  cta.bounds(),
+  cta.computedStyle(["height", "color", "background-color"]),
+])
+```
+
+Operations on one page are serialized internally, so `Promise.all` is safe for page-bound reads.
+
 ### `await page.close()`
 
 Closes the page.
+
+## Lower-level builders, extraction, snapshots, and diffs
+
+The lower-level API is for script-native visual checks that do not always need inspect artifacts. Builder and handle objects are Go-backed values with controlled methods. If you call a method on the wrong object, the API reports which object owns that method.
+
+### `cvd.viewport(...)`
+
+```js
+cvd.viewport(1280, 720)
+cvd.viewport({ width: 1280, height: 720 })
+cvd.viewport.desktop()
+cvd.viewport.tablet()
+cvd.viewport.mobile()
+```
+
+### `cvd.target(name)`
+
+Builds a page target definition.
+
+```js
+const target = cvd.target("homepage")
+  .url("http://localhost:3000")
+  .viewport(cvd.viewport.desktop())
+  .waitMs(250)
+  .root("#app")
+  .build()
+```
+
+### `cvd.probe(name)`
+
+Builds a reusable inspection recipe.
+
+```js
+const probe = cvd.probe("cta")
+  .selector("#cta")
+  .required()
+  .text()
+  .bounds()
+  .styles(["color", "font-size", "background-color"])
+  .attributes(["class"])
+```
+
+Use probes with `cvd.snapshot(...)`. Use locators when you want to inspect one already-loaded page directly.
+
+### `cvd.extractors.*`
+
+Extractor handles describe which facts to read from a locator.
+
+```js
+const extractors = [
+  cvd.extractors.exists(),
+  cvd.extractors.visible(),
+  cvd.extractors.text(),
+  cvd.extractors.bounds(),
+  cvd.extractors.computedStyle(["color"]),
+  cvd.extractors.attributes(["id", "class"]),
+]
+```
+
+### `await cvd.extract(locator, extractors)`
+
+Strictly extracts facts from a page-bound locator. The first argument must be a locator returned by `page.locator(...)`. The second argument must be an array of `cvd.extractors.*` handles.
+
+```js
+const snapshot = await cvd.extract(page.locator("#cta"), [
+  cvd.extractors.exists(),
+  cvd.extractors.text(),
+  cvd.extractors.computedStyle(["color"]),
+])
+```
+
+Raw object locators are rejected. Use `page.locator("#selector")` instead.
+
+### `await cvd.snapshot(page, probes, options?)`
+
+Strictly evaluates probe builders against a page.
+
+```js
+const snapshot = await cvd.snapshot(page, [
+  cvd.probe("title").selector("h1").text().styles(["font-size", "color"]),
+  cvd.probe("cta").selector("#cta").text().bounds().styles(["background-color"]),
+])
+```
+
+Raw object probes are rejected. Use `cvd.probe("name").selector("...")` builders.
+
+### `cvd.diff(...)`, `cvd.report(...)`, and `cvd.write.*`
+
+Compare two plain snapshot-like values and write evidence.
+
+```js
+const diff = cvd.diff(before, after, {
+  ignorePaths: ["results[0].snapshot.bounds.x"],
+})
+
+const markdown = cvd.report(diff).markdown()
+await cvd.write.json("out/diff.json", diff)
+await cvd.report(diff).writeMarkdown("out/diff.md")
+```
+
+The current diff is a deterministic structural JSON diff. CSS-aware normalization and numeric tolerances can be layered on top later.
 
 ## Artifact formats
 

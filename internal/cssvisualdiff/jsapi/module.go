@@ -1,9 +1,10 @@
-package dsl
+package jsapi
 
 import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/dop251/goja"
@@ -13,10 +14,17 @@ import (
 	"github.com/go-go-golems/go-go-goja/engine"
 )
 
-func registerCVDModule(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
+// Register installs the native require("css-visual-diff") module into a goja require registry.
+func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 	reg.RegisterNativeModule("css-visual-diff", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		installCVDErrorClasses(vm, exports)
+		installTargetAPI(vm, exports)
+		installProbeAPI(vm, exports)
+		installExtractorAPI(vm, exports)
+		installExtractAPI(ctx, vm, exports)
+		installSnapshotAPI(ctx, vm, exports)
+		installDiffAPI(ctx, vm, exports)
 		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
 			catalog, err := newCatalogFromJS(raw)
 			if err != nil {
@@ -180,6 +188,7 @@ func wrapBrowser(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, browser *se
 }
 
 type pageState struct {
+	mu     sync.Mutex
 	page   *service.PageService
 	target config.Target
 }
@@ -188,95 +197,117 @@ func newPageState(page *service.PageService, target config.Target) *pageState {
 	return &pageState{page: page, target: target}
 }
 
+func (s *pageState) runExclusive(work func() (any, error)) (any, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return work()
+}
+
 func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageState) *goja.Object {
 	obj := vm.NewObject()
+	_ = obj.Set(proxyIDProperty, defaultProxyRegistry.bind("cvd.page", state))
+	_ = obj.Set("locator", func(selector string) goja.Value {
+		return wrapLocator(ctx, vm, state, selector)
+	})
 	_ = obj.Set("goto", func(rawURL string, rawOptions map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.goto", func() (any, error) {
-			opts, err := decodeInto[pageOptions](rawOptions)
-			if err != nil {
-				return nil, err
-			}
-			target, err := opts.toTarget(rawURL)
-			if err != nil {
-				return nil, err
-			}
-			if err := state.page.Page().SetViewport(target.Viewport.Width, target.Viewport.Height); err != nil {
-				return nil, err
-			}
-			if err := state.page.Page().Goto(target.URL); err != nil {
-				return nil, err
-			}
-			if target.WaitMS > 0 {
-				state.page.Page().Wait(time.Duration(target.WaitMS) * time.Millisecond)
-			}
-			state.target = target
-			return targetSummary(target), nil
+			return state.runExclusive(func() (any, error) {
+				opts, err := decodeInto[pageOptions](rawOptions)
+				if err != nil {
+					return nil, err
+				}
+				target, err := opts.toTarget(rawURL)
+				if err != nil {
+					return nil, err
+				}
+				if err := state.page.Page().SetViewport(target.Viewport.Width, target.Viewport.Height); err != nil {
+					return nil, err
+				}
+				if err := state.page.Page().Goto(target.URL); err != nil {
+					return nil, err
+				}
+				if target.WaitMS > 0 {
+					state.page.Page().Wait(time.Duration(target.WaitMS) * time.Millisecond)
+				}
+				state.target = target
+				return targetSummary(target), nil
+			})
 		}, nil)
 	})
 	_ = obj.Set("prepare", func(raw map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.prepare", func() (any, error) {
-			prepare, err := decodePrepareSpec(raw)
-			if err != nil {
-				return nil, err
-			}
-			state.target.Prepare = &prepare
-			return nil, service.PrepareTarget(state.page.Page(), state.target)
+			return state.runExclusive(func() (any, error) {
+				prepare, err := decodePrepareSpec(raw)
+				if err != nil {
+					return nil, err
+				}
+				state.target.Prepare = &prepare
+				return nil, service.PrepareTarget(state.page.Page(), state.target)
+			})
 		}, nil)
 	})
 	_ = obj.Set("preflight", func(raw []map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.preflight", func() (any, error) {
-			probes, err := decodeProbes(raw)
-			if err != nil {
-				return nil, err
-			}
-			statuses, err := service.PreflightProbes(state.page.Page(), probes)
-			if err != nil {
-				return nil, err
-			}
-			return lowerSelectorStatuses(statuses), nil
+			return state.runExclusive(func() (any, error) {
+				probes, err := decodeProbes(raw)
+				if err != nil {
+					return nil, err
+				}
+				statuses, err := service.PreflightProbes(state.page.Page(), probes)
+				if err != nil {
+					return nil, err
+				}
+				return lowerSelectorStatuses(statuses), nil
+			})
 		}, nil)
 	})
 	_ = obj.Set("inspect", func(rawProbe map[string]any, rawOptions map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.inspect", func() (any, error) {
-			requests, err := decodeInspectRequests([]map[string]any{rawProbe})
-			if err != nil {
-				return nil, err
-			}
-			opts, err := decodeInspectOptions(rawOptions)
-			if err != nil {
-				return nil, err
-			}
-			result, err := service.InspectPreparedPage(state.page.Page(), state.target, "script", requests, opts)
-			if err != nil {
-				return nil, err
-			}
-			if len(result.Results) == 0 {
-				return nil, fmt.Errorf("inspect produced no results")
-			}
-			return lowerInspectArtifact(result.Results[0]), nil
+			return state.runExclusive(func() (any, error) {
+				requests, err := decodeInspectRequests([]map[string]any{rawProbe})
+				if err != nil {
+					return nil, err
+				}
+				opts, err := decodeInspectOptions(rawOptions)
+				if err != nil {
+					return nil, err
+				}
+				result, err := service.InspectPreparedPage(state.page.Page(), state.target, "script", requests, opts)
+				if err != nil {
+					return nil, err
+				}
+				if len(result.Results) == 0 {
+					return nil, fmt.Errorf("inspect produced no results")
+				}
+				return lowerInspectArtifact(result.Results[0]), nil
+			})
 		}, nil)
 	})
 	_ = obj.Set("inspectAll", func(rawProbes []map[string]any, rawOptions map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.inspectAll", func() (any, error) {
-			probes, err := decodeInspectRequests(rawProbes)
-			if err != nil {
-				return nil, err
-			}
-			opts, err := decodeInspectOptions(rawOptions)
-			if err != nil {
-				return nil, err
-			}
-			result, err := service.InspectPreparedPage(state.page.Page(), state.target, "script", probes, opts)
-			if err != nil {
-				return nil, err
-			}
-			return lowerInspectResult(result), nil
+			return state.runExclusive(func() (any, error) {
+				probes, err := decodeInspectRequests(rawProbes)
+				if err != nil {
+					return nil, err
+				}
+				opts, err := decodeInspectOptions(rawOptions)
+				if err != nil {
+					return nil, err
+				}
+				result, err := service.InspectPreparedPage(state.page.Page(), state.target, "script", probes, opts)
+				if err != nil {
+					return nil, err
+				}
+				return lowerInspectResult(result), nil
+			})
 		}, nil)
 	})
 	_ = obj.Set("close", func() goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.close", func() (any, error) {
-			state.page.Close()
-			return nil, nil
+			return state.runExclusive(func() (any, error) {
+				state.page.Close()
+				return nil, nil
+			})
 		}, nil)
 	})
 	return obj
