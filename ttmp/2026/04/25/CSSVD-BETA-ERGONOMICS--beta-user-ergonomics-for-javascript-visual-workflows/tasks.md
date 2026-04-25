@@ -1,7 +1,7 @@
 ---
 Title: Tasks
 Ticket: CSSVD-BETA-ERGONOMICS
-Status: active
+Status: complete
 Topics:
   - tooling
   - frontend
@@ -55,9 +55,11 @@ Owners: []
 
 ## Deferred explicitly
 
-- [ ] Bounds tolerance API is deferred until beta usage clarifies policy needs.
-- [ ] CSS/style normalization hooks are deferred because defaults are too opinionated.
-- [ ] Built-in style property presets are deferred until usage vocabulary stabilizes.
+These are intentionally not part of this closed ticket. They should only be reopened if beta usage shows repeated demand for shared policy rather than project-local JavaScript checks.
+
+- Bounds tolerance API is deferred until beta usage clarifies policy needs.
+- CSS/style normalization hooks are deferred because defaults are too opinionated.
+- Built-in style property presets are deferred until usage vocabulary stabilizes.
 
 ## Validation
 

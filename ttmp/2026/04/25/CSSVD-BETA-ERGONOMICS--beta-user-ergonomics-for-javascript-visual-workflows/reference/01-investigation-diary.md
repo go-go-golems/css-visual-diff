@@ -915,3 +915,106 @@ minimal: status + bounds by default
 rich:    normalized text + focused styles + focused attributes + status/bounds
 debug:   normalized text + inner HTML + all styles + all attributes + status/bounds
 ```
+
+## Step 7: Close out the scoped ergonomics ticket
+
+The final step closed the beta ergonomics ticket as a completed scoped follow-up. The ticket deliberately stops after the low-complexity P0/P1 work: selector waits, stable artifact path metadata, a multi-section catalog example, and collection profile documentation.
+
+This closure is also a scope-control decision. The remaining Pyxis follow-up ideas are not rejected, but they are explicitly deferred because they encode project policy. They should be revisited only after beta users produce enough repeated examples to justify shared abstractions.
+
+### Prompt Context
+
+**User prompt (verbatim):** "close out erogonomics, and gie me a concise writeup i can forward to the pyxis developers"
+
+**Assistant interpretation:** Mark `CSSVD-BETA-ERGONOMICS` complete in the docmgr ticket, record the closure in the diary/changelog/tasks/index, validate ticket health, commit the closeout, and provide a short forwardable summary for the Pyxis developers.
+
+**Inferred user intent:** Finish the maintenance bookkeeping and produce a concise product-facing status update for downstream beta users.
+
+**Commit (docs):** Not yet committed at the time this diary entry was written.
+
+### What I did
+
+- Updated ticket status metadata from `active` to `complete` in:
+
+```text
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/index.md
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/tasks.md
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/changelog.md
+```
+
+- Added an overview, summary, `WhatFor`, and `WhenToUse` to the ticket index.
+- Converted the deferred tasks section from unchecked task items into explicit deferred notes so the closed ticket does not appear to have unfinished in-scope work.
+- Added this diary closeout step.
+
+### Why
+
+The ticket implementation phases are complete and validated. Leaving the ticket as `active` would make future planning ambiguous, especially because the deferred ideas are intentionally not part of this ticket.
+
+### What worked
+
+- The ticket already had complete phase/task/checklist coverage.
+- Validation was already green from Phase 4:
+  - embedded help rendered,
+  - beta smoke passed,
+  - `go test ./... -count=1` passed,
+  - `make lint` passed,
+  - `docmgr doctor` passed.
+
+### What didn't work
+
+No implementation issue occurred in the closeout. The only typo was in the user's prompt (`erogonomics`, `gie`), which did not affect interpretation.
+
+### What I learned
+
+A closed ticket should separate “not done” from “intentionally deferred.” Converting deferred ideas into prose notes makes the closed state more accurate.
+
+### What was tricky to build
+
+The tricky part was representing scope correctly. Bounds tolerances, CSS normalization hooks, and style presets remain plausible future features, but keeping them as unchecked task list items would imply the ticket is incomplete. Moving them into a deferred-notes section better reflects the actual decision.
+
+### What warrants a second pair of eyes
+
+- Review whether `Status: complete` is the preferred docmgr status vocabulary for this repository.
+- Review whether any deferred item should be promoted into a new follow-up ticket now, or whether waiting for beta feedback is still correct.
+
+### What should be done in the future
+
+- Forward the concise Pyxis developer writeup.
+- Reopen a new ticket only if beta feedback demonstrates repeated need for shared policy features.
+
+### Code review instructions
+
+Review the ticket-level docs:
+
+```text
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/index.md
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/tasks.md
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/changelog.md
+ttmp/2026/04/25/CSSVD-BETA-ERGONOMICS--beta-user-ergonomics-for-javascript-visual-workflows/reference/01-investigation-diary.md
+```
+
+Validate with:
+
+```bash
+docmgr doctor --root ./ttmp --ticket CSSVD-BETA-ERGONOMICS --stale-after 30
+```
+
+### Technical details
+
+Closed in-scope deliverables:
+
+```text
+- locator.waitFor(...) and page.waitForSelector(...)
+- stable comparison.artifacts.write(...) path map
+- examples/verbs/compare-page-catalog.js
+- scripts/001-beta-multisection-example-smoke.sh
+- collection profile docs for minimal/rich/debug
+```
+
+Deferred out-of-scope ideas:
+
+```text
+- bounds tolerance API
+- CSS/style normalization hooks
+- built-in style property presets
+```

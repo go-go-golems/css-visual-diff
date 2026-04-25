@@ -1,7 +1,7 @@
 ---
 Title: Beta user ergonomics for JavaScript visual workflows
 Ticket: CSSVD-BETA-ERGONOMICS
-Status: active
+Status: complete
 Topics:
     - tooling
     - frontend
@@ -24,10 +24,10 @@ RelatedFiles:
     - Path: internal/cssvisualdiff/service/dom.go
       Note: DOM locator services; natural home for service-level wait helper.
 ExternalSources: []
-Summary: ""
-LastUpdated: 2026-04-25T15:34:23.245464353-04:00
-WhatFor: ""
-WhenToUse: ""
+Summary: "Completed low-complexity beta-user ergonomics for JavaScript visual workflows: selector waits, stable artifact path results, a multi-section catalog example, and collection profile documentation."
+LastUpdated: 2026-04-25T16:05:00-04:00
+WhatFor: "Use this ticket to understand the beta-user ergonomics follow-up after the flexible css-visual-diff JavaScript API work."
+WhenToUse: "Reference when helping Pyxis or other beta users write project-local visual validation verbs without adding a workflow framework."
 ---
 
 
@@ -36,7 +36,9 @@ WhenToUse: ""
 
 ## Overview
 
-<!-- Provide a brief overview of the ticket, its goals, and current status -->
+This ticket closes the small, high-value beta-user ergonomics follow-up for the JavaScript visual workflow API. It intentionally implemented practical primitives and examples rather than a workflow builder: selector readiness waits, stable artifact path returns, a copyable multi-section catalog example, and clearer collection profile documentation.
+
+The scoped implementation is complete. Bounds tolerance APIs, CSS normalization hooks, and built-in style presets remain explicitly deferred until beta usage provides stronger evidence for the right policy shape.
 
 ## Key Links
 
@@ -45,7 +47,7 @@ WhenToUse: ""
 
 ## Status
 
-Current status: **active**
+Current status: **complete**
 
 ## Topics
 

@@ -1,7 +1,7 @@
 ---
 Title: Changelog
 Ticket: CSSVD-BETA-ERGONOMICS
-Status: active
+Status: complete
 Topics:
   - tooling
   - frontend
@@ -30,3 +30,4 @@ Owners: []
 - Implemented Phase 2 stable artifact write result: `comparison.artifacts.write(...)` now returns keyed `json`, `markdown`, `leftRegion`, `rightRegion`, `diffOnly`, `diffComparison`, and `written` paths; updated verbcli coverage and embedded docs.
 - Implemented Phase 3 multi-section catalog example: added `examples/verbs/compare-page-catalog.js`, documented it in `examples/verbs/README.md`, added `scripts/001-beta-multisection-example-smoke.sh`, and validated manifest/index/per-section artifacts/stdout artifact paths.
 - Completed Phase 4 collection profile documentation: verified `normalizeCollectOptions`, documented `minimal`/`rich`/`debug`, clarified `styleProps` and `attributes` as collection filters, updated `javascript-api` and `pixel-accuracy-scripting-guide`, rendered embedded help, reran the beta smoke, `go test ./... -count=1`, and `make lint`.
+- Closed the scoped beta ergonomics ticket as complete. Deferred bounds tolerances, CSS/style normalization hooks, and style presets remain intentionally out of scope until beta usage clarifies shared policy needs.
