@@ -1,0 +1,11 @@
+# Selection Comparison
+
+- Name: region
+- Left selector: `body`
+- Right selector: `body`
+- Changed pixels: 0/100608 (0.0000%)
+- Bounds changed: false
+- Text changed: false
+- Style changes: 0
+- Attribute changes: 0
+

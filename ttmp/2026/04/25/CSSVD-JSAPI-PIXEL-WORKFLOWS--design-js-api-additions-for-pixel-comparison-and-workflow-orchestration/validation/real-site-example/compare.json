@@ -1,0 +1,78 @@
+{
+  "artifacts": [
+    {
+      "kind": "png",
+      "name": "diffOnly",
+      "path": "/home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/validation/real-site-example/diff_only.png"
+    },
+    {
+      "kind": "png",
+      "name": "diffComparison",
+      "path": "/home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/validation/real-site-example/diff_comparison.png"
+    }
+  ],
+  "bounds": {
+    "changed": false,
+    "delta": {
+      "height": 0,
+      "width": 0,
+      "x": 0,
+      "y": 0
+    },
+    "left": {
+      "height": 131.078125,
+      "width": 768,
+      "x": 256,
+      "y": 108
+    },
+    "right": {
+      "height": 131.078125,
+      "width": 768,
+      "x": 256,
+      "y": 108
+    }
+  },
+  "left": {
+    "bounds": {
+      "height": 131.078125,
+      "width": 768,
+      "x": 256,
+      "y": 108
+    },
+    "exists": true,
+    "name": "region",
+    "selector": "body",
+    "url": "https://example.com/",
+    "visible": true
+  },
+  "name": "region",
+  "pixel": {
+    "changedPercent": 0,
+    "changedPixels": 0,
+    "diffComparisonPath": "/home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/validation/real-site-example/diff_comparison.png",
+    "diffOnlyPath": "/home/manuel/workspaces/2026-04-21/hair-v2/css-visual-diff/ttmp/2026/04/25/CSSVD-JSAPI-PIXEL-WORKFLOWS--design-js-api-additions-for-pixel-comparison-and-workflow-orchestration/validation/real-site-example/diff_only.png",
+    "normalizedHeight": 131,
+    "normalizedWidth": 768,
+    "threshold": 30,
+    "totalPixels": 100608
+  },
+  "right": {
+    "bounds": {
+      "height": 131.078125,
+      "width": 768,
+      "x": 256,
+      "y": 108
+    },
+    "exists": true,
+    "name": "region",
+    "selector": "body",
+    "url": "https://example.org/",
+    "visible": true
+  },
+  "schemaVersion": "cssvd.selectionComparison.v1",
+  "text": {
+    "changed": false,
+    "left": "Example DomainThis domain is for use in documentation examples without needing permission. Avoid use in operations.Learn more",
+    "right": "Example DomainThis domain is for use in documentation examples without needing permission. Avoid use in operations.Learn more"
+  }
+}

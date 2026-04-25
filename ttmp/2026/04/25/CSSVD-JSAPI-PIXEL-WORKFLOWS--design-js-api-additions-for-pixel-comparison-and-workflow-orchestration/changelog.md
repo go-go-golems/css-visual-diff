@@ -64,6 +64,7 @@
   - added `scripts/006-js-compare-region-smoke.sh`, `scripts/007-canonical-api-surface-smoke.sh`, and `scripts/008-built-in-compare-dogfood-smoke.sh`,
   - marked Phases 6, 7, and 8 complete in `tasks.md`.
 - Validation for Phases 6 through 8 passed with focused package tests, all three new ticket smoke scripts, embedded help checks, and `go test ./... -count=1`.
+- Ran real-site validation for the public compare-region path and preserved artifacts under `validation/`: `example.com` vs `example.org` produced a zero-diff sanity check, and `example.com` vs `www.iana.org/domains/reserved` produced a 10.2954% changed-pixel comparison with JSON/Markdown/PNG artifacts.
 
 ## Key decision
 

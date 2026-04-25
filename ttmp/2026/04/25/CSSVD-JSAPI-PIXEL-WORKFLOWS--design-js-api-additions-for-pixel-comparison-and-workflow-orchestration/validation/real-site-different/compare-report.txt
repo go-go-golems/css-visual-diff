@@ -1,0 +1,19 @@
+# Selection Comparison
+
+- Name: region
+- Left selector: `body`
+- Right selector: `main`
+- Changed pixels: 98100/952850 (10.2954%)
+- Bounds changed: true
+- Text changed: true
+- Style changes: 3
+- Attribute changes: 0
+
+## Style diffs
+
+| Property | Left | Right |
+| --- | --- | --- |
+| background-color | rgb(238, 238, 238) | rgba(0, 0, 0, 0) |
+| color | rgb(0, 0, 0) | rgb(85, 85, 85) |
+| font-family | system-ui, sans-serif | Noto, "Open Sans", "Helvetica Neue", Helvetica, sans-serif |
+

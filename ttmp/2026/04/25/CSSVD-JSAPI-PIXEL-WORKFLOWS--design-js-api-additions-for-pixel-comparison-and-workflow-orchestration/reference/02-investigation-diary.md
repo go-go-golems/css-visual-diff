@@ -90,7 +90,7 @@ ExternalSources:
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-LIB--implement-pyxis-css-visual-diff-javascript-userland-library/design/02-css-visual-diff-maintainer-feature-requests.md
     - /home/manuel/code/wesen/2026-04-23--pyxis/ttmp/2026/04/25/PYXIS-CSSVD-JS-WORKFLOW--explore-css-visual-diff-javascript-scripting-workflow/
 Summary: Chronological diary for designing css-visual-diff JS API additions from Pyxis user feedback.
-LastUpdated: 2026-04-25T13:20:00-04:00
+LastUpdated: 2026-04-25T13:45:00-04:00
 WhatFor: Resume the API design and implementation without losing the reasoning path, commands, source files, and decisions.
 WhenToUse: Read before implementing CSSVD-JSAPI-PIXEL-WORKFLOWS or changing the design proposal.
 ---
@@ -1119,6 +1119,127 @@ Expanded primitive path:
 const left = await leftPage.locator("#cta").collect({ inspect: "rich" })
 const right = await rightPage.locator("#cta").collect({ inspect: "rich" })
 const comparison = await cvd.compare.selections(left, right)
+```
+
+## Step 19: Real-site validation of the public compare-region path
+
+The user asked whether the new API had been tested against a real site, then explicitly requested a real-site validation. I ran the built-in `script compare region` command against live HTTPS pages. This matters because the previous validation used real Chromium but local fixture pages; external sites add network, TLS, real fonts, real layout, and production HTML/CSS.
+
+The built-in command is now a dogfood client of the public JavaScript API. Therefore this validation exercises the path: built-in JS verb, `require("css-visual-diff")`, `cvd.compare.region(...)`, collection, region screenshots, pixel diffing, JSON output, Markdown output, and PNG artifacts.
+
+### Prompt Context
+
+**User prompt (verbatim):** "run a real site validation."
+
+**Assistant interpretation:** Run the newly implemented compare-region API against external live websites, inspect the output and artifacts, and preserve the findings in the ticket.
+
+**Inferred user intent:** Confirm that the implementation works outside synthetic local tests before continuing deeper implementation phases.
+
+### What I did
+
+- Ran `go run ./cmd/css-visual-diff verbs script compare region --help` to confirm current flags.
+- Ran a real-site equivalent-content comparison:
+  - left: `https://example.com/`, selector `body`,
+  - right: `https://example.org/`, selector `body`.
+- Ran a real-site different-content comparison:
+  - left: `https://example.com/`, selector `body`,
+  - right: `https://www.iana.org/domains/reserved`, selector `main`.
+- Preserved outputs and artifacts under `validation/real-site-example` and `validation/real-site-different`.
+- Wrote `validation/01-real-site-validation.md` with commands, results, artifacts, and caveats.
+
+### Why
+
+- Local fixture tests prove regression behavior, but they do not prove the API works against live HTTPS sites.
+- The compare-region flow includes several integration points that are best validated together: navigation, selector lookup, screenshot capture, PNG diffing, and artifact writing.
+
+### What worked
+
+The equivalent-content run produced zero visual difference:
+
+```text
+left:  https://example.com/ body
+right: https://example.org/ body
+changedPercent: 0
+changedPixels: 0
+totalPixels: 100608
+bounds.changed: false
+text.changed: false
+```
+
+The different-content run detected real differences:
+
+```text
+left:  https://example.com/ body
+right: https://www.iana.org/domains/reserved main
+changedPercent: 10.295429500970773
+changedPixels: 98100
+totalPixels: 952850
+normalized size: 850x1121
+bounds.changed: true
+text.changed: true
+style changes: background-color, color, font-family
+```
+
+Both runs produced:
+
+```text
+left_region.png
+right_region.png
+diff_only.png
+diff_comparison.png
+compare.json
+compare-report.txt
+command-output.json
+```
+
+### What didn't work
+
+- No command failure occurred.
+- The first run compared `example.com` and `example.org`, which are intentionally equivalent in this browser context and returned a zero diff. That is useful as a sanity check but not sufficient as a difference-detection test, so I added the second comparison against IANA's reserved-domains page.
+
+### What I learned
+
+- The new compare-region path works against live HTTPS pages, not just local fixtures.
+- The artifact bundle is complete and reviewable.
+- The output schema is the expected `cssvd.selectionComparison.v1`.
+
+### What was tricky to build or validate
+
+- Selecting useful real-site targets matters. `example.com` versus `example.org` is a good zero-diff sanity check but not a good changed-site validation because the rendered content is equivalent. A second run against a real different page was necessary.
+- External-site validation should remain small and explicit. It can be flaky if sites change, but preserving command output and artifacts makes the result reviewable.
+
+### What warrants a second pair of eyes
+
+- Review the retained PNG artifacts in the validation directories to confirm the visual evidence matches the JSON summaries.
+- Decide whether these real-site artifacts should be committed. They are useful evidence but are generated binary files.
+
+### What should be done in the future
+
+- Add an optional real-site smoke script if external network validation should become replayable.
+- Run a Pyxis-specific real target comparison when a stable target pair and selectors are available.
+
+### Code review instructions
+
+- Inspect `validation/01-real-site-validation.md` first.
+- Then inspect `validation/real-site-different/compare.json` and `validation/real-site-different/diff_comparison.png`.
+- Re-run one validation with:
+
+```bash
+go run ./cmd/css-visual-diff verbs script compare region \
+  --leftUrl https://example.com/ \
+  --rightUrl https://www.iana.org/domains/reserved \
+  --leftSelector body \
+  --rightSelector main \
+  --width 1280 \
+  --height 720 \
+  --leftWaitMs 1500 \
+  --rightWaitMs 1500 \
+  --outDir /tmp/cssvd-real-site-validation \
+  --threshold 30 \
+  --writeJson \
+  --writeMarkdown \
+  --writePngs \
+  --output json
 ```
 
 ## Issues and assumptions
