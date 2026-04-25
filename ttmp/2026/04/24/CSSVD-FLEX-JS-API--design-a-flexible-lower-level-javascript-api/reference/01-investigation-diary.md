@@ -1207,3 +1207,163 @@ All methods that touch Chromium run through:
 ```go
 l.page.runExclusive(func() (any, error) { ... })
 ```
+
+## Step 12: Complete Phase 6 Go-backed target/probe/extractor builders
+
+I completed Phase 6 by adding the first Go-backed fluent builders for targets, probes, viewports, and extractors. These builders are synchronous authoring objects backed by Go structs and wrapped in Goja Proxies, matching the design decision that lower-level DSL objects should provide controlled methods and actionable errors rather than behaving like arbitrary raw JavaScript objects.
+
+This phase still does not add strict extraction or snapshot execution. It creates the values that Phase 7 and Phase 8 will consume. `.build()` returns plain serializable values for debugging, tests, and YAML/config interop, while the Proxy-backed handles remain the authoring-time API.
+
+### Prompt Context
+
+**User prompt (verbatim):** "phase 6"
+
+**Assistant interpretation:** Implement Phase 6 from the ticket: add Go-backed target/probe/extractor builders, tests, validation, diary/tasks/changelog updates, and commit.
+
+**Inferred user intent:** Add the JS-native builder layer that will eventually replace many YAML object literals and feed strict extract/snapshot APIs.
+
+### What I did
+
+- Added `internal/cssvisualdiff/jsapi/builder_helpers.go` with shared validation helpers.
+- Added `internal/cssvisualdiff/jsapi/target.go`:
+  - `cvd.target(name)`
+  - `.url(...)`
+  - `.waitMs(...)`
+  - `.viewport(width, height)` / `.viewport({ width, height })`
+  - `.root(...)`
+  - `.prepare(...)`
+  - `.build()`
+  - `cvd.viewport(width, height)` plus `desktop`, `tablet`, and `mobile` helpers.
+- Added `internal/cssvisualdiff/jsapi/probe.go`:
+  - `cvd.probe(name)`
+  - `.selector(...)`
+  - `.required(...)`
+  - `.source(...)`
+  - `.text()`
+  - `.bounds()`
+  - `.styles(...)`
+  - `.attributes(...)`
+  - `.build()`
+- Added `internal/cssvisualdiff/jsapi/extractor.go`:
+  - `cvd.extractors.exists()`
+  - `cvd.extractors.visible()`
+  - `cvd.extractors.text()`
+  - `cvd.extractors.bounds()`
+  - `cvd.extractors.computedStyle(props)`
+  - `cvd.extractors.attributes(names)`
+- Updated module registration to install target, probe, and extractor APIs.
+- Added `internal/cssvisualdiff/jsapi/builders_test.go` for builder chaining, validation errors, and wrong-parent errors.
+- Added `TestCVDModuleExposesTargetProbeAndExtractorBuilders` to the repository-scanned JS verb tests.
+- Marked Phase 6 tasks complete and set the active phase to Phase 7.
+
+### Why
+
+Targets, probes, and extractors are the JS-native authoring layer for the future strict APIs. They let scripts express page targets, reusable inspection recipes, and extraction plans without YAML and without unvalidated raw object literals.
+
+### What worked
+
+The Phase 2 Proxy infrastructure made it straightforward to add fluent chainable objects. The builders can validate immediately, return the receiver for chaining, and emit wrong-parent errors when users call methods that belong to another object type.
+
+Validation commands that passed:
+
+```bash
+go test ./internal/cssvisualdiff/jsapi -run 'Test(TargetProbeAndExtractorBuilders|BuilderValidationErrors|BuilderWrongParentErrors)' -count=1
+
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExposesTargetProbeAndExtractorBuilders' -count=1
+
+go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1
+
+go test ./... -count=1
+```
+
+### What didn't work
+
+The first builder unit test failed because Goja exported arrays from Go-backed maps as `[]string`, while the test expected `[]any`:
+
+```text
+Error: Not equal:
+expected: []interface {}([]interface {}{"color", "font-size"})
+actual  : []string([]string{"color", "font-size"})
+```
+
+I fixed the test to assert `[]string` for Go-backed builder output.
+
+The repository-scanned builder smoke initially failed when passing `cvd.viewport.mobile()` into `.viewport(...)`:
+
+```text
+promise rejected: TypeError: cvd.target.viewport: expected positive width and height, got width=0 height=0
+```
+
+The cause was that `vm.ExportTo` did not decode the lowerCamel map returned by `lowerViewport(...)` into `config.Viewport` as expected. I changed `viewportFromCall(...)` to route object decoding through the JSON-based `decodeInto[config.Viewport](args[0].Export())`, matching the rest of the JS adapter behavior.
+
+### What I learned
+
+Go-backed builder `.build()` results may export Go slices as typed slices, not generic JavaScript `[]any`, in Go unit tests. Repository-scanned JS integration tests remain important because they exercise the real JavaScript-facing shape.
+
+The existing JSON codec helper is a safer path for lowerCamel object decoding than direct `ExportTo(...)` when target structs do not have JSON tags.
+
+### What was tricky to build
+
+The main design tension is that Phase 6 needs extractor builders before the service-layer `ExtractorSpec` exists. I kept extractor handles lightweight and JSAPI-local for now, with `.build()` producing plain serializable values. Phase 7 should formalize the extraction service structs and update extractor unwrapping as needed.
+
+Another tricky point is registry lifetime. The builders use `newProxyValue(...)` with an internal registry just like locators. That is enough for fluent method trapping and `.build()` now. Phase 7 strict unwrapping should introduce module-level state/registry if `cvd.extract(...)` needs to unwrap builder/locator handles across API calls.
+
+### What warrants a second pair of eyes
+
+- Whether `cvd.viewport.desktop/tablet/mobile` should be considered stable public names or examples only.
+- Whether `.required()` should default to `true` when called with no argument. It currently does.
+- Whether extractor kinds should use `computedStyle` or a shorter `style`/`styles` name in the eventual service schema.
+- Whether Phase 7 should convert local extractor handles to service-native `ExtractorSpec` values instead of retaining JSAPI-local maps.
+
+### What should be done in the future
+
+Phase 7 should define service extraction specs/results, introduce strict unwrapping of locator and extractor Proxy handles, and implement `cvd.extract(locator, extractors)`.
+
+### Code review instructions
+
+Start with:
+
+```text
+internal/cssvisualdiff/jsapi/target.go
+internal/cssvisualdiff/jsapi/probe.go
+internal/cssvisualdiff/jsapi/extractor.go
+internal/cssvisualdiff/jsapi/builder_helpers.go
+```
+
+Then review registration and tests:
+
+```text
+internal/cssvisualdiff/jsapi/module.go
+internal/cssvisualdiff/jsapi/builders_test.go
+internal/cssvisualdiff/verbcli/command_test.go
+```
+
+Validation commands:
+
+```bash
+go test ./internal/cssvisualdiff/jsapi -run 'Test(TargetProbeAndExtractorBuilders|BuilderValidationErrors|BuilderWrongParentErrors)' -count=1
+go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExposesTargetProbeAndExtractorBuilders' -count=1
+go test ./... -count=1
+```
+
+### Technical details
+
+Example supported JS:
+
+```js
+const target = cvd.target("booking")
+  .url("http://example.test/booking")
+  .viewport(cvd.viewport.mobile())
+  .waitMs(25)
+  .root("#app")
+
+const probe = cvd.probe("cta")
+  .selector("#cta")
+  .required()
+  .text()
+  .bounds()
+  .styles(["color"])
+  .attributes(["id"])
+
+const extractor = cvd.extractors.attributes(["id", "class"])
+```

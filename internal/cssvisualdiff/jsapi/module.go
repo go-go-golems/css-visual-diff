@@ -19,6 +19,9 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 	reg.RegisterNativeModule("css-visual-diff", func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		installCVDErrorClasses(vm, exports)
+		installTargetAPI(vm, exports)
+		installProbeAPI(vm, exports)
+		installExtractorAPI(vm, exports)
 		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
 			catalog, err := newCatalogFromJS(raw)
 			if err != nil {

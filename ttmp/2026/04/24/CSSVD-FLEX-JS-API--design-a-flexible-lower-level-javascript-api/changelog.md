@@ -78,3 +78,16 @@
   - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModule(ExposesLocatorMethods|LocatorWrongParentError)' -count=1`
   - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
   - `go test ./... -count=1`
+
+## 2026-04-24 — Phase 6 Go-backed target/probe/extractor builders
+
+- Completed Phase 6 by adding Go-backed Proxy builders for targets, probes, viewports, and extractors.
+- Added `internal/cssvisualdiff/jsapi/builder_helpers.go`, `target.go`, `probe.go`, and `extractor.go`.
+- Registered `cvd.target`, `cvd.viewport`, `cvd.probe`, and `cvd.extractors` from the native module.
+- Added builder chaining, validation, and wrong-parent tests in `internal/cssvisualdiff/jsapi/builders_test.go`.
+- Added a repository-scanned JS verb smoke for the builder APIs.
+- Validation passed:
+  - `go test ./internal/cssvisualdiff/jsapi -run 'Test(TargetProbeAndExtractorBuilders|BuilderValidationErrors|BuilderWrongParentErrors)' -count=1`
+  - `go test ./internal/cssvisualdiff/verbcli -run 'TestCVDModuleExposesTargetProbeAndExtractorBuilders' -count=1`
+  - `go test ./internal/cssvisualdiff/jsapi ./internal/cssvisualdiff/dsl ./internal/cssvisualdiff/verbcli ./cmd/css-visual-diff -count=1`
+  - `go test ./... -count=1`

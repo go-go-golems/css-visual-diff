@@ -7,7 +7,7 @@
 - Update `reference/01-investigation-diary.md` after each meaningful implementation step, including failed commands and validation output.
 - Keep `changelog.md` aligned with completed milestones and commit hashes.
 - Do not mark a phase complete until its validation commands pass.
-- Current active implementation phase: **Phase 6 — Go-backed target/probe/extractor builders**.
+- Current active implementation phase: **Phase 7 — strict `cvd.extract(locator, extractors)`**.
 
 ## Phase 0 — Ticket, design, and baseline bookkeeping
 
@@ -166,34 +166,34 @@ Goal: make YAML replacement ergonomic and strongly validated.
 
 ### Phase 6.1 — Target and viewport builders
 
-- [ ] Add `internal/cssvisualdiff/jsapi/target.go`.
-- [ ] Implement `cvd.target(name)` as a Go-backed `TargetBuilder` Proxy.
-- [ ] Implement `cvd.viewport(width, height)` and named viewport helpers if included in the first cut.
-- [ ] Add builder validation for URL, viewport dimensions, wait time, root selector, and prepare settings.
+- [x] Add `internal/cssvisualdiff/jsapi/target.go`.
+- [x] Implement `cvd.target(name)` as a Go-backed `TargetBuilder` Proxy.
+- [x] Implement `cvd.viewport(width, height)` and named viewport helpers if included in the first cut.
+- [x] Add builder validation for URL, viewport dimensions, wait time, root selector, and prepare settings.
 
 ### Phase 6.2 — Probe builders
 
-- [ ] Add `internal/cssvisualdiff/jsapi/probe.go`.
-- [ ] Implement `cvd.probe(name)` as a Go-backed `ProbeBuilder` Proxy.
-- [ ] Add `.selector(...)`, `.required(...)`, `.source(...)`, `.text()`, `.bounds()`, `.styles(...)`, `.attributes(...)`.
-- [ ] Add helpful errors for `.style(...)` vs `.styles(...)` and other common mistakes.
+- [x] Add `internal/cssvisualdiff/jsapi/probe.go`.
+- [x] Implement `cvd.probe(name)` as a Go-backed `ProbeBuilder` Proxy.
+- [x] Add `.selector(...)`, `.required(...)`, `.source(...)`, `.text()`, `.bounds()`, `.styles(...)`, `.attributes(...)`.
+- [x] Add helpful errors for `.style(...)` vs `.styles(...)` and other common mistakes.
 
 ### Phase 6.3 — Extractor builders
 
-- [ ] Add `internal/cssvisualdiff/jsapi/extractor.go`.
-- [ ] Implement `cvd.extractors.exists()`.
-- [ ] Implement `cvd.extractors.visible()`.
-- [ ] Implement `cvd.extractors.text()`.
-- [ ] Implement `cvd.extractors.bounds()`.
-- [ ] Implement `cvd.extractors.computedStyle(props)`.
-- [ ] Implement `cvd.extractors.attributes(names)`.
+- [x] Add `internal/cssvisualdiff/jsapi/extractor.go`.
+- [x] Implement `cvd.extractors.exists()`.
+- [x] Implement `cvd.extractors.visible()`.
+- [x] Implement `cvd.extractors.text()`.
+- [x] Implement `cvd.extractors.bounds()`.
+- [x] Implement `cvd.extractors.computedStyle(props)`.
+- [x] Implement `cvd.extractors.attributes(names)`.
 
 ### Phase 6.4 — Validation
 
-- [ ] Add tests for builder chaining.
-- [ ] Add tests that strict APIs can unwrap builders without requiring `.build()`.
-- [ ] Add tests for invalid builder arguments.
-- [ ] Update diary/changelog and commit Phase 6.
+- [x] Add tests for builder chaining.
+- [x] Add tests that strict APIs can unwrap builders without requiring `.build()`.
+- [x] Add tests for invalid builder arguments.
+- [x] Update diary/changelog and commit Phase 6.
 
 ## Phase 7 — Add strict `cvd.extract(locator, extractors)`
 

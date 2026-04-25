@@ -231,6 +231,68 @@ __verb__("catalogSmoke", {
 	require.Contains(t, string(indexBytes), "# Verb Catalog Smoke")
 }
 
+func TestCVDModuleExposesTargetProbeAndExtractorBuilders(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "builders.js"), `
+async function buildersSmoke() {
+  const cvd = require("css-visual-diff");
+  const target = cvd.target("booking")
+    .url("http://example.test/booking")
+    .viewport(cvd.viewport.mobile())
+    .waitMs(25)
+    .root("#app")
+    .build();
+  const probe = cvd.probe("cta")
+    .selector("#cta")
+    .required()
+    .text()
+    .bounds()
+    .styles(["color"])
+    .attributes(["id"])
+    .build();
+  const extractor = cvd.extractors.attributes(["id", "class"]).build();
+  return {
+    targetName: target.name,
+    targetWidth: target.viewport.width,
+    waitMs: target.waitMs,
+    probeSelector: probe.selector,
+    propCount: probe.props.length,
+    extractorKind: extractor.kind,
+    extractorAttrCount: extractor.attributes.length
+  };
+}
+__verb__("buildersSmoke", {
+  parents: ["custom"],
+  fields: {}
+});
+`)
+
+	repositories, err := ScanRepositories(Bootstrap{Repositories: []Repository{{Name: "custom", Source: "test", RootDir: dir}}})
+	require.NoError(t, err)
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	require.NoError(t, err)
+	commands, err := buildCommands(discovered, runtimeInvokerFactory)
+	require.NoError(t, err)
+	require.Len(t, commands, 1)
+
+	parsedValues, err := glazerunner.ParseCommandValues(commands[0])
+	require.NoError(t, err)
+
+	glazeCommand, ok := commands[0].(cmds.GlazeCommand)
+	require.True(t, ok)
+	processor := &captureProcessor{}
+	require.NoError(t, glazeCommand.RunIntoGlazeProcessor(context.Background(), parsedValues, processor))
+	require.Len(t, processor.rows, 1)
+	row := rowToMap(processor.rows[0])
+	require.Equal(t, "booking", row["targetName"])
+	require.EqualValues(t, 390, row["targetWidth"])
+	require.EqualValues(t, 25, row["waitMs"])
+	require.Equal(t, "#cta", row["probeSelector"])
+	require.EqualValues(t, 1, row["propCount"])
+	require.Equal(t, "attributes", row["extractorKind"])
+	require.EqualValues(t, 2, row["extractorAttrCount"])
+}
+
 func TestCVDModuleExposesLocatorMethods(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" data-kind="booking" style="color: rgb(255, 0, 0)">  Book
