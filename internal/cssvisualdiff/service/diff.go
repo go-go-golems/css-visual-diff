@@ -48,9 +48,9 @@ func RenderDiffMarkdown(diff SnapshotDiff) string {
 		b.WriteString("# Snapshot Diff\n\nNo changes.\n")
 		return b.String()
 	}
-	b.WriteString(fmt.Sprintf("# Snapshot Diff\n\n%d change(s).\n\n", diff.ChangeCount))
+	fmt.Fprintf(&b, "# Snapshot Diff\n\n%d change(s).\n\n", diff.ChangeCount)
 	for _, change := range diff.Changes {
-		b.WriteString(fmt.Sprintf("- `%s`: `%v` -> `%v`\n", change.Path, change.Before, change.After))
+		fmt.Fprintf(&b, "- `%s`: `%v` -> `%v`\n", change.Path, change.Before, change.After)
 	}
 	return b.String()
 }

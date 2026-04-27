@@ -13,7 +13,7 @@ func readPNG(path string) (image.Image, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	img, err := png.Decode(f)
 	if err != nil {
 		return nil, err
@@ -26,7 +26,7 @@ func writePNG(path string, img image.Image) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return png.Encode(f, img)
 }
 
