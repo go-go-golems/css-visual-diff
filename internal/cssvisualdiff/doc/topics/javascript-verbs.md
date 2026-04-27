@@ -42,12 +42,14 @@ css-visual-diff verbs catalog inspect-config ...
 
 ## Repository sources
 
-The lazy `verbs` command discovers scripts from four sources:
+The lazy `verbs` command discovers scripts from these sources:
 
 1. embedded built-ins,
-2. app config,
-3. `CSS_VISUAL_DIFF_VERB_REPOSITORIES`,
-4. CLI flags.
+2. system/user app config,
+3. git-root local config (`.css-visual-diff.yml`, `.css-visual-diff.override.yml`),
+4. current-working-directory local config (`.css-visual-diff.yml`, `.css-visual-diff.override.yml`),
+5. `CSS_VISUAL_DIFF_VERB_REPOSITORIES`,
+6. CLI flags.
 
 ### CLI repository
 
@@ -68,9 +70,33 @@ css-visual-diff verbs custom command ...
 
 Use the platform path-list separator (`:` on Linux/macOS).
 
+### Project-local repository config
+
+For repeatable project workflows, put a local config file at the git root:
+
+```yaml
+# .css-visual-diff.yml
+verbs:
+  repositories:
+    - name: project
+      path: ./verbs
+```
+
+Then run the generated command without a bootstrap flag:
+
+```bash
+css-visual-diff verbs project command ...
+```
+
+Relative paths are resolved relative to the config file that declares them. This means `path: ./verbs` in `/repo/.css-visual-diff.yml` resolves to `/repo/verbs`, even when the command is run from `/repo/packages/button`.
+
+Use `.css-visual-diff.override.yml` for private local repositories that should not be committed. Add it to `.gitignore` when it contains machine-specific or experimental paths.
+
+Current-working-directory config files are also discovered. This lets a monorepo combine a git-root `.css-visual-diff.yml` with a package-local `.css-visual-diff.yml` or `.css-visual-diff.override.yml` when the command is run from that package directory.
+
 ### App config repositories
 
-App config can declare repositories:
+System and user app config can also declare repositories:
 
 ```yaml
 verbs:

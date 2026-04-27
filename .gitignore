@@ -22,6 +22,7 @@ css-visual-diff-compare-*
 .env
 .envrc
 .history
+.css-visual-diff.override.yml
 
 # Generated visual-diff example artifacts
 examples/out/
