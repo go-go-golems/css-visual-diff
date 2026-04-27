@@ -23,7 +23,7 @@ const VIEW_MODES: {
   { id: "diff", label: "Diff only", icon: Square },
 ];
 
-export function Header() {
+export function Header({ onExport }: { onExport: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
   const counts = useSelector((s: RootState) => s.cards.classificationCounts);
   const worst = useSelector((s: RootState) => s.cards.worstClassification);
@@ -59,7 +59,7 @@ export function Header() {
 
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={() => alert("Export — TODO")}
+            onClick={onExport}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-[3px] bg-text text-white text-sm font-medium hover:bg-black"
           >
             <Sparkles size={14} /> Send to LLM

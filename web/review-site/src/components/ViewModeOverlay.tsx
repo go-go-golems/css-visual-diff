@@ -22,17 +22,18 @@ export function ViewModeOverlay({
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (
-        e.code === "Space" &&
+        e.key === "f" &&
         !e.repeat &&
         !(e.target instanceof HTMLTextAreaElement) &&
-        !(e.target instanceof HTMLInputElement)
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLSelectElement)
       ) {
         e.preventDefault();
         setSwapPressed(true);
       }
     };
     const up = (e: KeyboardEvent) => {
-      if (e.code === "Space") setSwapPressed(false);
+      if (e.key === "f") setSwapPressed(false);
     };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
@@ -84,7 +85,7 @@ export function ViewModeOverlay({
           <Zap size={12} /> diff blend
         </button>
         <span className="text-[10px] text-text-faint font-mono ml-auto">
-          hold ␣ to flash B
+          hold <kbd className="px-1 py-0.5 bg-cream-mid rounded text-text border border-border-light">F</kbd> to flash B
         </span>
       </div>
 

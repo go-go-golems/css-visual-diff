@@ -6,11 +6,11 @@
 
 - [x] Write diary with initial analysis and step-by-step plan
 - [x] Write detailed design/implementation guide document
-- [ ] Scaffold React+RTK+Vite app in web/review-site
-- [ ] Port diff-review.jsx mock into real React components with RTK state
-- [ ] Add Go embed support and 'serve' glazed verb to css-visual-diff
-- [ ] Wire Vite build into Go binary via go:embed
-- [ ] Implement data loading from css-visual-diff summary JSON + compare.json
+- [x] Scaffold React+RTK+Vite app in web/review-site
+- [x] Port diff-review.jsx mock into real React components with RTK state
+- [x] Add Go embed support and 'serve' glazed verb to css-visual-diff
+- [x] Wire Vite build into Go binary via go:embed
+- [x] Implement data loading from css-visual-diff summary JSON + compare.json
 - [x] Implement local storage persistence for review notes and status
 - [x] Upload design doc to reMarkable
 - [x] Scaffold Vite+React+TS+Tailwind+RTK in web/review-site with package.json, vite.config, tailwind
@@ -27,3 +27,9 @@
 - [x] Create serve subcommand in cmd/css-visual-diff/serve.go
 - [x] Wire serve into main.go, add Makefile targets, test end-to-end
 - [x] Commit, update diary, upload to reMarkable
+- [x] Change overlay flash from spacebar to F key (space conflicts with scroll)
+- [x] Build ExportModal component with markdown preview and clipboard copy
+- [x] Test Dagger pipeline (not just local pnpm fallback)
+- [x] Add zoom/pan to images with scroll wheel zoom, drag to pan, display pixel offsets
+- [x] Add keyboard shortcuts: j/k nav, a/n/f/w status, c copy, d/r/p focus image, / search
+- [ ] Commit, update diary, upload to reMarkable

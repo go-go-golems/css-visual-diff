@@ -9,6 +9,7 @@ import { ViewModeSideBySide } from "./ViewModeSideBySide";
 import { ViewModeOverlay } from "./ViewModeOverlay";
 import { ViewModeSlider } from "./ViewModeSlider";
 import { ViewModeDiff } from "./ViewModeDiff";
+import { ZoomPan } from "./ZoomPan";
 import { CommentPin } from "./CommentPin";
 import { FileText } from "lucide-react";
 import type { ReviewStatus } from "../types";
@@ -149,29 +150,31 @@ export function ReviewCard({
               commentMode ? "cursor-crosshair" : ""
             }`}
           >
-            {viewMode === "side-by-side" && (
-              <ViewModeSideBySide
-                leftUrl={row.leftRegionPath}
-                rightUrl={row.rightRegionPath}
-                leftLabel={row.leftSelector}
-                rightLabel={row.rightSelector}
-              />
-            )}
-            {viewMode === "overlay" && (
-              <ViewModeOverlay
-                leftUrl={row.leftRegionPath}
-                rightUrl={row.rightRegionPath}
-              />
-            )}
-            {viewMode === "slider" && (
-              <ViewModeSlider
-                leftUrl={row.leftRegionPath}
-                rightUrl={row.rightRegionPath}
-              />
-            )}
-            {viewMode === "diff" && (
-              <ViewModeDiff diffUrl={row.diffOnlyPath} />
-            )}
+            <ZoomPan>
+              {viewMode === "side-by-side" && (
+                <ViewModeSideBySide
+                  leftUrl={row.leftRegionPath}
+                  rightUrl={row.rightRegionPath}
+                  leftLabel={row.leftSelector}
+                  rightLabel={row.rightSelector}
+                />
+              )}
+              {viewMode === "overlay" && (
+                <ViewModeOverlay
+                  leftUrl={row.leftRegionPath}
+                  rightUrl={row.rightRegionPath}
+                />
+              )}
+              {viewMode === "slider" && (
+                <ViewModeSlider
+                  leftUrl={row.leftRegionPath}
+                  rightUrl={row.rightRegionPath}
+                />
+              )}
+              {viewMode === "diff" && (
+                <ViewModeDiff diffUrl={row.diffOnlyPath} />
+              )}
+            </ZoomPan>
 
             {/* Comment pins */}
             {pins.map((pin, i) => (
