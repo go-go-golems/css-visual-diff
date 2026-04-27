@@ -36,6 +36,35 @@ func TestNewCommandIncludesBuiltinVerbs(t *testing.T) {
 	require.Equal(t, "inspect-config", found.Name())
 }
 
+func TestLazyCommandRunsVerbFromGitRootLocalConfig(t *testing.T) {
+	withIsolatedConfigEnvironment(t)
+	root := initTempGitRepository(t)
+	writeFile(t, filepath.Join(root, "verbs", "hello.js"), `
+function hello(name) { return "hello " + name; }
+__verb__("hello", {
+  parents: ["local"],
+  output: "text",
+  fields: {
+    name: { argument: true, required: true }
+  }
+});
+`)
+	writeFile(t, filepath.Join(root, LocalConfigFileName), `
+verbs:
+  repositories:
+    - name: local
+      path: ./verbs
+`)
+	nested := filepath.Join(root, "packages", "button")
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+	withChdir(t, nested)
+
+	cmd := NewLazyCommand()
+	cmd.SetArgs([]string{"local", "hello", "Manuel"})
+
+	require.NoError(t, cmd.Execute())
+}
+
 func TestDuplicateVerbPathsReturnError(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "duplicate.js"), `

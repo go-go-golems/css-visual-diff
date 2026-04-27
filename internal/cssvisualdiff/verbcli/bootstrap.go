@@ -21,6 +21,9 @@ const (
 	VerbRepositoriesEnvVar = "CSS_VISUAL_DIFF_VERB_REPOSITORIES"
 	RepositoryFlag         = "repository"
 	VerbRepositoryFlag     = "verb-repository"
+
+	LocalConfigFileName         = ".css-visual-diff.yml"
+	LocalOverrideConfigFileName = ".css-visual-diff.override.yml"
 )
 
 type Bootstrap struct {
@@ -133,12 +136,21 @@ func repositoryIdentity(repo Repository) string {
 
 func loadConfigRepositories(ctx context.Context) ([]Repository, error) {
 	plan := glazedconfig.NewPlan(
-		glazedconfig.WithLayerOrder(glazedconfig.LayerSystem, glazedconfig.LayerUser),
+		glazedconfig.WithLayerOrder(
+			glazedconfig.LayerSystem,
+			glazedconfig.LayerUser,
+			glazedconfig.LayerRepo,
+			glazedconfig.LayerCWD,
+		),
 		glazedconfig.WithDedupePaths(),
 	).Add(
-		glazedconfig.SystemAppConfig("css-visual-diff").Named("system-app-config"),
-		glazedconfig.XDGAppConfig("css-visual-diff").Named("xdg-app-config"),
-		glazedconfig.HomeAppConfig("css-visual-diff").Named("home-app-config"),
+		glazedconfig.SystemAppConfig("css-visual-diff").Named("system-app-config").Kind("app-config"),
+		glazedconfig.XDGAppConfig("css-visual-diff").Named("xdg-app-config").Kind("app-config"),
+		glazedconfig.HomeAppConfig("css-visual-diff").Named("home-app-config").Kind("app-config"),
+		glazedconfig.GitRootFile(LocalConfigFileName).Named("git-root-local-css-visual-diff").Kind("verb-repository-overlay"),
+		glazedconfig.GitRootFile(LocalOverrideConfigFileName).Named("git-root-local-css-visual-diff-override").Kind("verb-repository-overlay"),
+		glazedconfig.WorkingDirFile(LocalConfigFileName).Named("cwd-local-css-visual-diff").Kind("verb-repository-overlay"),
+		glazedconfig.WorkingDirFile(LocalOverrideConfigFileName).Named("cwd-local-css-visual-diff-override").Kind("verb-repository-overlay"),
 	)
 
 	files, _, err := plan.Resolve(ctx)

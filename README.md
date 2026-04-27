@@ -75,6 +75,18 @@ GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs exampl
   --output json
 ```
 
+For repeatable project workflows, check in a local repository config:
+
+```yaml
+# .css-visual-diff.yml
+verbs:
+  repositories:
+    - name: project
+      path: ./verbs
+```
+
+Relative paths are resolved from the config file that declares them, so `./verbs` still points at the project repository when commands are run from nested directories. Use `.css-visual-diff.override.yml` for private local repositories and keep it gitignored.
+
 JavaScript verbs can use the Promise-first native module:
 
 ```js

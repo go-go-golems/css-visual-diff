@@ -138,13 +138,13 @@ a { color: var(--accent); }
 <header>
 <h1>css-visual-diff artifact browser</h1>
 <div class="meta">`)
-	b.WriteString(fmt.Sprintf("<span>slug: <strong>%s</strong></span>", esc(cfg.Metadata.Slug)))
-	b.WriteString(fmt.Sprintf("<span>output: <code>%s</code></span>", esc(cfg.Output.Dir)))
+	fmt.Fprintf(&b, "<span>slug: <strong>%s</strong></span>", esc(cfg.Metadata.Slug))
+	fmt.Fprintf(&b, "<span>output: <code>%s</code></span>", esc(cfg.Output.Dir))
 	if cfg.Original.URL != "" {
-		b.WriteString(fmt.Sprintf("<span>original: <code>%s</code></span>", esc(cfg.Original.URL)))
+		fmt.Fprintf(&b, "<span>original: <code>%s</code></span>", esc(cfg.Original.URL))
 	}
 	if cfg.React.URL != "" {
-		b.WriteString(fmt.Sprintf("<span>react: <code>%s</code></span>", esc(cfg.React.URL)))
+		fmt.Fprintf(&b, "<span>react: <code>%s</code></span>", esc(cfg.React.URL))
 	}
 	b.WriteString(`</div>
 <nav><a href="#screenshots">Screenshots</a><a href="#validation">Validation</a><a href="#cssdiff">CSS diff</a><a href="#matched">Matched styles</a><a href="#files">Files</a></nav>
@@ -180,7 +180,7 @@ func renderScreenshotSection(b *strings.Builder, data htmlReportData) {
 		if i < len(data.Capture.React.Sections) {
 			react = data.Capture.React.Sections[i]
 		}
-		b.WriteString(fmt.Sprintf(`<h3>%s</h3><div class="grid">`, esc(original.Name)))
+		fmt.Fprintf(b, `<h3>%s</h3><div class="grid">`, esc(original.Name))
 		renderImageCard(b, "Original", rel(original.Screenshot), original.Selector)
 		renderImageCard(b, "React", rel(react.Screenshot), react.Selector)
 		if diff := pixelDiffForSection(data.PixelDiff, original.Name); diff != nil && diff.DiffComparisonPath != "" {
@@ -207,7 +207,7 @@ func renderValidationSection(b *strings.Builder, data htmlReportData) {
 		if v.PNG != nil {
 			png = fmt.Sprintf("%dx%d<br><span class=\"small\">top %v<br>bottom %v</span>", v.PNG.Width, v.PNG.Height, v.PNG.TopStripAverage, v.PNG.BottomStripAverage)
 		}
-		b.WriteString(fmt.Sprintf(`<tr><td>%s</td><td>%s</td><td><span class="badge %s">%s</span></td><td>%s</td><td>%s</td></tr>`, esc(v.Target), esc(v.Section), class, esc(v.Status), png, esc(strings.Join(v.Issues, "; "))))
+		fmt.Fprintf(b, `<tr><td>%s</td><td>%s</td><td><span class="badge %s">%s</span></td><td>%s</td><td>%s</td></tr>`, esc(v.Target), esc(v.Section), class, esc(v.Status), png, esc(strings.Join(v.Issues, "; ")))
 	}
 	b.WriteString(`</tbody></table></section>`)
 }
@@ -219,14 +219,14 @@ func renderCSSDiffSection(b *strings.Builder, data htmlReportData) {
 		return
 	}
 	for _, style := range data.CSSDiff.Styles {
-		b.WriteString(fmt.Sprintf(`<h3>%s</h3><p class="small">original: <code>%s</code> · react: <code>%s</code></p>`, esc(style.Name), esc(style.OriginalSelector), esc(style.ReactSelector)))
+		fmt.Fprintf(b, `<h3>%s</h3><p class="small">original: <code>%s</code> · react: <code>%s</code></p>`, esc(style.Name), esc(style.OriginalSelector), esc(style.ReactSelector))
 		if len(style.Diffs) == 0 {
 			b.WriteString(`<p><span class="badge ok">no configured property diffs</span></p>`)
 			continue
 		}
 		b.WriteString(`<table><thead><tr><th>Property</th><th>Original</th><th>React</th></tr></thead><tbody>`)
 		for _, d := range style.Diffs {
-			b.WriteString(fmt.Sprintf(`<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>`, esc(d.Property), esc(d.Original), esc(d.React)))
+			fmt.Fprintf(b, `<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>`, esc(d.Property), esc(d.Original), esc(d.React))
 		}
 		b.WriteString(`</tbody></table>`)
 	}
@@ -240,14 +240,14 @@ func renderMatchedStylesSection(b *strings.Builder, data htmlReportData) {
 		return
 	}
 	for _, style := range data.MatchedStyles.Styles {
-		b.WriteString(fmt.Sprintf(`<h3>%s</h3>`, esc(style.Name)))
+		fmt.Fprintf(b, `<h3>%s</h3>`, esc(style.Name))
 		if len(style.Winners) == 0 {
 			b.WriteString(`<p>No winner diffs recorded.</p>`)
 			continue
 		}
 		b.WriteString(`<table><thead><tr><th>Property</th><th>Original winner</th><th>React winner</th></tr></thead><tbody>`)
 		for _, w := range style.Winners {
-			b.WriteString(fmt.Sprintf(`<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>`, esc(w.Property), esc(formatReportWinner(w.Original)), esc(formatReportWinner(w.React))))
+			fmt.Fprintf(b, `<tr><td><code>%s</code></td><td>%s</td><td>%s</td></tr>`, esc(w.Property), esc(formatReportWinner(w.Original)), esc(formatReportWinner(w.React)))
 		}
 		b.WriteString(`</tbody></table>`)
 	}
@@ -260,21 +260,21 @@ func renderFilesSection(b *strings.Builder, data htmlReportData) {
 		if f.Name == "index.html" {
 			continue
 		}
-		b.WriteString(fmt.Sprintf(`<li><span class="badge">%s</span> <a href="%s">%s</a></li>`, esc(f.Kind), esc(f.Path), esc(f.Name)))
+		fmt.Fprintf(b, `<li><span class="badge">%s</span> <a href="%s">%s</a></li>`, esc(f.Kind), esc(f.Path), esc(f.Name))
 	}
 	b.WriteString(`</ul></section>`)
 }
 
 func renderImageCard(b *strings.Builder, title, path, caption string) {
 	b.WriteString(`<div class="card">`)
-	b.WriteString(fmt.Sprintf(`<h3>%s</h3>`, esc(title)))
+	fmt.Fprintf(b, `<h3>%s</h3>`, esc(title))
 	if strings.TrimSpace(path) == "" {
 		b.WriteString(`<p class="small">No image.</p>`)
 	} else {
-		b.WriteString(fmt.Sprintf(`<a href="%s"><img src="%s" loading="lazy" /></a>`, esc(path), esc(path)))
+		fmt.Fprintf(b, `<a href="%s"><img src="%s" loading="lazy" /></a>`, esc(path), esc(path))
 	}
 	if caption != "" {
-		b.WriteString(fmt.Sprintf(`<div class="caption">%s</div>`, esc(caption)))
+		fmt.Fprintf(b, `<div class="caption">%s</div>`, esc(caption))
 	}
 	b.WriteString(`</div>`)
 }
