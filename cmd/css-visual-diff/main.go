@@ -371,6 +371,7 @@ func main() {
 	rootCmd.AddCommand(newCompareCommand())
 	rootCmd.AddCommand(newLLMReviewCommand())
 	rootCmd.AddCommand(newChromedpProbeCommand())
+	rootCmd.AddCommand(newServeCommand())
 	rootCmd.AddCommand(verbcli.NewLazyCommand())
 
 	if err := rootCmd.Execute(); err != nil {
