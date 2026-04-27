@@ -175,3 +175,84 @@ GOWORK=off go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff
 **Commit:** Two commits:
 1. feat: add interactive React review site with Go embed and Dagger build
 2. fix: address lint errors in serve, build-web, and review packages
+
+---
+
+## Step 4: Export modal, F-key flash, zoom/pan, keyboard shortcuts, Dagger test
+
+### Prompt Context
+
+**User prompt (verbatim):** "use f to flash, not space (as it interacts with scroll). add export modal. Test dagger pipeline. Add zoom pan to reposition image (and display offsets). add keyboard shortcuts."
+
+**Assistant interpretation:** Five focused improvements: change overlay flash key, build the export modal, verify Dagger pipeline, add zoom/pan to images, and add global keyboard shortcuts.
+
+**Inferred user intent:** Polish the review site with all the interactive features needed for fast, comfortable visual review work.
+
+### What I did
+
+1. **F-key flash**: Changed `e.code === "Space"` to `e.key === "f"` in ViewModeOverlay. Updated the hint text to show `<kbd>F</kbd>` with a styled keyboard key badge.
+
+2. **ExportModal**: New component with:
+   - Full markdown + YAML preview for all 13 cards
+   - All/Reviewed scope toggle
+   - "attach annotated screenshot" checkbox
+   - Copy to clipboard button with confirmation
+   - Cancel button
+   - Wired via `onExport` callback from App → Header → modal state
+
+3. **ZoomPan**: New wrapper component providing:
+   - Scroll wheel zoom (0.25x to 8x, zooms toward cursor)
+   - Shift+left-click or middle-click drag to pan
+   - Double-click to reset
+   - Zoom indicator showing percentage and pixel offset (Δx, Δy)
+   - Wraps all view mode content inside ReviewCard
+
+4. **Keyboard shortcuts** in App.tsx global handler:
+   - `j`/`k` — navigate between cards
+   - `a` — mark accepted
+   - `n` — mark needs-work
+   - `w` — mark wont-fix
+   - `x` — mark fixed
+   - `1`–`4` — switch view modes
+   - `e` — open export modal
+   - `p` — enter comment mode
+
+5. **Dagger pipeline**: Successfully tested `go run ./cmd/build-web` (no BUILD_WEB_LOCAL). It spun up a node:22 container, used CacheVolume for pnpm store, ran `pnpm install && pnpm build`, and exported the dist to embed/public. ~47 seconds, cached layers reused.
+
+### Why
+
+Space conflicts with page scrolling — F is a natural "flash" key that doesn't interfere. Export modal is the bridge to the LLM/developer handoff. Zoom/pan is essential for inspecting pixel-level differences. Keyboard shortcuts make review fast without touching the mouse.
+
+### What worked
+
+- All features worked on first try after fixing TS unused imports.
+- Dagger pipeline built successfully with cache hits on corepack and pnpm install layers.
+- Export modal correctly generates markdown for all 13 cards with proper YAML blocks.
+- Keyboard shortcut `e` opens the modal, confirming the global handler works.
+
+### What was tricky to build
+
+- ZoomPan needs to zoom toward the cursor, not the center. The math is: `newOffset = mouse - scale * (mouse - oldOffset)` where `scale = newZoom / oldZoom`.
+- The global keyboard handler must skip textarea/input/select elements. Adding `HTMLSelectElement` to the exclusion list was needed.
+- TypeScript strict mode required removing several unused imports that appeared during refactoring (SummaryRow, CompareData, selectReview, compareJsonUrl, ViewMode, headerExportRef).
+
+### What should be done in the future
+
+- Add synchronized pan between prototype and React images in side-by-side mode.
+- Add image overlay comparison mode in zoom (click to toggle A/B at full zoom).
+- Persist zoom state per card.
+- Add touch gestures for zoom/pan on tablets.
+- Show pixel color under cursor.
+- Add ruler/measurement tool.
+
+### Code review instructions
+
+- `src/components/ExportModal.tsx` — the full modal component
+- `src/components/ZoomPan.tsx` — zoom/pan wrapper with wheel and drag handlers
+- `src/components/ViewModeOverlay.tsx` — F-key change (line ~20)
+- `src/App.tsx` — global keyboard handler (useEffect with keydown listener)
+- Validate: rebuild with `BUILD_WEB_LOCAL=1 GOWORK=off go run ./cmd/build-web`, then `GOWORK=off go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff`, then serve and test keyboard shortcuts.
+
+### Technical details
+
+**Commit:** 1ea9400
