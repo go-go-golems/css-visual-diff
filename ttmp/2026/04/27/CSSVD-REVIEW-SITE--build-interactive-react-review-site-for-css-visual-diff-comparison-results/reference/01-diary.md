@@ -78,3 +78,100 @@ Before writing a single line of code, I needed to understand the complete data f
 - Balancing depth vs. brevity: the document needs to be detailed enough for an intern but not so long it becomes unreadable. Using diagrams, pseudocode, and structured sections helps.
 - Mapping from the mock JSX's inline mock data to the real data loading strategy (summary.json → per-card compare.json lazy loading).
 - Deciding on the Go embed strategy: embed the built SPA assets into the binary, serve them from a `serve` subcommand that also proxies artifact files from a user-specified directory.
+
+---
+
+## Step 3: Full implementation — React app, Go embed, Dagger pipeline, serve command
+
+### Prompt Context
+
+**User prompt (verbatim):** "build all of it. Use the dagger build pipeline (see skill)."
+
+**Assistant interpretation:** Implement the entire review site: scaffold React app, create all components, wire RTK store, build Go internal/web package, create Dagger build pipeline, create serve command, test end-to-end.
+
+**Inferred user intent:** Get a working end-to-end system that can be served from a single Go binary.
+
+### What I did
+
+**React app (web/review-site/):**
+- Scaffolded Vite+React+TypeScript+Tailwind+RTK in web/review-site/
+- Created TypeScript types: summary.ts, compare.ts, review.ts
+- Created RTK store with 4 slices: cardsSlice, viewSlice, reviewSlice, commentsSlice
+- Created localStorage sync middleware that persists review state on every action
+- Built utility functions: paths.ts (artifact URL rewriting), export.ts (markdown+yaml), storage.ts
+- Built 12 components: App, Header, CardList, ReviewCard, ViewModeSideBySide, ViewModeOverlay, ViewModeSlider, ViewModeDiff, CommentPin, Sidebar, CommentsTab, StylesTab, MetaTab
+- Configured Vite with dev proxy to Go server
+
+**Go backend:**
+- Created internal/cssvisualdiff/review/ package with embed.go, embed_none.go, static.go, generate.go
+- Created cmd/build-web/ Dagger pipeline with local pnpm fallback and CacheVolume
+- Created cmd/css-visual-diff/serve.go with serve subcommand
+- Added 3 API endpoints: GET /api/manifest, GET /api/compare, GET /artifacts/{path...}
+- Added SPA fallback serving for embedded React app
+- Added Makefile targets: build-web, build-embed, dev-web, dev-serve
+
+### Why
+
+The Dagger pipeline ensures reproducible builds. The embed approach means a single binary distribution. The serve command is the only entry point a user needs.
+
+### What worked
+
+- `pnpm build` produces a ~270KB JS bundle + 21KB CSS — compact.
+- `BUILD_WEB_LOCAL=1 go run ./cmd/build-web` builds the frontend and copies to embed/public.
+- `go build -tags embed` produces a 73MB binary that contains the full SPA.
+- All three API endpoints return correct data when tested against real Pyxis comparison data.
+- Artifact serving correctly maps `/artifacts/shows/content/diff_only.png` → `data-dir/shows/artifacts/content/diff_only.png`.
+
+### What didn't work
+
+- Port 8097 was already in use from a previous test. Used 8098 instead.
+- Initial artifact handler used naive path joining that didn't insert the `artifacts/` subdirectory. Fixed by splitting the URL path and inserting `artifacts` between page and section.
+
+### What was tricky to build
+
+- The artifact path mapping: the React app expects `/artifacts/page/section/file` but the on-disk structure is `page/artifacts/section/file`. The serve handler needs to insert `artifacts` between parts[0] and parts[1].
+- TypeScript strict mode caught several unused imports and implicit `any` types that needed cleanup.
+- The `localStorageSync` middleware needs to combine data from both `review` and `comments` slices since comments are stored as part of the card review but managed in a separate slice.
+
+### What warrants a second pair of eyes
+
+- The artifact path mapping in serve.go — it assumes the pattern `page/section/file` always holds. Could break if css-visual-diff changes its directory structure.
+- The localStorage sync middleware accesses state from two different slices — this is technically fragile if the slice names change.
+
+### What should be done in the future
+
+- Add the ExportModal component (currently just shows an alert).
+- Add keyboard shortcuts for fast review (j/k navigation, a/n/f status shortcuts).
+- Add a `--summary` flag that accepts the summary JSON path directly instead of requiring it in the data dir.
+- Add zoom/pan for images.
+- Add synchronized scroll between prototype and React images.
+- Add run comparison (diff between two runs).
+- Test with Dagger (not just local pnpm).
+- Add integration tests.
+
+### Code review instructions
+
+- Start with `cmd/css-visual-diff/serve.go` — the serve command and HTTP routing.
+- Then `internal/cssvisualdiff/review/` — the embed/static/generate package.
+- Then `cmd/build-web/main.go` — the Dagger pipeline.
+- Then `web/review-site/src/store/slices/cardsSlice.ts` — the main data flow.
+- Then `web/review-site/src/components/ReviewCard.tsx` — the core UI component.
+- Validate: `make build-embed && ./dist/css-visual-diff serve --data-dir /tmp/pyxis-public-pages-final-sweep --port 8098`
+
+### Technical details
+
+**Build commands:**
+```bash
+# Build frontend locally
+BUILD_WEB_LOCAL=1 GOWORK=off go run ./cmd/build-web
+
+# Build Go binary with embedded SPA
+GOWORK=off go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff
+
+# Run
+./dist/css-visual-diff serve --data-dir /tmp/pyxis-public-pages-final-sweep --port 8098
+```
+
+**Commit:** Two commits:
+1. feat: add interactive React review site with Go embed and Dagger build
+2. fix: address lint errors in serve, build-web, and review packages
