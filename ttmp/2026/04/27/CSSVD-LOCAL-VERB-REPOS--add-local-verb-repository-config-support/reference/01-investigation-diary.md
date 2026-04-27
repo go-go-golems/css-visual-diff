@@ -618,3 +618,125 @@ Document local verb repository config work
 ```
 
 Because this diary is part of the documentation commit, use `git log --oneline -1` after the final amend to get the exact hash.
+
+## Step 6: Fix repository lint so `make lint` passes
+
+The previous implementation commit was test-clean but could not pass the repository pre-commit hook because `make lint` surfaced existing lint debt. The user asked to fix `make lint`, so I cleaned up those lint findings across the affected packages and committed the cleanup separately.
+
+This step is broader than the local repository config feature. It touches pre-existing lint findings in `modes`, `service`, and `jsapi`, but keeps the changes mechanical: checked close errors through ignored defer closures, removed named return parameters, renamed a predeclared-identifier parameter, converted `WriteString(fmt.Sprintf(...))` calls to `fmt.Fprintf`, converted an identical struct literal to a type conversion, and documented retained legacy helpers with targeted `//nolint:unused` comments.
+
+### Prompt Context
+
+**User prompt (verbatim):** "fir make lint"
+
+**Assistant interpretation:** The user likely meant "fix make lint" and wants the repository lint target to pass.
+
+**Inferred user intent:** Remove the lint blocker that forced the previous implementation commit to use `--no-verify`, then commit the lint cleanup.
+
+**Commit (code):** `2ff8de408c9812c9006ef8600d20f4f82fdde8f2` — "Fix lint issues"
+
+### What I did
+
+- Fixed `errcheck` findings in `internal/cssvisualdiff/modes/pixeldiff_util.go` by replacing direct deferred `f.Close()` calls with closures that intentionally discard the close error.
+- Fixed a `nonamedreturns` finding in `internal/cssvisualdiff/jsapi/module.go` by removing named return parameters from `classifyCVDError`.
+- Fixed a `predeclared` finding in `internal/cssvisualdiff/modes/matched_styles.go` by renaming the `close` parameter to `closeByte`.
+- Fixed a `QF1003` finding in `internal/cssvisualdiff/modes/capture.go` by replacing the prefix `if` chain with a `switch`.
+- Fixed many `QF1012` findings by changing `b.WriteString(fmt.Sprintf(...))` to `fmt.Fprintf(...)` in:
+  - `internal/cssvisualdiff/modes/html_report.go`
+  - `internal/cssvisualdiff/service/catalog_service.go`
+  - `internal/cssvisualdiff/service/diff.go`
+- Fixed an `S1016` finding in `internal/cssvisualdiff/service/style.go` by converting `styleEvalResult` to `StyleSnapshot` directly.
+- Added targeted `//nolint:unused` comments for retained legacy wrappers/helpers in:
+  - `internal/cssvisualdiff/modes/inspect.go`
+  - `internal/cssvisualdiff/modes/prepare.go`
+- Ran `gofmt` on touched Go files.
+- Ran:
+  - `GOWORK=off go test ./... -count=1`
+  - `make lint`
+- Committed the cleanup.
+
+### Why
+
+- `make lint` was the blocker in the pre-commit hook after the local config implementation.
+- These findings were mostly mechanical and safe to clean independently.
+- Keeping this in a separate commit preserves a clear boundary between feature work and repository hygiene.
+
+### What worked
+
+- Full test suite passed before committing:
+
+```text
+GOWORK=off go test ./... -count=1
+ok  	github.com/go-go-golems/css-visual-diff/cmd/css-visual-diff	0.069s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config	0.005s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver	0.005s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl	6.541s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/jsapi	0.011s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/llm	0.069s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes	0.015s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service	10.700s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/verbcli	13.184s
+```
+
+- `make lint` passed:
+
+```text
+0 issues.
+summary: (done in 17.71 seconds)
+✔️ lint (9.98 seconds)
+✔️ test (17.71 seconds)
+```
+
+- The normal pre-commit hook passed for the lint cleanup commit.
+
+### What didn't work
+
+- The first `make lint` after initial cleanup still surfaced more `QF1012` findings because golangci-lint was hiding duplicate reports behind `--max-same-issues`. I fixed the newly revealed sites and reran lint until it reported `0 issues`.
+- `make lint` generated a local `.bin/` directory for `golangci-lint`; I removed it after the commit.
+
+### What I learned
+
+- The earlier lint blocker was not limited to a single package; hidden duplicate staticcheck findings appeared incrementally as earlier ones were fixed.
+- The repository's pre-commit hook now succeeds because both lint and tests pass.
+
+### What was tricky to build
+
+- The unused helpers in `modes/inspect.go` and `modes/prepare.go` appear intentionally retained as legacy compatibility code. Removing them would be riskier than adding targeted lint comments, so I used precise `//nolint:unused` annotations with reasons.
+- The `selectorForSection` refactor needed to preserve existing semantics: side-specific selectors override generic selectors when present, and side-specific selectors are used when the generic selector is empty.
+
+### What warrants a second pair of eyes
+
+- Review the `//nolint:unused` comments to confirm the retained legacy helpers are still desired.
+- Review the `selectorForSection` switch refactor for semantic equivalence.
+
+### What should be done in the future
+
+- If the legacy inspect/prepare wrappers are no longer needed, remove them in a separate cleanup ticket instead of carrying `//nolint:unused` long-term.
+
+### Code review instructions
+
+- Review this commit separately from the local config feature:
+  - `2ff8de408c9812c9006ef8600d20f4f82fdde8f2`
+- Validate with:
+
+```bash
+make lint
+GOWORK=off go test ./... -count=1
+```
+
+### Technical details
+
+Committed files:
+
+```text
+internal/cssvisualdiff/jsapi/module.go
+internal/cssvisualdiff/modes/capture.go
+internal/cssvisualdiff/modes/html_report.go
+internal/cssvisualdiff/modes/inspect.go
+internal/cssvisualdiff/modes/matched_styles.go
+internal/cssvisualdiff/modes/pixeldiff_util.go
+internal/cssvisualdiff/modes/prepare.go
+internal/cssvisualdiff/service/catalog_service.go
+internal/cssvisualdiff/service/diff.go
+internal/cssvisualdiff/service/style.go
+```
