@@ -53,10 +53,5 @@ func EvaluateStyle(page *driver.Page, spec config.StyleSpec) (StyleSnapshot, err
 		return StyleSnapshot{}, err
 	}
 
-	return StyleSnapshot{
-		Exists:     out.Exists,
-		Computed:   out.Computed,
-		Bounds:     out.Bounds,
-		Attributes: out.Attributes,
-	}, nil
+	return StyleSnapshot(out), nil
 }

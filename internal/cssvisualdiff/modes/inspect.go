@@ -225,6 +225,7 @@ func BuildInspectRequests(cfg *config.Config, opts InspectOptions) ([]InspectReq
 	}
 }
 
+//nolint:unused // Kept for the legacy inspect artifact path while the CLI uses service-backed inspection.
 func writeInspectArtifacts(page *driver.Page, target config.Target, side string, req InspectRequest, format, outDir, outputFile string) (InspectArtifactResult, error) {
 	format, err := canonicalInspectFormat(format)
 	if err != nil {
@@ -319,6 +320,7 @@ func inspectFormatRequiresExistingSelector(format string) bool {
 	}
 }
 
+//nolint:unused // Used by the legacy inspect artifact helpers retained for compatibility.
 func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
 	statuses, err := service.PreflightProbes(page, []service.ProbeSpec{{
 		Name:     req.Name,
@@ -341,6 +343,7 @@ func ensureInspectSelectorExists(page *driver.Page, req InspectRequest) error {
 	return nil
 }
 
+//nolint:unused // Used by the legacy inspect artifact helpers retained for compatibility.
 func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata InspectMetadata, format, path string) (InspectArtifactResult, error) {
 	artifact := InspectArtifactResult{Metadata: metadata}
 	if inspectFormatRequiresExistingSelector(format) {
@@ -392,6 +395,7 @@ func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata 
 	return artifact, nil
 }
 
+//nolint:unused // Used by the legacy inspect artifact helpers retained for compatibility.
 func writeInspectCSSMarkdown(path string, req InspectRequest, style StyleSnapshot) error {
 	content := fmt.Sprintf("# css-visual-diff CSS Inspect: %s\n\n", req.Name)
 	content += fmt.Sprintf("Selector: `%s`\n\n", req.Selector)
@@ -406,6 +410,7 @@ func writeInspectCSSMarkdown(path string, req InspectRequest, style StyleSnapsho
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
+//nolint:unused // Used by the legacy inspect artifact helpers retained for compatibility.
 func writeInspectIndex(outDir string, result InspectResult) error {
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return err
