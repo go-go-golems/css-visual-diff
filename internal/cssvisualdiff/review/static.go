@@ -1,0 +1,68 @@
+package review
+
+import (
+	"io/fs"
+	"net/http"
+	"path"
+	"strings"
+)
+
+// SPAOptions configures the SPA handler behaviour.
+type SPAOptions struct {
+	// APIPrefix is the URL prefix for API routes that should NOT be served by the SPA.
+	APIPrefix string
+	// ArtifactPrefix is the URL prefix for artifact file serving.
+	ArtifactPrefix string
+}
+
+// NewSPAHandler returns an HTTP handler that serves the embedded frontend
+// with SPA fallback to index.html for unknown paths.
+func NewSPAHandler(opts *SPAOptions) (http.Handler, error) {
+	if opts == nil {
+		opts = &SPAOptions{}
+	}
+	apiPrefix := opts.APIPrefix
+	if apiPrefix == "" {
+		apiPrefix = "/api"
+	}
+
+	// Read index.html once at startup.
+	indexBytes, err := fs.ReadFile(PublicFS, "index.html")
+	if err != nil {
+		return nil, err
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Never serve API routes or artifact routes from the SPA handler.
+		if strings.HasPrefix(r.URL.Path, apiPrefix) || r.URL.Path == "/health" {
+			http.NotFound(w, r)
+			return
+		}
+
+		cleanPath := path.Clean("/" + r.URL.Path)
+
+		// Root always serves index.html.
+		if cleanPath == "/" {
+			serveIndex(w, r, indexBytes)
+			return
+		}
+
+		// Try to serve the file directly from the embedded/disk FS.
+		assetPath := strings.TrimPrefix(cleanPath, "/")
+		if f, err := PublicFS.Open(assetPath); err == nil {
+			_ = f.Close()
+			http.FileServer(http.FS(PublicFS)).ServeHTTP(w, r)
+			return
+		}
+
+		// SPA fallback: unknown paths serve index.html.
+		serveIndex(w, r, indexBytes)
+	}), nil
+}
+
+func serveIndex(w http.ResponseWriter, _ *http.Request, indexBytes []byte) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(indexBytes)
+}
