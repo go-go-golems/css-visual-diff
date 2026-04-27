@@ -34,3 +34,14 @@ Implemented local verb repository config discovery and committed code as 5fd1c68
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/verbcli/bootstrap_test.go — Local config discovery tests
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/verbcli/command_test.go — Lazy command smoke test
 
+
+## 2026-04-27
+
+Fixed repository lint issues so make lint passes; committed as 2ff8de408c9812c9006ef8600d20f4f82fdde8f2.
+
+### Related Files
+
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/modes/html_report.go — Converted linted string formatting patterns
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/modes/inspect.go — Documented retained legacy helpers with targeted nolint comments
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/service/catalog_service.go — Converted linted markdown formatting patterns
+

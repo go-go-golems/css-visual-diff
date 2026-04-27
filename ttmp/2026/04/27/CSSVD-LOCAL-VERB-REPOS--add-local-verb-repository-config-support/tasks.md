@@ -21,3 +21,5 @@
 - [x] Update README with a local config example
 - [x] Run `GOWORK=off go test ./... -count=1`
 - [x] Commit implementation as `5fd1c68519662dafbccf1dc34cb05e90298eba32`
+- [x] Fix lint issues so `make lint` passes
+- [x] Commit lint cleanup as `2ff8de408c9812c9006ef8600d20f4f82fdde8f2`
