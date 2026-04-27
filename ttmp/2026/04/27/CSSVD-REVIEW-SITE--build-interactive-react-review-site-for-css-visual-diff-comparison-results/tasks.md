@@ -32,4 +32,4 @@
 - [x] Test Dagger pipeline (not just local pnpm fallback)
 - [x] Add zoom/pan to images with scroll wheel zoom, drag to pan, display pixel offsets
 - [x] Add keyboard shortcuts: j/k nav, a/n/f/w status, c copy, d/r/p focus image, / search
-- [ ] Commit, update diary, upload to reMarkable
+- [x] Commit, update diary, upload to reMarkable
