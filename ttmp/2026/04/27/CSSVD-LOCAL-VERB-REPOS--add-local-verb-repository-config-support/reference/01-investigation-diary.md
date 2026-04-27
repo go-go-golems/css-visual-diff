@@ -740,3 +740,130 @@ internal/cssvisualdiff/service/catalog_service.go
 internal/cssvisualdiff/service/diff.go
 internal/cssvisualdiff/service/style.go
 ```
+
+## Step 7: Serialize CI package tests to avoid Chrome startup contention
+
+The GitHub Actions unit-test job for PR 4 failed in `internal/cssvisualdiff/service` and `internal/cssvisualdiff/verbcli` with `websocket url timeout reached` while creating Chrome pages. The log showed both packages running browser-heavy tests in the same `go test ./...` invocation, with many Chrome launches close together on the GitHub-hosted runner.
+
+This looked CI-environment-related rather than a deterministic application failure: the same full suite passed locally, `make lint` passed locally, and the failure occurred at Chrome websocket startup rather than at an assertion about css-visual-diff behavior. I changed the push workflow to run package tests serially with `go test -p 1`, so browser-heavy packages do not compete for Chrome startup resources on the CI runner.
+
+### Prompt Context
+
+**User prompt (verbatim):** "Address action test failure https://github.com/go-go-golems/css-visual-diff/actions/runs/25020140089/job/73278302857?pr=4
+
+I'm not sure if it's the CICD env causing it"
+
+**Assistant interpretation:** Inspect the failed GitHub Actions job, determine whether the failure is caused by CI resource/environment behavior, and patch the repository so the action becomes reliable.
+
+**Inferred user intent:** The user wants PR checks green without weakening application tests unnecessarily.
+
+**Commit (CI):** pending at time of diary entry.
+
+### What I did
+
+- Fetched the job log with:
+
+```bash
+gh run view 25020140089 --job 73278302857 --log --repo go-go-golems/css-visual-diff
+```
+
+- Identified the failure as Chrome startup/websocket timeout in browser-backed tests:
+
+```text
+--- FAIL: TestRepositoryVerbUsesPromiseFirstCVDModule (20.02s)
+Error: promise rejected: BrowserError: websocket url timeout reached
+FAIL github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/verbcli 40.164s
+```
+
+- Noted that `internal/cssvisualdiff/service` also failed in the same `go test ./...` run, consistent with package-level concurrency stressing Chrome on CI.
+- Updated `.github/workflows/push.yml` from:
+
+```yaml
+run: go test ./...
+```
+
+  to:
+
+```yaml
+run: GOWORK=off go test -p 1 ./...
+```
+
+- Validated locally with:
+
+```bash
+GOWORK=off go test -p 1 ./...
+```
+
+### Why
+
+- Go runs multiple packages in parallel by default. Several packages in this repository start real Chrome/chromedp browser sessions.
+- GitHub-hosted runners can be more resource-constrained than the local machine, and Chrome startup is where the failure occurred.
+- `-p 1` preserves test coverage while reducing cross-package browser contention.
+- `GOWORK=off` makes the CI command match the local repository/module test mode and avoids accidental workspace interactions.
+
+### What worked
+
+- Local serialized test run passed:
+
+```text
+GOWORK=off go test -p 1 ./...
+ok  	github.com/go-go-golems/css-visual-diff/cmd/css-visual-diff	(cached)
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config	(cached)
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver	(cached)
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl	3.348s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/jsapi	(cached)
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/llm	0.086s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes	(cached)
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service	6.926s
+ok  	github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/verbcli	8.156s
+```
+
+### What didn't work
+
+- A first local attempt without `GOWORK=off` failed because this checkout is inside a larger workspace:
+
+```text
+go test -p 1 ./...
+# ./...
+pattern ./...: directory prefix . does not contain modules listed in go.work or their selected dependencies
+FAIL ./... [setup failed]
+```
+
+- The workflow command was therefore updated to include `GOWORK=off` explicitly.
+
+### What I learned
+
+- The action failure is very likely CI Chrome startup contention rather than a logic regression in the local repository config feature.
+- The repository already disables Chrome sandbox in CI, so sandboxing was not the missing piece.
+
+### What was tricky to build
+
+- The failing test was not directly in the local config discovery tests. It failed while opening Chrome from a JS verb runtime test, which made the raw failure look like an application error until the surrounding package-level concurrency was considered.
+- The log also included expected invalid-selector errors from tests that intentionally exercise selector failures, so the relevant failure was the later `websocket url timeout reached` browser startup error.
+
+### What warrants a second pair of eyes
+
+- Confirm that serialized package tests are acceptable for CI duration. The local serialized run took roughly the same order of time as the existing browser tests and should be acceptable for PR checks.
+- If CI still flakes, consider adding a test helper that serializes Chrome launches across packages only by moving browser-heavy tests into fewer packages or marking CI-specific Chrome settings explicitly.
+
+### What should be done in the future
+
+- If the suite grows, consider splitting pure unit tests and browser integration tests into separate CI jobs.
+- Consider adding a CI-specific browser test timeout diagnostic artifact if Chrome startup flakiness continues.
+
+### Code review instructions
+
+- Review `.github/workflows/push.yml` and confirm only the unit-test command changed.
+- Validate with:
+
+```bash
+GOWORK=off go test -p 1 ./...
+```
+
+### Technical details
+
+Changed file:
+
+```text
+.github/workflows/push.yml
+```

@@ -23,3 +23,5 @@
 - [x] Commit implementation as `5fd1c68519662dafbccf1dc34cb05e90298eba32`
 - [x] Fix lint issues so `make lint` passes
 - [x] Commit lint cleanup as `2ff8de408c9812c9006ef8600d20f4f82fdde8f2`
+- [x] Investigate GitHub Actions Chrome websocket timeout in PR 4
+- [x] Serialize CI package tests with `GOWORK=off go test -p 1 ./...`
