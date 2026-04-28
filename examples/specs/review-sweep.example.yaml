@@ -1,0 +1,72 @@
+# Example review-sweep spec for css-visual-diff
+#
+# Usage:
+#   css-visual-diff verbs --repository examples/verbs \
+#     examples review-sweep from-spec \
+#     --spec-file examples/specs/review-sweep.example.yaml \
+#     --out-dir /tmp/example-review
+#
+#   css-visual-diff serve --data-dir /tmp/example-review --port 8098
+
+name: example-visual-sweep
+variant: desktop
+
+viewport:
+  width: 920
+  height: 1460
+
+defaults:
+  waitMs: 1000
+  threshold: 30
+
+policy:
+  bands:
+    - name: accepted
+      maxChangedPercent: 0.5
+    - name: review
+      maxChangedPercent: 10
+    - name: tune-required
+      maxChangedPercent: 30
+    - name: major-mismatch
+      maxChangedPercent: 100
+
+# computed:
+#   - font-family
+#   - font-size
+#   - font-weight
+#   - line-height
+#   - padding-top
+#   - padding-right
+#   - padding-bottom
+#   - padding-left
+#   - border-radius
+#   - color
+#   - background-color
+#   - box-shadow
+
+# attributes:
+#   - id
+#   - class
+
+pages:
+  # Replace these URLs with your actual prototype and React URLs.
+  #
+  # about:
+  #   leftUrl: http://localhost:7070/about.html
+  #   rightUrl: http://localhost:6007/iframe.html?id=about--desktop&viewMode=story
+  #   sections:
+  #     content:
+  #       selector: "[data-page='about']"
+  #     header:
+  #       selector: "header"
+  #
+  # pricing:
+  #   leftUrl: http://localhost:7070/pricing.html
+  #   rightUrl: http://localhost:6007/iframe.html?id=pricing--desktop&viewMode=story
+  #   sections:
+  #     cards:
+  #       selector: "#pricing-cards"
+  #       # leftSelector: "#pricing-cards"   # override selector per side
+  #       # rightSelector: "#pricing-cards"
+  #     hero:
+  #       selector: ".pricing-hero"
