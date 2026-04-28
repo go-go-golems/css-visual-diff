@@ -922,6 +922,30 @@ The verb script uses the `css-visual-diff` JS API to:
 
 This approach gives you full control over the comparison pipeline, including custom prepare scripts, dynamic selectors, and multi-viewport comparisons. See `css-visual-diff help javascript-verbs` for the full verb API documentation.
 
+#### Built-in example: review-sweep
+
+The repository includes a complete external verb example at `examples/verbs/review-sweep.js`. It reads a small YAML spec, runs comparisons, writes artifacts in the review-site directory layout, and emits `summary.json`.
+
+```bash
+css-visual-diff verbs --repository examples/verbs \
+  examples review-sweep from-spec \
+  --specFile examples/specs/review-sweep.example.yaml \
+  --outDir /tmp/example-review
+
+css-visual-diff serve --data-dir /tmp/example-review --port 8098
+```
+
+If you already have artifacts on disk and only need to rebuild `summary.json`, use:
+
+```bash
+css-visual-diff verbs --repository examples/verbs \
+  examples review-sweep summary \
+  --specFile examples/specs/review-sweep.example.yaml \
+  --outDir /tmp/example-review
+```
+
+The example demonstrates `require("yaml")`, `require("fs")`, `require("path")`, and `require("diff").compareRegion(...)` inside the go-go-goja VM.
+
 ### Choosing an approach
 
 | Approach | Best for | Pros | Cons |
