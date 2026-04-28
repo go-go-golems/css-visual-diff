@@ -29,3 +29,15 @@ Updated review-site-data-spec help topic to reference the new examples review-sw
 
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/doc/topics/review-site-data-spec.md — Documents new review-sweep workflow
 
+
+## 2026-04-27
+
+Fixed review-site CSS diff crash when compare.json is in diff.compareRegion snake_case format. Added compareData normalization helpers and used them in StylesTab, MetaTab, and export generation (commit ab161b7).
+
+### Related Files
+
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/web/review-site/src/components/MetaTab.tsx — Meta tab uses normalized bounds/sources
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/web/review-site/src/components/StylesTab.tsx — CSS diff tab no longer assumes styles[] exists
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/web/review-site/src/utils/compareData.ts — Normalization helpers for catalog/inspect and compareRegion JSON variants
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/web/review-site/src/utils/export.ts — Export uses normalized compare data
+

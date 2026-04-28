@@ -255,3 +255,129 @@ GOWORK=off ./dist/css-visual-diff verbs --repository examples/verbs \
 - Report document: `reference/02-loader-and-review-sweep-fix-report.md`
 - Main code file: `examples/verbs/review-sweep.js`
 - Dependency change: `github.com/go-go-golems/go-go-goja v0.4.11 => v0.4.14`
+
+## Step 3: Fix Review Site CSS Diff Crash for compareRegion JSON
+
+The served React app crashed when the reviewer clicked the CSS diff sidebar tab. The stack trace was minified, but the error was clear: `e.styles is undefined`. The crash happened because the UI assumed every `/api/compare` response used the catalog/inspect `compare.json` shape with `styles[]` and `attributes[]`.
+
+The new JSVerb path can also produce `diff.compareRegion()` JSON, whose shape uses `computed_diffs`, `pixel_diff`, and `url1`/`url2`. I added a small normalization layer so the UI can render either format without special-casing inside each component.
+
+### Prompt Context
+
+**User prompt (verbatim):** "for the serve react app, when I click on css diff http://127.0.0.1:8097/ I get:  [HTTP/1.1 200 OK 0ms]
+
+Uncaught TypeError: can't access property \"filter\", e.styles is undefined
+    xi http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    Do http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    vc http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Fc http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Mu http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    ku http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Ou http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    gu http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    ld http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    id http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    od http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    ud http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    ud http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    rd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    hu http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Jo http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Ko http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    notify http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    ee http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    notify http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    s http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    c http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    t http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    f http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    f http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    s <anonymous code>:3
+    dispatch http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    kr http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    qt http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    dispatch <anonymous code>:6
+    onClick http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    yd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    wd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    _n http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    wd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    up http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    cp http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    Cd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    bd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Sd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    Sd http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:8
+    createRoot http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:9
+    <anonymous> http://127.0.0.1:8097/assets/index-Cr2p6vhA.js:18
+
+
+Probably we should run this in vite to get better sourcemap?"
+
+**Assistant interpretation:** Reproduce and fix the CSS diff tab crash; Vite sourcemaps would help, but the error is already specific enough to patch the bad assumption.
+
+**Inferred user intent:** Make the review app robust for generated review-sweep data, not only the original Pyxis/camelCase data.
+
+**Commit (code):** `ab161b7` — "fix(review-site): normalize compare.json variants for sidebar tabs"
+
+### What I did
+
+- Added `web/review-site/src/utils/compareData.ts`.
+- Added helpers for normalized changed styles, changed attributes, bounds, source URLs, and pixel stats.
+- Updated `StylesTab` to use `changedStyles()` / `changedAttributes()` instead of `compareData.styles.filter(...)`.
+- Updated `MetaTab` to use normalized bounds and source URLs.
+- Updated export generation to use the same normalization helpers.
+- Rebuilt the web app and embedded binary.
+- Restarted the server on `8097` and clicked the CSS diff tab with Playwright.
+
+### Why
+
+- `/api/compare` can now return at least two valid compare JSON variants.
+- The UI should normalize those variants at the edge rather than assuming one exact backend shape.
+
+### What worked
+
+Validation commands:
+
+```bash
+BUILD_WEB_LOCAL=1 GOWORK=off go run ./cmd/build-web
+GOWORK=off go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff
+```
+
+Playwright validation on `http://127.0.0.1:8097/`:
+
+- Loaded the review app.
+- Clicked `CSS diff`.
+- Observed the computed style diff list render.
+- Checked browser console errors: `0`.
+
+### What didn't work
+
+- The first browser reload still served the old `index-Cr2p6vhA.js` because I had not rebuilt the Go binary after exporting the new web assets. Rebuilding with `-tags embed` fixed the embedded asset hash.
+
+### What I learned
+
+- The build pipeline has two distinct steps: export web assets, then rebuild the Go binary with `-tags embed`. Doing only the first leaves `dist/css-visual-diff` serving old assets.
+
+### What was tricky to build
+
+- The compare data type currently models only the catalog/inspect shape. The normalizer has to use loose records for `computed_diffs`, `pixel_diff`, and `url1`/`url2` while preserving strict component-level types.
+
+### What warrants a second pair of eyes
+
+- `compareData.ts` should be reviewed as the compatibility boundary. If more compare formats appear, they should be normalized there, not inside React components.
+
+### What should be done in the future
+
+- Consider changing `/api/compare` to normalize server-side so the React app receives one canonical shape.
+- Add a small fixture test with both compare JSON variants.
+
+### Code review instructions
+
+- Start with `web/review-site/src/utils/compareData.ts`.
+- Then inspect `StylesTab`, `MetaTab`, and `utils/export.ts` for use of the helpers.
+
+### Technical details
+
+- Catalog/inspect format uses `styles[]`, `attributes[]`, `bounds`, `left`, `right`, `pixel`.
+- `diff.compareRegion()` format uses `computed_diffs`, `pixel_diff`, `url1`, `url2`.
