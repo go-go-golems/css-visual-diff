@@ -41,3 +41,15 @@ Fixed review-site CSS diff crash when compare.json is in diff.compareRegion snak
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/web/review-site/src/utils/compareData.ts — Normalization helpers for catalog/inspect and compareRegion JSON variants
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/web/review-site/src/utils/export.ts — Export uses normalized compare data
 
+
+## 2026-04-28
+
+Removed optional embed build tag path so the React review SPA is always embedded. Deleted embed_none.go, made embed.go unconditional, updated Makefile and review-site help docs. Validated plain go build serves Pyxis data.
+
+### Related Files
+
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/Makefile — build-embed no longer passes -tags embed
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/doc/tutorials/review-site.md — Updated build instructions
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/review/embed.go — Unconditional go:embed review SPA filesystem
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/review/embed_none.go — Removed non-embedded filesystem fallback
+

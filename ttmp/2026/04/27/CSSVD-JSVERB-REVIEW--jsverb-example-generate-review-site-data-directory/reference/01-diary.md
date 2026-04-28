@@ -381,3 +381,89 @@ Playwright validation on `http://127.0.0.1:8097/`:
 
 - Catalog/inspect format uses `styles[]`, `attributes[]`, `bounds`, `left`, `right`, `pixel`.
 - `diff.compareRegion()` format uses `computed_diffs`, `pixel_diff`, `url1`, `url2`.
+
+## Step 4: Remove Optional Embed Build Tag
+
+The review SPA is now always embedded into the Go binary. This removes the split between `embed.go` and `embed_none.go`, so `go build` and `go run` use the same embedded-asset path without requiring `-tags embed`.
+
+This simplification matches the current workflow: frontend assets are generated into `internal/cssvisualdiff/review/embed/public/`, and the Go binary should always serve those assets from `go:embed`.
+
+### Prompt Context
+
+**User prompt (verbatim):** "can we remove the embed tags and instead always build with embed"
+
+**Assistant interpretation:** Remove the `embed` build tag split and make embedding unconditional.
+
+**Inferred user intent:** Avoid confusion and stale/incorrect builds caused by forgetting `-tags embed`.
+
+**Commit (code):** pending at time of diary entry.
+
+### What I did
+
+- Removed the `//go:build embed` line from `internal/cssvisualdiff/review/embed.go`.
+- Deleted `internal/cssvisualdiff/review/embed_none.go`.
+- Updated `Makefile build-embed` to build without `-tags embed`.
+- Updated `css-visual-diff help review-site` documentation to say the SPA is always embedded.
+- Validated a plain build embeds the current asset hash.
+
+### Why
+
+- The build tag was no longer providing much value and made validation easier to get wrong.
+- A previous frontend fix initially served stale assets because the binary rebuild step was easy to misremember.
+
+### What worked
+
+Validation:
+
+```bash
+GOWORK=off go build -o dist/css-visual-diff ./cmd/css-visual-diff
+strings dist/css-visual-diff | grep 'embed/public/assets/index-'
+```
+
+The binary contains the current embedded JS asset:
+
+```text
+embed/public/assets/index-BFDUg9XM.js
+```
+
+Serving Pyxis data without build tags also worked:
+
+```bash
+./dist/css-visual-diff serve \
+  --data-dir /tmp/pyxis-public-pages-final-sweep \
+  --summary /tmp/pyxis-public-pages-final-sweep.json \
+  --port 8097
+```
+
+`/api/manifest` returned 13 rows with the expected classification counts.
+
+### What didn't work
+
+N/A
+
+### What I learned
+
+- The fallback file-system mode was useful early in development, but now it adds ambiguity around which assets the binary serves.
+
+### What was tricky to build
+
+- Documentation had multiple references to `-tags embed`; the public help entry needed updating so users copy the correct command.
+
+### What warrants a second pair of eyes
+
+- Confirm that all CI/release workflows run `go generate` or `cmd/build-web` before building release binaries, because embedding is now unconditional.
+
+### What should be done in the future
+
+- Consider adding a CI check that `internal/cssvisualdiff/review/embed/public/index.html` exists before building release artifacts.
+
+### Code review instructions
+
+- Review `internal/cssvisualdiff/review/embed.go` and confirm no build tag remains.
+- Confirm `internal/cssvisualdiff/review/embed_none.go` is removed.
+- Confirm docs no longer instruct users to pass `-tags embed` outside historical diary text.
+
+### Technical details
+
+- `go:embed embed/public` now always compiles into the package.
+- `PublicFS` remains the same `fs.Sub(embeddedFS, "embed/public")` value.

@@ -1,5 +1,3 @@
-//go:build embed
-
 package review
 
 import (
