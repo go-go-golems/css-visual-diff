@@ -1,4 +1,5 @@
 import type { SummaryRow, CompareData } from "../types";
+import { compareBounds, compareSourceUrls } from "../utils/compareData";
 
 export function MetaTab({
   row,
@@ -7,23 +8,26 @@ export function MetaTab({
   row: SummaryRow;
   compareData: CompareData | null;
 }) {
+  const bounds = compareBounds(compareData);
+  const sources = compareSourceUrls(compareData);
+
   return (
     <div className="p-4 space-y-4 text-xs">
       {/* Bounds */}
       <Section title="Bounds">
-        {compareData ? (
+        {bounds ? (
           <>
             <KV
               k="prototype"
-              v={`${compareData.bounds.left.width}×${Math.round(compareData.bounds.left.height)}`}
+              v={`${bounds.left.width}×${Math.round(bounds.left.height)}`}
             />
             <KV
               k="react"
-              v={`${compareData.bounds.right.width}×${Math.round(compareData.bounds.right.height)}`}
+              v={`${bounds.right.width}×${Math.round(bounds.right.height)}`}
             />
             <KV
               k="delta"
-              v={`+${Math.round(compareData.bounds.delta.height)}px tall`}
+              v={`+${Math.round(bounds.delta.height)}px tall`}
               highlight
             />
           </>
@@ -62,7 +66,7 @@ export function MetaTab({
       </Section>
 
       {/* Sources */}
-      {compareData && (
+      {sources && (
         <Section title="Sources">
           <div className="space-y-1">
             <div>
@@ -70,10 +74,10 @@ export function MetaTab({
                 prototype
               </div>
               <a
-                href={compareData.left.url}
+                href={sources.left}
                 className="font-mono text-[11px] text-text break-all hover:underline"
               >
-                {compareData.left.url}
+                {sources.left}
               </a>
             </div>
             <div className="pt-2">
@@ -81,10 +85,10 @@ export function MetaTab({
                 react
               </div>
               <a
-                href={compareData.right.url}
+                href={sources.right}
                 className="font-mono text-[11px] text-text break-all hover:underline"
               >
-                {compareData.right.url}
+                {sources.right}
               </a>
             </div>
           </div>
