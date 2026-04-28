@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { SummaryRow, CompareData } from "../types";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { changedAttributes, changedStyles } from "../utils/compareData";
 
 export function StylesTab({
   compareData,
@@ -9,8 +10,8 @@ export function StylesTab({
   compareData: CompareData | null;
 }) {
   const [expanded, setExpanded] = useState(true);
-  const styles = compareData?.styles.filter((s) => s.changed) ?? [];
-  const attrs = compareData?.attributes.filter((a) => a.changed) ?? [];
+  const styles = changedStyles(compareData);
+  const attrs = changedAttributes(compareData);
 
   return (
     <div>

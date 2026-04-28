@@ -3,6 +3,7 @@ import type {
   CompareData,
   CardReview,
 } from "../types";
+import { changedStyles, compareBounds, comparePixel, compareSourceUrls } from "./compareData";
 
 /**
  * Build a markdown + YAML export block for one card.
@@ -20,9 +21,14 @@ export function buildExportMarkdown(
     `**Classification:** ${row.classification} · ${row.changedPercent.toFixed(2)}% changed`,
   );
   parts.push(`**Status:** ${review.status}`);
-  if (compareData) {
+  const bounds = compareBounds(compareData);
+  const sources = compareSourceUrls(compareData);
+  const pixel = comparePixel(compareData);
+  const styles = changedStyles(compareData);
+
+  if (bounds) {
     parts.push(
-      `**Bounds delta:** Δheight ${compareData.bounds.delta.height}px · Δwidth ${compareData.bounds.delta.width}px`,
+      `**Bounds delta:** Δheight ${bounds.delta.height}px · Δwidth ${bounds.delta.width}px`,
     );
   }
   parts.push("");
@@ -62,9 +68,9 @@ export function buildExportMarkdown(
 
   parts.push("## Source");
   parts.push("");
-  if (compareData) {
-    parts.push(`- prototype: ${compareData.left.url}`);
-    parts.push(`- react: ${compareData.right.url}`);
+  if (sources) {
+    parts.push(`- prototype: ${sources.left}`);
+    parts.push(`- react: ${sources.right}`);
   }
   parts.push("");
 
@@ -77,19 +83,18 @@ export function buildExportMarkdown(
     classification: row.classification,
     changedPercent: row.changedPercent,
   };
-  if (compareData) {
+  if (bounds) {
     yamlObj.bounds = {
-      delta: compareData.bounds.delta,
-      left: compareData.bounds.left,
-      right: compareData.bounds.right,
+      delta: bounds.delta,
+      left: bounds.left,
+      right: bounds.right,
     };
-    yamlObj.pixel = {
-      changedPixels: compareData.pixel.changedPixels,
-      totalPixels: compareData.pixel.totalPixels,
-      threshold: compareData.pixel.threshold,
-    };
-    yamlObj.changedStyles = compareData.styles
-      .filter((s) => s.changed)
+  }
+  if (pixel) {
+    yamlObj.pixel = pixel;
+  }
+  if (styles.length > 0) {
+    yamlObj.changedStyles = styles
       .slice(0, 20)
       .map((s) => ({ name: s.name, left: s.left, right: s.right }));
   }
