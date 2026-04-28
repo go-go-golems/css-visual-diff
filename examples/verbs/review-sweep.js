@@ -411,3 +411,178 @@ __verb__("fromSpec", {
     sweepOutput: { bind: "sweepOutput" },
   },
 });
+
+// ── Verb: summary ───────────────────────────────────────────────────────────
+
+/**
+ * Walk an existing data directory, read compare.json files,
+ * and rebuild summary.json. Useful when the summary is lost
+ * or policy bands need to be re-applied.
+ *
+ * Handles two compare.json formats:
+ *  1. Catalog/inspect pipeline: camelCase (pixel.changedPercent, styles, left/right)
+ *  2. diff.compareRegion() output: snake_case (pixel_diff.changed_percent, computed_diffs, url1/url2)
+ */
+function summary(spec, sweepOutput) {
+  var fs = require("fs");
+  var pathMod = require("path");
+  var yaml = require("yaml");
+
+  var specText = fs.readFileSync(spec.specFile, "utf8");
+  var specObj = yaml.parse(specText);
+
+  var bands = resolveBands(specObj);
+  var threshold = (specObj.defaults && specObj.defaults.threshold) || 30;
+
+  var outDir = sweepOutput.outDir;
+  var rows = [];
+
+  // Walk for compare.json files
+  var pageNames = fs.readdirSync(outDir).filter(function (name) {
+    try {
+      return fs.statSync(pathMod.join(outDir, name)).isDirectory();
+    } catch (e) {
+      return false;
+    }
+  });
+
+  for (var pi = 0; pi < pageNames.length; pi++) {
+    var pageName = pageNames[pi];
+    var artifactsDir = pathMod.join(outDir, pageName, "artifacts");
+
+    var sectionNames = [];
+    try {
+      sectionNames = fs.readdirSync(artifactsDir).filter(function (name) {
+        try {
+          return fs.statSync(pathMod.join(artifactsDir, name)).isDirectory();
+        } catch (e) {
+          return false;
+        }
+      });
+    } catch (e) {
+      continue;
+    }
+
+    for (var si = 0; si < sectionNames.length; si++) {
+      var sectionName = sectionNames[si];
+      var comparePath = pathMod.join(artifactsDir, sectionName, "compare.json");
+
+      if (!fs.existsSync(comparePath)) {
+        continue;
+      }
+
+      try {
+        var data = JSON.parse(fs.readFileSync(comparePath, "utf8"));
+        var artifactDir = pathMod.join(outDir, pageName, "artifacts", sectionName);
+
+        var row = buildRowFromCompareJson(pageName, sectionName, data, bands, threshold, artifactDir, specObj);
+        rows.push(row);
+      } catch (err) {
+        console.warn("Failed to read " + comparePath + ": " + (err && err.message ? err.message : String(err)));
+      }
+    }
+  }
+
+  var summaryObj = buildSummary(rows);
+  var summaryPath = pathMod.join(outDir, "summary.json");
+  fs.writeFileSync(summaryPath, JSON.stringify(summaryObj, null, 2));
+
+  console.log("Rebuilt summary: " + rows.length + " rows -> " + summaryPath);
+  console.log("  policy: " + (summaryObj.policy.ok ? "PASS" : "FAIL") + " (" + summaryObj.policy.worstClassification + ")");
+
+  return summaryObj;
+}
+
+/**
+ * Build a row from a compare.json on disk.
+ * Handles both camelCase (catalog/inspect) and snake_case (compareRegion) formats.
+ */
+function buildRowFromCompareJson(pageName, sectionName, data, bands, defaultThreshold, artifactDir, spec) {
+  // Detect format
+  var isSnakeCase = !!data.pixel_diff;
+
+  var pct, changedPixels, totalPixels, thresh;
+  var leftSelector, rightSelector;
+  var styleDiffs, attributeDiffs, boundsObj;
+
+  if (isSnakeCase) {
+    // Format from diff.compareRegion() JSON on disk
+    var pd = data.pixel_diff || {};
+    pct = pd.changed_percent || 0;
+    changedPixels = pd.changed_pixels || 0;
+    totalPixels = pd.total_pixels || 0;
+    thresh = pd.threshold || defaultThreshold;
+    leftSelector = (data.inputs && data.inputs.selector1) || "";
+    rightSelector = (data.inputs && data.inputs.selector2) || "";
+
+    var cDiffs = data.computed_diffs || [];
+    styleDiffs = cDiffs
+      .filter(function (d) { return d.changed; })
+      .map(function (d) { return { property: d.property, left: d.left || "", right: d.right || "" }; });
+
+    // Attributes from computed snapshots
+    var lAttrs = (data.url1 && data.url1.computed && data.url1.computed.attributes) || {};
+    var rAttrs = (data.url2 && data.url2.computed && data.url2.computed.attributes) || {};
+    var aKeys = Object.keys(Object.assign({}, lAttrs, rAttrs));
+    attributeDiffs = aKeys
+      .filter(function (k) { return lAttrs[k] !== rAttrs[k]; })
+      .map(function (k) { return { attribute: k, left: lAttrs[k] || null, right: rAttrs[k] || null }; });
+
+    boundsObj = {};
+  } else {
+    // Format from catalog/inspect pipeline (camelCase)
+    var pixel = data.pixel || {};
+    pct = pixel.changedPercent || 0;
+    changedPixels = pixel.changedPixels || 0;
+    totalPixels = pixel.totalPixels || 0;
+    thresh = pixel.threshold || defaultThreshold;
+    leftSelector = (data.left && data.left.selector) || "";
+    rightSelector = (data.right && data.right.selector) || "";
+
+    var styles = data.styles || [];
+    styleDiffs = styles
+      .filter(function (s) { return s.changed; })
+      .map(function (s) { return { property: s.name, left: s.left, right: s.right }; });
+
+    var attrs = data.attributes || [];
+    attributeDiffs = attrs
+      .filter(function (a) { return a.changed; })
+      .map(function (a) { return { attribute: a.name, left: a.left || null, right: a.right || null }; });
+
+    boundsObj = data.bounds || {};
+  }
+
+  var classification = classify(pct, bands);
+
+  return {
+    page: pageName,
+    section: sectionName,
+    classification: classification,
+    changedPercent: pct,
+    changedPixels: changedPixels,
+    totalPixels: totalPixels,
+    threshold: thresh,
+    variant: (spec && spec.variant) || "desktop",
+    diffOnlyPath: pathMod.join(artifactDir, "diff_only.png"),
+    diffComparisonPath: pathMod.join(artifactDir, "diff_comparison.png"),
+    leftRegionPath: pathMod.join(artifactDir, "left_region.png"),
+    rightRegionPath: pathMod.join(artifactDir, "right_region.png"),
+    artifactJson: pathMod.join(artifactDir, "compare.json"),
+    leftSelector: leftSelector,
+    rightSelector: rightSelector,
+    styleChangeCount: styleDiffs.length,
+    attributeChangeCount: attributeDiffs.length,
+    styleDiffs: styleDiffs,
+    attributeDiffs: attributeDiffs,
+    bounds: boundsObj,
+    text: data.text || undefined,
+  };
+}
+
+__verb__("summary", {
+  short: "Rebuild summary.json from existing compare.json artifacts on disk",
+  fields: {
+    spec: { bind: "spec" },
+    sweepOutput: { bind: "sweepOutput" },
+  },
+});
