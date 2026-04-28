@@ -244,3 +244,170 @@ function buildSummary(rows) {
     rows: rows,
   };
 }
+
+// ── Verb: from-spec ─────────────────────────────────────────────────────────
+
+/**
+ * Read a YAML spec, run diff.compareRegion() for each page/section,
+ * write artifacts and summary.json to disk.
+ */
+async function fromSpec(spec, sweepOutput) {
+  var fs = require("fs");
+  var pathMod = require("path");
+  var yaml = require("yaml");
+  var diff = require("diff");
+
+  // 1. Read and parse spec
+  var specText = fs.readFileSync(spec.specFile, "utf8");
+  var specObj = yaml.parse(specText);
+
+  // 2. Validate
+  var pageEntries = Object.entries(specObj.pages || {});
+  if (pageEntries.length === 0) {
+    throw new Error("Spec contains no pages");
+  }
+
+  var bands = resolveBands(specObj);
+  var computedProps = specObj.computed || DEFAULT_COMPUTED;
+  var attrProps = specObj.attributes || ["id", "class"];
+  var waitMs = (specObj.defaults && specObj.defaults.waitMs) || 1000;
+  var threshold = (specObj.defaults && specObj.defaults.threshold) || 30;
+  var vpWidth = (specObj.viewport && specObj.viewport.width) || 920;
+  var vpHeight = (specObj.viewport && specObj.viewport.height) || 1460;
+
+  var outDir = sweepOutput.outDir;
+  var writeMd = sweepOutput.writeMarkdown !== false;
+  var failFast = sweepOutput.failFast === true;
+
+  var rows = [];
+  var errors = [];
+
+  // 3. Run comparisons
+  for (var pi = 0; pi < pageEntries.length; pi++) {
+    var pageName = pageEntries[pi][0];
+    var pageSpec = pageEntries[pi][1];
+    var sectionEntries = Object.entries(pageSpec.sections || {});
+
+    if (sectionEntries.length === 0) {
+      console.warn("Page \"" + pageName + "\" has no sections, skipping");
+      continue;
+    }
+
+    for (var si = 0; si < sectionEntries.length; si++) {
+      var sectionName = sectionEntries[si][0];
+      var sectionSpec = sectionEntries[si][1];
+      var selector = sectionSpec.selector;
+
+      if (!selector) {
+        console.warn("Section \"" + pageName + "/" + sectionName + "\" has no selector, skipping");
+        continue;
+      }
+
+      var leftSelector = sectionSpec.leftSelector || selector;
+      var rightSelector = sectionSpec.rightSelector || selector;
+      var leftWait = sectionSpec.leftWaitMs || pageSpec.leftWaitMs || waitMs;
+      var rightWait = sectionSpec.rightWaitMs || pageSpec.rightWaitMs || waitMs;
+
+      var artifactDir = pathMod.join(outDir, pageName, "artifacts", sectionName);
+      fs.mkdirSync(artifactDir, { recursive: true });
+
+      console.log("Comparing " + pageName + "/" + sectionName + "...");
+
+      try {
+        var result = diff.compareRegion({
+          left: {
+            url: pageSpec.leftUrl,
+            selector: leftSelector,
+            waitMs: leftWait,
+          },
+          right: {
+            url: pageSpec.rightUrl,
+            selector: rightSelector,
+            waitMs: rightWait,
+          },
+          viewport: {
+            width: vpWidth,
+            height: vpHeight,
+          },
+          output: {
+            outDir: artifactDir,
+            threshold: threshold,
+            writeJson: true,
+            writeMarkdown: writeMd,
+            writePngs: true,
+          },
+          computed: computedProps,
+          attributes: attrProps,
+        });
+
+        var row = buildRowFromCompareResult(pageName, sectionName, result, {
+          defaults: { threshold: threshold },
+          variant: specObj.variant,
+          policy: { bands: bands },
+        }, outDir);
+        rows.push(row);
+        console.log("  -> " + row.changedPercent.toFixed(2) + "% changed (" + row.classification + ")");
+      } catch (err) {
+        var errMsg = err && err.message ? err.message : String(err);
+        console.error("  ERROR: " + errMsg);
+        errors.push({ page: pageName, section: sectionName, error: errMsg });
+
+        if (failFast) {
+          throw err;
+        }
+
+        // Record a failure row so the reviewer can see it
+        rows.push({
+          page: pageName,
+          section: sectionName,
+          classification: "error",
+          changedPercent: -1,
+          changedPixels: 0,
+          totalPixels: 0,
+          threshold: threshold,
+          variant: specObj.variant || "desktop",
+          diffOnlyPath: "",
+          diffComparisonPath: "",
+          leftRegionPath: "",
+          rightRegionPath: "",
+          artifactJson: "",
+          leftSelector: leftSelector,
+          rightSelector: rightSelector,
+          styleChangeCount: 0,
+          attributeChangeCount: 0,
+          styleDiffs: [],
+          attributeDiffs: [],
+          bounds: {},
+          error: errMsg,
+        });
+      }
+    }
+  }
+
+  // 4. Assemble and write summary
+  var summary = buildSummary(rows);
+  var summaryPath = pathMod.join(outDir, "summary.json");
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(summaryPath, JSON.stringify(summary, null, 2));
+
+  console.log("");
+  console.log("Done: " + rows.length + " sections across " + summary.pageCount + " pages");
+  if (errors.length > 0) {
+    console.log("Errors: " + errors.length + " sections failed");
+  }
+  console.log("  max change: " + summary.maxChangedPercent.toFixed(2) + "%");
+  console.log("  policy: " + (summary.policy.ok ? "PASS" : "FAIL") + " (" + summary.policy.worstClassification + ")");
+  console.log("  summary: " + summaryPath);
+  console.log("");
+  console.log("Serve with: css-visual-diff serve --data-dir " + outDir + " --port 8098");
+
+  return summary;
+}
+
+__verb__("fromSpec", {
+  short: "Run visual comparisons from a YAML spec and produce a review site data directory",
+  fields: {
+    spec: { bind: "spec" },
+    sweepOutput: { bind: "sweepOutput" },
+  },
+});
