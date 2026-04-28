@@ -46,7 +46,7 @@ build:
 	GOWORK=off go build ./...
 
 build-embed: build-web
-	GOWORK=off go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff
+	GOWORK=off go build -o dist/css-visual-diff ./cmd/css-visual-diff
 
 build-web:
 	BUILD_WEB_LOCAL=1 GOWORK=off go run ./cmd/build-web

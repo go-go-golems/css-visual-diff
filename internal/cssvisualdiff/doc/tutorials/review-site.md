@@ -40,8 +40,8 @@ Build the frontend and embed it into the binary, then serve a comparison run:
 # Build the React SPA and copy into the Go embed directory
 BUILD_WEB_LOCAL=1 go run ./cmd/build-web
 
-# Compile the binary with the SPA embedded
-go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff
+# Compile the binary; the SPA is always embedded
+go build -o dist/css-visual-diff ./cmd/css-visual-diff
 
 # Serve a completed comparison run
 css-visual-diff serve \
@@ -79,7 +79,7 @@ The React SPA communicates with the Go server through three endpoints. You do no
 
 ### SPA Fallback
 
-Any request that does not match `/api/` or `/artifacts/` falls through to the embedded React SPA. Unknown paths serve `index.html` so that client-side routing works. If the binary was compiled without the `embed` build tag and no embedded assets exist, the root path returns a short HTML message explaining how to build the SPA.
+Any request that does not match `/api/` or `/artifacts/` falls through to the embedded React SPA. Unknown paths serve `index.html` so that client-side routing works. The SPA assets are always compiled into the Go binary from `internal/cssvisualdiff/review/embed/public/`.
 
 ## The Review Interface
 
@@ -206,10 +206,10 @@ The Go embed directory is populated by the build tool. To regenerate it and comp
 BUILD_WEB_LOCAL=1 go run ./cmd/build-web
 
 # Compile with embedded SPA
-go build -tags embed -o dist/css-visual-diff ./cmd/css-visual-diff
+go build -o dist/css-visual-diff ./cmd/css-visual-diff
 ```
 
-Without the `-tags embed` flag, the binary uses a filesystem fallback that reads from `internal/cssvisualdiff/review/embed/public/` on disk. This is useful during development when you want to rebuild the SPA frequently without recompiling Go.
+The SPA is always embedded from `internal/cssvisualdiff/review/embed/public/`; there is no non-embedded filesystem fallback. If you change frontend code, rebuild the web assets and then rebuild the Go binary.
 
 ### Development Workflow
 
@@ -271,7 +271,7 @@ css-visual-diff serve \
 
 | Problem | Cause | Solution |
 | --- | --- | --- |
-| "No embedded SPA found" message | Binary was compiled without the `embed` build tag, and no built SPA exists on disk. | Run `BUILD_WEB_LOCAL=1 go run ./cmd/build-web` then rebuild with `go build -tags embed`. |
+| "No embedded SPA found" message | The embedded asset directory does not contain `index.html` when the binary was built. | Run `BUILD_WEB_LOCAL=1 go run ./cmd/build-web` then rebuild with `go build`. |
 | Cards load but images show 404 | Artifact paths in the summary JSON do not match the data directory structure. | Ensure `--data-dir` points to the directory containing `<page>/artifacts/<section>/` subdirectories. |
 | Images not loading | The Go server is not running, or the port is wrong. | Verify the server is running and the browser is accessing the correct port. |
 | Export modal is empty | The summary JSON has no rows, or all rows have empty data. | Run css-visual-diff with `--summary` to produce a valid manifest. |
