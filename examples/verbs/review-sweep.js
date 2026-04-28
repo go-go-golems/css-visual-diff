@@ -181,8 +181,8 @@ function buildRowFromCompareResult(pageName, sectionName, result, spec, outDir) 
     variant: spec.variant || "desktop",
     diffOnlyPath: path.join(artifactDir, "diff_only.png"),
     diffComparisonPath: path.join(artifactDir, "diff_comparison.png"),
-    leftRegionPath: path.join(artifactDir, "url1_screenshot.png"),
-    rightRegionPath: path.join(artifactDir, "url2_screenshot.png"),
+    leftRegionPath: path.join(artifactDir, "left_region.png"),
+    rightRegionPath: path.join(artifactDir, "right_region.png"),
     artifactJson: path.join(artifactDir, "compare.json"),
     leftSelector: (result.inputs && result.inputs.selector1) || "",
     rightSelector: (result.inputs && result.inputs.selector2) || "",
@@ -192,6 +192,29 @@ function buildRowFromCompareResult(pageName, sectionName, result, spec, outDir) 
     attributeDiffs: attributeDiffs,
     bounds: boundsObj,
   };
+}
+
+/**
+ * compareRegion() writes url1_screenshot.png/url2_screenshot.png. The review
+ * site spec and older pipelines use left_region.png/right_region.png. Copy
+ * aliases so generated directories match the published review-site contract.
+ */
+function ensureReviewSiteArtifactAliases(artifactDir) {
+  var fs = require("fs");
+  var path = require("path");
+
+  var aliases = [
+    ["url1_screenshot.png", "left_region.png"],
+    ["url2_screenshot.png", "right_region.png"],
+  ];
+
+  for (var i = 0; i < aliases.length; i++) {
+    var src = path.join(artifactDir, aliases[i][0]);
+    var dst = path.join(artifactDir, aliases[i][1]);
+    if (fs.existsSync(src) && !fs.existsSync(dst)) {
+      fs.copyFileSync(src, dst);
+    }
+  }
 }
 
 /**
@@ -340,6 +363,8 @@ async function fromSpec(spec, sweepOutput) {
           attributes: attrProps,
         });
 
+        ensureReviewSiteArtifactAliases(artifactDir);
+
         var row = buildRowFromCompareResult(pageName, sectionName, result, {
           defaults: { threshold: threshold },
           variant: specObj.variant,
@@ -440,7 +465,7 @@ function summary(spec, sweepOutput) {
   // Walk for compare.json files
   var pageNames = fs.readdirSync(outDir).filter(function (name) {
     try {
-      return fs.statSync(pathMod.join(outDir, name)).isDirectory();
+      return fs.statSync(pathMod.join(outDir, name)).isDir === true;
     } catch (e) {
       return false;
     }
@@ -454,7 +479,7 @@ function summary(spec, sweepOutput) {
     try {
       sectionNames = fs.readdirSync(artifactsDir).filter(function (name) {
         try {
-          return fs.statSync(pathMod.join(artifactsDir, name)).isDirectory();
+          return fs.statSync(pathMod.join(artifactsDir, name)).isDir === true;
         } catch (e) {
           return false;
         }
@@ -498,6 +523,17 @@ function summary(spec, sweepOutput) {
  * Handles both camelCase (catalog/inspect) and snake_case (compareRegion) formats.
  */
 function buildRowFromCompareJson(pageName, sectionName, data, bands, defaultThreshold, artifactDir, spec) {
+  var fs = require("fs");
+  var pathMod = require("path");
+
+  function artifactPath(preferred, fallback) {
+    var preferredPath = pathMod.join(artifactDir, preferred);
+    if (fs.existsSync(preferredPath) || !fallback) {
+      return preferredPath;
+    }
+    return pathMod.join(artifactDir, fallback);
+  }
+
   // Detect format
   var isSnakeCase = !!data.pixel_diff;
 
@@ -565,8 +601,8 @@ function buildRowFromCompareJson(pageName, sectionName, data, bands, defaultThre
     variant: (spec && spec.variant) || "desktop",
     diffOnlyPath: pathMod.join(artifactDir, "diff_only.png"),
     diffComparisonPath: pathMod.join(artifactDir, "diff_comparison.png"),
-    leftRegionPath: pathMod.join(artifactDir, "left_region.png"),
-    rightRegionPath: pathMod.join(artifactDir, "right_region.png"),
+    leftRegionPath: isSnakeCase ? artifactPath("left_region.png", "url1_screenshot.png") : pathMod.join(artifactDir, "left_region.png"),
+    rightRegionPath: isSnakeCase ? artifactPath("right_region.png", "url2_screenshot.png") : pathMod.join(artifactDir, "right_region.png"),
     artifactJson: pathMod.join(artifactDir, "compare.json"),
     leftSelector: leftSelector,
     rightSelector: rightSelector,

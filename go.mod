@@ -10,7 +10,7 @@ require (
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/geppetto v0.11.16
 	github.com/go-go-golems/glazed v1.2.3
-	github.com/go-go-golems/go-go-goja v0.4.11
+	github.com/go-go-golems/go-go-goja v0.4.14
 	github.com/go-go-golems/pinocchio v0.10.16
 	github.com/rs/zerolog v1.35.0
 	github.com/spf13/cobra v1.10.2
@@ -59,6 +59,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
+	github.com/dop251/base64dec v0.0.0-20231022112746-c6c9f9a96217 // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
