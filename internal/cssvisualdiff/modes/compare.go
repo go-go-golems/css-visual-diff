@@ -2,6 +2,7 @@ package modes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -94,6 +95,14 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 	}
 
 	return WriteCompareArtifacts(result, settings.WriteJSON, settings.WriteMarkdown)
+}
+
+func writeJSON(path string, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
 func WriteCompareArtifacts(result CompareResult, writeJSONFile bool, writeMarkdownFile bool) error {
