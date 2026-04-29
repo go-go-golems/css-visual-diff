@@ -11,6 +11,10 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: internal/cssvisualdiff/dsl/scripts/catalog.js
+      Note: Removed built-in inspect-config verb in Phase 3
+    - Path: internal/cssvisualdiff/jsapi/module.go
+      Note: Removed cvd.loadConfig export in Phase 3
     - Path: internal/cssvisualdiff/modes/config_adapters.go
       Note: Temporary legacy config-to-service adapter layer introduced during Phase 1
     - Path: internal/cssvisualdiff/service/runtime_types.go
@@ -19,10 +23,12 @@ RelatedFiles:
       Note: Primary design guide produced during the investigation
 ExternalSources: []
 Summary: Chronological investigation diary for removing native YAML config and run pipeline complexity from css-visual-diff.
-LastUpdated: 2026-04-28T10:25:00-04:00
+LastUpdated: 2026-04-28T10:45:00-04:00
 WhatFor: Record the investigation, design decisions, and validation steps for the YAML/run removal ticket.
 WhenToUse: Read before implementing or reviewing the remove-yaml-run work.
 ---
+
+
 
 
 
@@ -212,3 +218,61 @@ The important architectural decision was to work from the desired final code bac
 - Then inspect `internal/cssvisualdiff/modes/config_adapters.go` to see the only intentional old-config bridge.
 - Finally check `internal/cssvisualdiff/jsapi/module.go`, `target.go`, `catalog.go`, and `builder_helpers.go` for service runtime type usage.
 - Validate with `GOWORK=off go test ./...`.
+
+---
+
+## Step 4: Remove Native YAML JS Compatibility Bridge
+
+Removed the old JavaScript compatibility bridge for native YAML configs. This completed the practical cleanup from Phase 2 and Phase 3: reusable service and JS API layers no longer import `internal/cssvisualdiff/config`, and the built-in `catalog inspect-config` verb is gone.
+
+This step deliberately did **not** remove generic YAML/object loading for JS verbs. Pyxis still uses `objectFromFile` for project-specific visual specs, which is the desired JS-first model. What disappeared is only the old native `css-visual-diff` config schema bridge (`cvd.loadConfig`) and the catalog command built on top of it.
+
+### Prompt Context
+
+**User prompt (verbatim):** (see Step 3)
+
+**Assistant interpretation:** Continue removing YAML/run complexity after cleaning up the Phase 1 runtime type refactor.
+
+**Inferred user intent:** The user wants momentum toward the simplified JS-first architecture and removal of old compatibility paths.
+
+**Commit (code):** 3d954892506fe50207eb704565424c9ac4a99c63 — "Remove YAML config JS compatibility bridge"
+
+### What I did
+- Removed `cvd.loadConfig(path)` from `internal/cssvisualdiff/jsapi/module.go`.
+- Deleted `internal/cssvisualdiff/jsapi/config.go`, which only lowered native YAML config structs into JS objects.
+- Removed `_selectorForSide`, `_probesFromConfig`, `inspectConfig`, and the `inspectConfig` verb registration from `internal/cssvisualdiff/dsl/scripts/catalog.js`.
+- Updated `internal/cssvisualdiff/verbcli/command_test.go` so built-in verb tests no longer expect `catalog inspect-config`.
+- Removed `inspect-config` and `loadConfig` references from README and JavaScript API/verbs docs.
+- Checked Phase 2 and Phase 3 tasks in docmgr.
+
+### Why
+- `cvd.loadConfig` preserved the old native YAML schema as a JS API surface. Keeping it would force the config package and lowering code to remain alive.
+- `catalog inspect-config` depended entirely on that bridge and duplicated JS-first inspection workflows.
+- Removing both keeps scripts focused on explicit project specs and direct JS primitives instead of old Go config objects.
+
+### What worked
+- `rg -n "loadConfig|inspectConfig|inspect-config|lowerConfig" internal README.md cmd examples -S` now only finds unrelated `loadConfigRepositories` references for verb repository discovery.
+- `rg -n "internal/cssvisualdiff/config" internal/cssvisualdiff/service internal/cssvisualdiff/jsapi --glob '*.go'` returns no service/jsapi config imports.
+- `GOWORK=off go test ./...` passed.
+- The pre-commit hook ran `golangci-lint` and `go test ./...`; both passed.
+
+### What didn't work
+- N/A
+
+### What I learned
+- Removing the compatibility bridge was a clean deletion once Phase 1 made the JS runtime independent of `config.Target`, `config.Viewport`, and `config.PrepareSpec`.
+- The remaining `loadConfigRepositories` name in `verbcli/bootstrap.go` is unrelated to native visual configs; it loads app config for JS verb repositories and should not be removed in this phase.
+
+### What was tricky to build
+- The name `loadConfig` appears both in the old JS API (`cvd.loadConfig`) and in verb repository discovery (`loadConfigRepositories`). The latter is still part of JS scriptability and should remain unless a separate ticket decides to remove `.css-visual-diff.yml` repository overlays.
+
+### What warrants a second pair of eyes
+- Check the docs diff to ensure we did not leave stale user instructions for `catalog inspect-config` or `cvd.loadConfig`.
+
+### What should be done in the future
+- Phase 4: remove the native `run` command, `runner` package, config-driven modes, and the temporary `modes/config_adapters.go` layer.
+
+### Code review instructions
+- Review `internal/cssvisualdiff/jsapi/module.go` and confirm there is no `loadConfig` export.
+- Review `internal/cssvisualdiff/dsl/scripts/catalog.js` and confirm only JS-first catalog verbs remain.
+- Run `GOWORK=off go test ./...`.

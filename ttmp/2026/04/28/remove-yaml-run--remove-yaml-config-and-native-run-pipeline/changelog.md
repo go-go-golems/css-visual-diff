@@ -22,3 +22,12 @@ Phase 1 complete: introduced config-free service runtime types and centralized t
 
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/service/runtime_types.go — Final service runtime types
 
+
+## 2026-04-29
+
+Phases 2-3 complete: removed cvd.loadConfig, jsapi config lowering, and built-in catalog inspect-config (commit 3d95489)
+
+### Related Files
+
+- /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/dsl/scripts/catalog.js — Removed native YAML inspect-config verb
+
