@@ -36,3 +36,8 @@ Phases 2-3 complete: removed cvd.loadConfig, jsapi config lowering, and built-in
 
 Removed native run CLI, runner package, config package, config-driven modes, obsolete YAML examples/docs, and validated JS-first command/Pyxis smoke paths.
 
+
+## 2026-04-29
+
+Ticket closed
+

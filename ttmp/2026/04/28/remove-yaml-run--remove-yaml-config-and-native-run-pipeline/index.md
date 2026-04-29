@@ -1,7 +1,7 @@
 ---
 Title: Remove YAML Config and Native Run Pipeline
 Ticket: remove-yaml-run
-Status: active
+Status: complete
 Topics:
     - css-visual-diff
     - javascript-api
@@ -13,10 +13,11 @@ Owners: []
 RelatedFiles: []
 ExternalSources: []
 Summary: ""
-LastUpdated: 2026-04-28T09:30:59.203770299-04:00
+LastUpdated: 2026-04-29T19:25:17.254217108-04:00
 WhatFor: ""
 WhenToUse: ""
 ---
+
 
 # Remove YAML Config and Native Run Pipeline
 
