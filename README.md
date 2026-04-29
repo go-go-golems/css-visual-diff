@@ -60,11 +60,6 @@ GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-page \
   --artifacts css-json \
   --output json
 
-# Inspect selectors from an existing YAML config into a catalog.
-GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-config \
-  examples/pyxis-atoms-prototype-vs-storybook.yaml react /tmp/cssvd-config \
-  --artifacts css-json \
-  --output json
 ```
 
 External verb repositories can be supplied at runtime:

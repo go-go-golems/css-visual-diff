@@ -9,7 +9,6 @@ import (
 
 	"github.com/dop251/goja"
 	noderequire "github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 	"github.com/go-go-golems/go-go-goja/engine"
 )
@@ -31,13 +30,6 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 				return nil, err
 			}
 			return wrapCatalog(ctx, vm, catalog), nil
-		})
-		_ = exports.Set("loadConfig", func(path string) goja.Value {
-			return promiseValue(ctx, vm, "css-visual-diff.loadConfig", func() (any, error) {
-				return config.Load(path)
-			}, func(vm *goja.Runtime, value any) goja.Value {
-				return vm.ToValue(lowerConfig(value.(*config.Config)))
-			})
 		})
 		_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
 			return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {

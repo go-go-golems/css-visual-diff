@@ -80,7 +80,6 @@ Exports:
 
 - `cvd.browser(options?)`
 - `cvd.catalog(options)`
-- `cvd.loadConfig(path)`
 - `cvd.viewport(width, height)` and named viewport helpers
 - `cvd.target(name)`
 - `cvd.probe(name)`
@@ -528,30 +527,6 @@ Writes:
 ```
 
 Returns the index path.
-
-## YAML interop
-
-`cvd.loadConfig(path)` loads an existing `*.css-visual-diff.yml` file through the Go config loader and returns a lowerCamel JS object.
-
-```js
-const cfg = await cvd.loadConfig("examples/pyxis-public-shows.yaml")
-const target = cfg.original
-const probes = cfg.styles.map((style) => ({
-  name: style.name,
-  selector: style.selectorOriginal || style.selector,
-  props: style.props,
-  attributes: style.attributes,
-}))
-```
-
-The built-in command below uses this helper:
-
-```bash
-css-visual-diff verbs catalog inspect-config \
-  ./example.css-visual-diff.yml original /tmp/catalog \
-  --artifacts css-json \
-  --output json
-```
 
 ## Error model
 
