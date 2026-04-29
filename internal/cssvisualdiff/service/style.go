@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 )
 
@@ -15,7 +14,16 @@ type styleEvalResult struct {
 	Attributes map[string]string `json:"attributes"`
 }
 
-func EvaluateStyle(page *driver.Page, spec config.StyleSpec) (StyleSnapshot, error) {
+// StyleEvalSpec captures the inputs needed to evaluate computed styles for a selector.
+type StyleEvalSpec struct {
+	Selector      string
+	Props         []string
+	Attributes    []string
+	IncludeBounds bool
+	Report        []string
+}
+
+func EvaluateStyle(page *driver.Page, spec StyleEvalSpec) (StyleSnapshot, error) {
 	props := spec.Props
 	if props == nil {
 		props = []string{}

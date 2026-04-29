@@ -2,6 +2,7 @@ package jsapi
 
 import (
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 func lowerConfig(cfg *config.Config) map[string]any {
@@ -33,7 +34,7 @@ func lowerConfigTarget(target config.Target) map[string]any {
 		"name":         target.Name,
 		"url":          target.URL,
 		"waitMs":       target.WaitMS,
-		"viewport":     lowerViewport(target.Viewport),
+		"viewport":     lowerViewport(service.Viewport{Width: target.Viewport.Width, Height: target.Viewport.Height}),
 		"rootSelector": target.RootSelector,
 	}
 	if target.Prepare != nil {

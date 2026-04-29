@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 type CompareSettings struct {
@@ -257,8 +257,7 @@ func captureCompareSide(
 		return CompareSideResult{}, err
 	}
 
-	styleSpec := config.StyleSpec{
-		Name:          prefix,
+	styleSpec := service.StyleEvalSpec{
 		Selector:      selector,
 		Props:         props,
 		IncludeBounds: true,
@@ -269,11 +268,9 @@ func captureCompareSide(
 		return CompareSideResult{}, err
 	}
 
-	matchedSpec := config.StyleSpec{
-		Name:     prefix,
+	matchedSpec := service.StyleEvalSpec{
 		Selector: selector,
 		Props:    props,
-		Report:   []string{"box_model"},
 	}
 	matched, err := evaluateMatched(page, matchedSpec)
 	if err != nil {

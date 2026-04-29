@@ -15,6 +15,7 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 	"github.com/rs/zerolog/log"
 )
 
@@ -183,9 +184,9 @@ func RunMatchedStyles(ctx context.Context, cfg *config.Config) error {
 		origSelector := selectorForTarget(style.Selector, style.SelectorOriginal)
 		reactSelector := selectorForTarget(style.Selector, style.SelectorReact)
 
-		origSpec := style
+		origSpec := toServiceStyleEvalSpec(style)
 		origSpec.Selector = origSelector
-		reactSpec := style
+		reactSpec := toServiceStyleEvalSpec(style)
 		reactSpec.Selector = reactSelector
 
 		origSnap, err := evaluateMatched(originalPage, origSpec)
@@ -222,7 +223,7 @@ func RunMatchedStyles(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func evaluateMatched(page *driver.Page, spec config.StyleSpec) (MatchedSnapshot, error) {
+func evaluateMatched(page *driver.Page, spec service.StyleEvalSpec) (MatchedSnapshot, error) {
 	var nodeIDs []cdp.NodeID
 	log.Info().Str("selector", spec.Selector).Msg("css-visual-diff matched-styles: query node IDs")
 	if err := chromedp.Run(page.Context(), chromedp.NodeIDs(spec.Selector, &nodeIDs, chromedp.ByQuery)); err != nil {

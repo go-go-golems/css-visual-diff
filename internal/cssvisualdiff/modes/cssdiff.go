@@ -96,9 +96,9 @@ func CSSDiff(ctx context.Context, cfg *config.Config) error {
 		origSelector := selectorForTarget(style.Selector, style.SelectorOriginal)
 		reactSelector := selectorForTarget(style.Selector, style.SelectorReact)
 
-		origSpec := style
+		origSpec := toServiceStyleEvalSpec(style)
 		origSpec.Selector = origSelector
-		reactSpec := style
+		reactSpec := toServiceStyleEvalSpec(style)
 		reactSpec.Selector = reactSelector
 
 		origSnap, err := evaluateStyle(originalPage, origSpec)
@@ -135,7 +135,7 @@ func CSSDiff(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func evaluateStyle(page *driver.Page, spec config.StyleSpec) (StyleSnapshot, error) {
+func evaluateStyle(page *driver.Page, spec service.StyleEvalSpec) (StyleSnapshot, error) {
 	return service.EvaluateStyle(page, spec)
 }
 

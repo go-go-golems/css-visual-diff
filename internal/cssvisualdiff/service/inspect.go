@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 )
 
@@ -30,17 +29,17 @@ type InspectRequest struct {
 }
 
 type InspectMetadata struct {
-	Side           string          `json:"side"`
-	TargetName     string          `json:"target_name"`
-	URL            string          `json:"url"`
-	Viewport       config.Viewport `json:"viewport"`
-	Name           string          `json:"name"`
-	Selector       string          `json:"selector"`
-	SelectorSource string          `json:"selector_source"`
-	RootSelector   string          `json:"root_selector,omitempty"`
-	PrepareType    string          `json:"prepare_type,omitempty"`
-	Format         string          `json:"format"`
-	CreatedAt      time.Time       `json:"created_at"`
+	Side           string    `json:"side"`
+	TargetName     string    `json:"target_name"`
+	URL            string    `json:"url"`
+	Viewport       Viewport  `json:"viewport"`
+	Name           string    `json:"name"`
+	Selector       string    `json:"selector"`
+	SelectorSource string    `json:"selector_source"`
+	RootSelector   string    `json:"root_selector,omitempty"`
+	PrepareType    string    `json:"prepare_type,omitempty"`
+	Format         string    `json:"format"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 type InspectArtifactResult struct {
@@ -62,7 +61,7 @@ type InspectResult struct {
 	Results   []InspectArtifactResult `json:"results"`
 }
 
-func InspectPreparedPage(page *driver.Page, target config.Target, side string, requests []InspectRequest, opts InspectAllOptions) (InspectResult, error) {
+func InspectPreparedPage(page *driver.Page, target PageTarget, side string, requests []InspectRequest, opts InspectAllOptions) (InspectResult, error) {
 	result := InspectResult{OutputDir: opts.OutDir}
 	if opts.OutputFile != "" && len(requests) != 1 {
 		return result, fmt.Errorf("outputFile requires exactly one inspect request, got %d", len(requests))
@@ -86,7 +85,7 @@ func InspectPreparedPage(page *driver.Page, target config.Target, side string, r
 	return result, nil
 }
 
-func WriteInspectArtifacts(page *driver.Page, target config.Target, side string, req InspectRequest, format, outDir, outputFile string) (InspectArtifactResult, error) {
+func WriteInspectArtifacts(page *driver.Page, target PageTarget, side string, req InspectRequest, format, outDir, outputFile string) (InspectArtifactResult, error) {
 	format, err := CanonicalInspectFormat(format)
 	if err != nil {
 		return InspectArtifactResult{}, err
@@ -145,7 +144,7 @@ func WriteInspectArtifacts(page *driver.Page, target config.Target, side string,
 		artifact.Screenshot = pngPath
 	}
 	if format == InspectFormatBundle || format == InspectFormatCSSJSON || format == InspectFormatCSSMarkdown {
-		style, err := EvaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
+		style, err := EvaluateStyle(page, StyleEvalSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
 		if err != nil {
 			return artifact, err
 		}
@@ -217,7 +216,7 @@ func WriteSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata 
 		}
 		artifact.HTML = path
 	case InspectFormatCSSJSON:
-		style, err := EvaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
+		style, err := EvaluateStyle(page, StyleEvalSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
 		if err != nil {
 			return artifact, err
 		}
@@ -226,7 +225,7 @@ func WriteSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata 
 			return artifact, err
 		}
 	case InspectFormatCSSMarkdown:
-		style, err := EvaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
+		style, err := EvaluateStyle(page, StyleEvalSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
 		if err != nil {
 			return artifact, err
 		}
@@ -364,7 +363,7 @@ func WriteInspectJSON(page *driver.Page, selector, path string) error {
 	return WriteJSON(path, out)
 }
 
-func RootSelectorForTarget(target config.Target) string {
+func RootSelectorForTarget(target PageTarget) string {
 	if target.RootSelector != "" {
 		return target.RootSelector
 	}

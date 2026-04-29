@@ -88,11 +88,12 @@ func Inspect(ctx context.Context, cfg *config.Config, opts InspectOptions) (Insp
 	}
 	defer page.Close()
 
-	if err := service.LoadAndPreparePage(page, target); err != nil {
+	svcTarget := toServicePageTarget(target)
+	if err := service.LoadAndPreparePage(page, svcTarget); err != nil {
 		return InspectResult{}, err
 	}
 
-	return service.InspectPreparedPage(page, target, side, requests, service.InspectAllOptions{
+	return service.InspectPreparedPage(page, svcTarget, side, requests, service.InspectAllOptions{
 		OutDir:     outDir,
 		Format:     format,
 		OutputFile: opts.OutputFile,
@@ -139,7 +140,7 @@ func BuildInspectRequests(cfg *config.Config, opts InspectOptions) ([]InspectReq
 	switch {
 	case opts.Root:
 		target, _, _ := inspectTargetForSide(cfg, opts.Side)
-		selector := rootSelectorForTarget(target)
+		selector := service.RootSelectorForTarget(toServicePageTarget(target))
 		if selector == "" {
 			return nil, fmt.Errorf("%s target has no root_selector", side)
 		}
@@ -235,11 +236,11 @@ func writeInspectArtifacts(page *driver.Page, target config.Target, side string,
 		Side:           side,
 		TargetName:     target.Name,
 		URL:            target.URL,
-		Viewport:       target.Viewport,
+		Viewport:       toServiceViewport(target.Viewport),
 		Name:           req.Name,
 		Selector:       req.Selector,
 		SelectorSource: req.Source,
-		RootSelector:   rootSelectorForTarget(target),
+		RootSelector:   service.RootSelectorForTarget(toServicePageTarget(target)),
 		Format:         format,
 		CreatedAt:      time.Now().UTC(),
 	}
@@ -285,7 +286,7 @@ func writeInspectArtifacts(page *driver.Page, target config.Target, side string,
 		artifact.Screenshot = pngPath
 	}
 	if format == InspectFormatBundle || format == InspectFormatCSSJSON || format == InspectFormatCSSMarkdown {
-		style, err := evaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
+		style, err := evaluateStyle(page, service.StyleEvalSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
 		if err != nil {
 			return artifact, err
 		}
@@ -363,7 +364,7 @@ func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata 
 		}
 		artifact.HTML = path
 	case InspectFormatCSSJSON:
-		style, err := evaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
+		style, err := evaluateStyle(page, service.StyleEvalSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
 		if err != nil {
 			return artifact, err
 		}
@@ -372,7 +373,7 @@ func writeSingleInspectArtifact(page *driver.Page, req InspectRequest, metadata 
 			return artifact, err
 		}
 	case InspectFormatCSSMarkdown:
-		style, err := evaluateStyle(page, config.StyleSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
+		style, err := evaluateStyle(page, service.StyleEvalSpec{Selector: req.Selector, Props: req.Props, Attributes: req.Attributes, IncludeBounds: true})
 		if err != nil {
 			return artifact, err
 		}

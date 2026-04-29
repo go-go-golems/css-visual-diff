@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 type CaptureResult struct {
@@ -331,13 +332,7 @@ func formatPageResult(label string, page PageResult) string {
 }
 
 func rootSelectorForTarget(target config.Target) string {
-	if target.RootSelector != "" {
-		return target.RootSelector
-	}
-	if target.Prepare != nil && target.Prepare.RootSelector != "" {
-		return target.Prepare.RootSelector
-	}
-	return ""
+	return service.RootSelectorForTarget(toServicePageTarget(target))
 }
 
 func selectorForSection(section config.SectionSpec, prefix string) string {
