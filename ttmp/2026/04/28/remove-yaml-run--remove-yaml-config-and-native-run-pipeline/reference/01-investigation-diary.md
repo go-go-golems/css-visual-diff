@@ -1,7 +1,7 @@
 ---
 Title: Investigation Diary
 Ticket: remove-yaml-run
-Status: active
+Status: complete
 Topics:
     - css-visual-diff
     - javascript-api
@@ -11,22 +11,29 @@ DocType: reference
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: README.md
+      Note: Rewrote old native run documentation to JS-first workflows
+    - Path: cmd/css-visual-diff/main.go
+      Note: Removed native run and config-driven inspect command registration in Phase 4
     - Path: internal/cssvisualdiff/dsl/scripts/catalog.js
       Note: Removed built-in inspect-config verb in Phase 3
     - Path: internal/cssvisualdiff/jsapi/module.go
       Note: Removed cvd.loadConfig export in Phase 3
+    - Path: internal/cssvisualdiff/modes/compare.go
+      Note: Kept direct compare path while deleting config-driven modes
     - Path: internal/cssvisualdiff/modes/config_adapters.go
-      Note: Temporary legacy config-to-service adapter layer introduced during Phase 1
+      Note: Temporary legacy config-to-service adapter layer introduced during Phase 1 and deleted during Phase 4
     - Path: internal/cssvisualdiff/service/runtime_types.go
       Note: Final config-free runtime types introduced during Phase 1
     - Path: ttmp/2026/04/28/remove-yaml-run--remove-yaml-config-and-native-run-pipeline/design-doc/01-removing-yaml-config-and-native-run-pipeline-design-and-implementation-guide.md
       Note: Primary design guide produced during the investigation
 ExternalSources: []
 Summary: Chronological investigation diary for removing native YAML config and run pipeline complexity from css-visual-diff.
-LastUpdated: 2026-04-28T10:45:00-04:00
+LastUpdated: 2026-04-29T19:23:05-04:00
 WhatFor: Record the investigation, design decisions, and validation steps for the YAML/run removal ticket.
 WhenToUse: Read before implementing or reviewing the remove-yaml-run work.
 ---
+
 
 
 
@@ -276,3 +283,93 @@ This step deliberately did **not** remove generic YAML/object loading for JS ver
 - Review `internal/cssvisualdiff/jsapi/module.go` and confirm there is no `loadConfig` export.
 - Review `internal/cssvisualdiff/dsl/scripts/catalog.js` and confirm only JS-first catalog verbs remain.
 - Run `GOWORK=off go test ./...`.
+
+---
+
+## Step 7: Delete the Native Run Pipeline
+
+After the JS API compatibility bridge was gone, I continued with the larger deletion pass. The goal was to remove the old native YAML execution path rather than keep it as an unregistered or partially working subsystem.
+
+### What I removed
+
+- Removed `RunCommand`, `RunSettings`, config discovery, dry-run handling, coverage row emission, and story row emission from `cmd/css-visual-diff/main.go`.
+- Stopped registering `css-visual-diff run` at the root CLI.
+- Removed the config-driven inspect commands (`inspect`, `screenshot`, `css-md`, `css-json`, `html`, and `inspect-json`) because they depended on native YAML config loading.
+- Deleted the `internal/cssvisualdiff/runner` package.
+- Deleted the old native YAML config package at `internal/cssvisualdiff/config` once no Go code imported it anymore.
+- Deleted config-driven mode entrypoints and tests:
+  - `capture.go`
+  - `inspect.go`
+  - `prepare.go`
+  - `pixeldiff.go`
+  - `png_validation.go`
+  - `ai_review.go`
+  - `html_report.go`
+  - `stories.go`
+  - `modes.go`
+  - associated tests
+- Deleted `internal/cssvisualdiff/modes/config_adapters.go`, the temporary Phase 1 bridge from native config structs to service runtime structs.
+
+### What I kept
+
+I kept the direct comparison path and the reusable helper logic behind it:
+
+- `css-visual-diff compare`
+- `css-visual-diff llm-review`
+- `css-visual-diff serve`
+- `css-visual-diff verbs ...`
+- `modes.Compare`, `modes.GenerateCompareResult`, `modes.WriteCompareArtifacts`
+- style and matched-style helper types needed by direct compare and JS-facing workflows
+
+The `modes` package is now utility/direct-command oriented rather than a registry of native YAML run modes.
+
+### Validation
+
+```bash
+GOWORK=off go test ./...
+GOWORK=off go run ./cmd/css-visual-diff --help
+GOWORK=off go run ./cmd/css-visual-diff run --help
+GOWORK=off go run ./cmd/css-visual-diff verbs --help
+GOWORK=off go run ./cmd/css-visual-diff verbs catalog inspect-page --help
+```
+
+Results:
+
+- Full Go test suite passed.
+- Root help no longer lists `run` or config-driven inspect artifact commands.
+- `css-visual-diff run --help` fails with `unknown command "run"`, which is the expected result.
+- `verbs` and `verbs catalog inspect-page` still load.
+
+---
+
+## Step 8: Remove Old Native YAML Examples and Docs
+
+With the code path deleted, I removed documentation and examples that would teach users to use commands that no longer exist.
+
+### What I removed or rewrote
+
+- Deleted the old native YAML examples under `examples/*.yaml`.
+- Deleted obsolete embedded help docs for native config selectors, artifact commands, config-driven inspect workflow, and story config authoring.
+- Rewrote the README tail to describe JS-first workflows, direct `compare`, and verb-based project suites instead of `run --config` or `run --config-dir`.
+- Updated the review-site data spec to remove the `run` + YAML approach and present JavaScript verbs as the project-scale path.
+- Added a small embedded help example, `internal/cssvisualdiff/doc/examples/js-verb-review-sweep.md`, so the `examples/*.md` embed pattern still has a JS-first example.
+
+### Pyxis smoke validation
+
+I built the local binary and ran the light Pyxis userland smoke that does not require browser servers:
+
+```bash
+GOWORK=off go build -o /tmp/cssvd-bin/css-visual-diff ./cmd/css-visual-diff
+cd /home/manuel/code/wesen/2026-04-23--pyxis
+PATH=/tmp/cssvd-bin:$PATH prototype-design/visual-diff/userland/scripts/smoke-list-targets.sh
+```
+
+The smoke completed successfully and wrote JSON target output. I did not run browser-dependent Pyxis comparison smokes because they require the prototype and Storybook/app servers to be running.
+
+### Final validation searches
+
+```bash
+rg -n "RunCommand|NewRunCommand|runner\.Run|NormalizeModes|--config-dir|css-visual-diff YAML config|internal/cssvisualdiff/config|config_adapters|modes\.Capture|modes\.Inspect|cvd\.loadConfig|inspect-config" cmd internal README.md examples -S
+```
+
+This returned no active code/doc references under the searched paths.

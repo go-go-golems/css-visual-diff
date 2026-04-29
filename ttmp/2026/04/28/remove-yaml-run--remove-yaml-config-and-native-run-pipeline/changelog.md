@@ -31,3 +31,8 @@ Phases 2-3 complete: removed cvd.loadConfig, jsapi config lowering, and built-in
 
 - /home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/dsl/scripts/catalog.js — Removed native YAML inspect-config verb
 
+
+## 2026-04-29
+
+Removed native run CLI, runner package, config package, config-driven modes, obsolete YAML examples/docs, and validated JS-first command/Pyxis smoke paths.
+
