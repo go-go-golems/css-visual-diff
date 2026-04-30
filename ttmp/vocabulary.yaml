@@ -15,6 +15,16 @@ topics:
       description: Glazed command, config, and help framework integration
     - slug: javascript-api
       description: JavaScript API and repository-scanned verb commands
+    - slug: capture
+      description: Screenshot, image capture, and visual recording workflows
+    - slug: cdp
+      description: Chrome DevTools Protocol integration and commands
+    - slug: frontend
+      description: Frontend UI, DOM, CSS, and browser-facing features
+    - slug: goja
+      description: Goja JavaScript runtime integration and scripting
+    - slug: chromedp
+      description: Go chromedp library and browser automation
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes
