@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", "Tiempos Headline", Georgia, serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  --font-sans: "Geist", system-ui, sans-serif;
+
+  --color-cream: #F5F2EA;
+  --color-cream-light: #FFFDF7;
+  --color-cream-mid: #F0EDE3;
+  --color-border: #E0DCD0;
+  --color-border-light: #D8D3C5;
+  --color-text: #1A1815;
+  --color-text-muted: #6B6862;
+  --color-text-faint: #A8A39A;
+  --color-red: #B91C1C;
+  --color-amber: #B68545;
+  --color-teal: #2D6F62;
+  --color-plum: #714464;
+}

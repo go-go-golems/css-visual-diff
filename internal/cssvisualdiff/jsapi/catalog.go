@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 	"github.com/go-go-golems/go-go-goja/engine"
 )
@@ -95,13 +94,13 @@ func wrapCatalog(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, catalog *se
 }
 
 type catalogTargetInput struct {
-	Slug        string          `json:"slug"`
-	Name        string          `json:"name"`
-	URL         string          `json:"url"`
-	Selector    string          `json:"selector"`
-	Viewport    config.Viewport `json:"viewport"`
-	Description string          `json:"description"`
-	Metadata    map[string]any  `json:"metadata"`
+	Slug        string           `json:"slug"`
+	Name        string           `json:"name"`
+	URL         string           `json:"url"`
+	Selector    string           `json:"selector"`
+	Viewport    service.Viewport `json:"viewport"`
+	Description string           `json:"description"`
+	Metadata    map[string]any   `json:"metadata"`
 }
 
 func decodeCatalogTarget(raw any) (service.CatalogTargetRecord, error) {
@@ -166,17 +165,17 @@ type catalogInspectArtifactInput struct {
 }
 
 type catalogInspectMetadataInput struct {
-	Side           string          `json:"side"`
-	TargetName     string          `json:"targetName"`
-	URL            string          `json:"url"`
-	Viewport       config.Viewport `json:"viewport"`
-	Name           string          `json:"name"`
-	Selector       string          `json:"selector"`
-	SelectorSource string          `json:"selectorSource"`
-	RootSelector   string          `json:"rootSelector"`
-	PrepareType    string          `json:"prepareType"`
-	Format         string          `json:"format"`
-	CreatedAt      string          `json:"createdAt"`
+	Side           string           `json:"side"`
+	TargetName     string           `json:"targetName"`
+	URL            string           `json:"url"`
+	Viewport       service.Viewport `json:"viewport"`
+	Name           string           `json:"name"`
+	Selector       string           `json:"selector"`
+	SelectorSource string           `json:"selectorSource"`
+	RootSelector   string           `json:"rootSelector"`
+	PrepareType    string           `json:"prepareType"`
+	Format         string           `json:"format"`
+	CreatedAt      string           `json:"createdAt"`
 }
 
 type catalogStyleSnapshotInput struct {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/dop251/goja"
 	noderequire "github.com/dop251/goja_nodejs/require"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 	"github.com/go-go-golems/go-go-goja/engine"
 )
@@ -31,13 +30,6 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 				return nil, err
 			}
 			return wrapCatalog(ctx, vm, catalog), nil
-		})
-		_ = exports.Set("loadConfig", func(path string) goja.Value {
-			return promiseValue(ctx, vm, "css-visual-diff.loadConfig", func() (any, error) {
-				return config.Load(path)
-			}, func(vm *goja.Runtime, value any) goja.Value {
-				return vm.ToValue(lowerConfig(value.(*config.Config)))
-			})
 		})
 		_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
 			return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {
@@ -149,7 +141,7 @@ func wrapBrowser(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, browser *se
 			if err != nil {
 				return nil, err
 			}
-			return newPageState(page, config.Target{}), nil
+			return newPageState(page, service.PageTarget{}), nil
 		}, func(vm *goja.Runtime, value any) goja.Value {
 			return wrapPage(ctx, vm, value.(*pageState))
 		})
@@ -190,10 +182,10 @@ func wrapBrowser(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, browser *se
 type pageState struct {
 	mu     sync.Mutex
 	page   *service.PageService
-	target config.Target
+	target service.PageTarget
 }
 
-func newPageState(page *service.PageService, target config.Target) *pageState {
+func newPageState(page *service.PageService, target service.PageTarget) *pageState {
 	return &pageState{page: page, target: target}
 }
 
@@ -314,15 +306,15 @@ func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageSta
 }
 
 type pageOptions struct {
-	Viewport config.Viewport `json:"viewport"`
-	WaitMS   int             `json:"waitMs"`
-	Name     string          `json:"name"`
+	Viewport service.Viewport `json:"viewport"`
+	WaitMS   int              `json:"waitMs"`
+	Name     string           `json:"name"`
 }
 
-func (o pageOptions) toTarget(url string) (config.Target, error) {
+func (o pageOptions) toTarget(url string) (service.PageTarget, error) {
 	url = strings.TrimSpace(url)
 	if url == "" {
-		return config.Target{}, fmt.Errorf("url is required")
+		return service.PageTarget{}, fmt.Errorf("url is required")
 	}
 	viewport := o.Viewport
 	if viewport.Width <= 0 {
@@ -335,10 +327,10 @@ func (o pageOptions) toTarget(url string) (config.Target, error) {
 	if name == "" {
 		name = "script"
 	}
-	return config.Target{Name: name, URL: url, WaitMS: o.WaitMS, Viewport: viewport}, nil
+	return service.PageTarget{Name: name, URL: url, WaitMS: o.WaitMS, Viewport: viewport}, nil
 }
 
-func targetSummary(target config.Target) map[string]any {
+func targetSummary(target service.PageTarget) map[string]any {
 	return map[string]any{
 		"name":     target.Name,
 		"url":      target.URL,
@@ -384,16 +376,16 @@ type prepareSpecInput struct {
 	Background       string         `json:"background"`
 }
 
-func decodePrepareSpec(raw map[string]any) (config.PrepareSpec, error) {
+func decodePrepareSpec(raw map[string]any) (service.PrepareSpec, error) {
 	input, err := decodeInto[prepareSpecInput](raw)
 	if err != nil {
-		return config.PrepareSpec{}, err
+		return service.PrepareSpec{}, err
 	}
 	prepareType := input.Type
 	if prepareType == "directReactGlobal" {
 		prepareType = "direct-react-global"
 	}
-	return config.PrepareSpec{
+	return service.PrepareSpec{
 		Type:             prepareType,
 		Script:           input.Script,
 		ScriptFile:       input.ScriptFile,
@@ -544,7 +536,7 @@ func lowerBounds(bounds service.Bounds) map[string]any {
 	}
 }
 
-func lowerViewport(viewport config.Viewport) map[string]any {
+func lowerViewport(viewport service.Viewport) map[string]any {
 	return map[string]any{
 		"width":  viewport.Width,
 		"height": viewport.Height,

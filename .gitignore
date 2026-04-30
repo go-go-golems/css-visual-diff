@@ -26,3 +26,9 @@ css-visual-diff-compare-*
 
 # Generated visual-diff example artifacts
 examples/out/
+
+# Generated review site SPA assets (built by cmd/build-web)
+internal/cssvisualdiff/review/embed/public/
+!internal/cssvisualdiff/review/embed/public/.keep
+.playwright-mcp/
+review-site-*.png

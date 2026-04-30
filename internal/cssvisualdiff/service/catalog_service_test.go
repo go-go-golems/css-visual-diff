@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +22,7 @@ func TestCatalogWritesManifestAndIndex(t *testing.T) {
 		Name:     "Prototype Public Shows",
 		URL:      "http://example.test/shows",
 		Selector: "#root",
-		Viewport: config.Viewport{Width: 400, Height: 300},
+		Viewport: Viewport{Width: 400, Height: 300},
 	}
 	catalog.AddTarget(target)
 	catalog.RecordPreflight(target, []SelectorStatus{{Name: "root", Selector: "#root", Exists: true, Visible: true}})

@@ -45,6 +45,18 @@ build:
 	GOWORK=off go generate ./...
 	GOWORK=off go build ./...
 
+build-embed: build-web
+	GOWORK=off go build -o dist/css-visual-diff ./cmd/css-visual-diff
+
+build-web:
+	BUILD_WEB_LOCAL=1 GOWORK=off go run ./cmd/build-web
+
+dev-web:
+	cd web/review-site && pnpm dev
+
+dev-serve:
+	GOWORK=off go run ./cmd/css-visual-diff serve --data-dir /tmp/cssvd-review-test --port 8098
+
 goreleaser:
 	GOWORK=off goreleaser release $(GORELEASER_ARGS) $(GORELEASER_TARGET)
 

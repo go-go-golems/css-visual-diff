@@ -10,13 +10,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 	"github.com/stretchr/testify/require"
 )
 
 func TestInspectPreparedPageRejectsOutputFileWithMultipleRequests(t *testing.T) {
-	_, err := InspectPreparedPage(nil, config.Target{}, "script", []InspectRequest{
+	_, err := InspectPreparedPage(nil, PageTarget{}, "script", []InspectRequest{
 		{Name: "one", Selector: "#one"},
 		{Name: "two", Selector: "#two"},
 	}, InspectAllOptions{OutDir: t.TempDir(), OutputFile: filepath.Join(t.TempDir(), "computed-css.json"), Format: InspectFormatCSSJSON})
@@ -42,10 +41,10 @@ func TestInspectPreparedPageWritesArtifactsWithoutReloadingPerProbe(t *testing.T
 	require.NoError(t, err)
 	defer page.Close()
 
-	target := config.Target{
+	target := PageTarget{
 		Name:     "fixture",
 		URL:      server.URL,
-		Viewport: config.Viewport{Width: 400, Height: 300},
+		Viewport: Viewport{Width: 400, Height: 300},
 	}
 	require.NoError(t, LoadAndPreparePage(page, target))
 	require.Equal(t, int32(1), atomic.LoadInt32(&hits))

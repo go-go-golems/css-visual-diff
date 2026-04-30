@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 )
 
@@ -169,6 +168,6 @@ func LocatorComputedStyle(page *driver.Page, locator LocatorSpec, props []string
 	return snapshot.Computed, nil
 }
 
-func configStyleSpec(selector string, props []string, attrs []string, includeBounds bool) config.StyleSpec {
-	return config.StyleSpec{Selector: selector, Props: props, Attributes: attrs, IncludeBounds: includeBounds}
+func configStyleSpec(selector string, props []string, attrs []string, includeBounds bool) StyleEvalSpec {
+	return StyleEvalSpec{Selector: selector, Props: props, Attributes: attrs, IncludeBounds: includeBounds}
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 )
 
@@ -58,11 +57,11 @@ func (p *PageService) Close() {
 	}
 }
 
-func (p *PageService) LoadAndPrepareTarget(target config.Target) error {
+func (p *PageService) LoadAndPrepareTarget(target PageTarget) error {
 	return LoadAndPreparePage(p.page, target)
 }
 
-func LoadAndPreparePage(page *driver.Page, target config.Target) error {
+func LoadAndPreparePage(page *driver.Page, target PageTarget) error {
 	if err := page.SetViewport(target.Viewport.Width, target.Viewport.Height); err != nil {
 		return err
 	}

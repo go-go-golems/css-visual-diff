@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 func requiredStringArg(vm *goja.Runtime, operation string, value goja.Value) string {
@@ -42,9 +42,9 @@ func requiredNonNegativeIntArg(vm *goja.Runtime, operation string, value goja.Va
 	return int(number)
 }
 
-func viewportFromCall(vm *goja.Runtime, operation string, args []goja.Value) config.Viewport {
+func viewportFromCall(vm *goja.Runtime, operation string, args []goja.Value) service.Viewport {
 	if len(args) == 1 && args[0] != nil && !goja.IsUndefined(args[0]) && !goja.IsNull(args[0]) {
-		viewport, err := decodeInto[config.Viewport](args[0].Export())
+		viewport, err := decodeInto[service.Viewport](args[0].Export())
 		if err != nil {
 			panic(typeMismatchError(vm, operation, "viewport object { width, height }", args[0]))
 		}
@@ -52,7 +52,7 @@ func viewportFromCall(vm *goja.Runtime, operation string, args []goja.Value) con
 		return viewport
 	}
 	if len(args) >= 2 {
-		viewport := config.Viewport{Width: requiredPositiveIntArg(vm, operation+".width", args[0]), Height: requiredPositiveIntArg(vm, operation+".height", args[1])}
+		viewport := service.Viewport{Width: requiredPositiveIntArg(vm, operation+".width", args[0]), Height: requiredPositiveIntArg(vm, operation+".height", args[1])}
 		validateViewport(vm, operation, viewport)
 		return viewport
 	}
@@ -70,7 +70,7 @@ func requiredPositiveIntArg(vm *goja.Runtime, operation string, value goja.Value
 	return int(number)
 }
 
-func validateViewport(vm *goja.Runtime, operation string, viewport config.Viewport) {
+func validateViewport(vm *goja.Runtime, operation string, viewport service.Viewport) {
 	if viewport.Width <= 0 || viewport.Height <= 0 {
 		panic(vm.NewTypeError("%s: expected positive width and height, got width=%d height=%d", operation, viewport.Width, viewport.Height))
 	}

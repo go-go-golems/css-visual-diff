@@ -2,6 +2,7 @@ package modes
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,8 +10,8 @@ import (
 	"time"
 
 	"github.com/chromedp/chromedp"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 type CompareSettings struct {
@@ -94,6 +95,14 @@ func Compare(ctx context.Context, settings CompareSettings) error {
 	}
 
 	return WriteCompareArtifacts(result, settings.WriteJSON, settings.WriteMarkdown)
+}
+
+func writeJSON(path string, v any) error {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0o644)
 }
 
 func WriteCompareArtifacts(result CompareResult, writeJSONFile bool, writeMarkdownFile bool) error {
@@ -257,8 +266,7 @@ func captureCompareSide(
 		return CompareSideResult{}, err
 	}
 
-	styleSpec := config.StyleSpec{
-		Name:          prefix,
+	styleSpec := service.StyleEvalSpec{
 		Selector:      selector,
 		Props:         props,
 		IncludeBounds: true,
@@ -269,11 +277,9 @@ func captureCompareSide(
 		return CompareSideResult{}, err
 	}
 
-	matchedSpec := config.StyleSpec{
-		Name:     prefix,
+	matchedSpec := service.StyleEvalSpec{
 		Selector: selector,
 		Props:    props,
-		Report:   []string{"box_model"},
 	}
 	matched, err := evaluateMatched(page, matchedSpec)
 	if err != nil {

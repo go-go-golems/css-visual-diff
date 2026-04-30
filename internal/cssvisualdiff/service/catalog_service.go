@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 )
 
 const CatalogSchemaVersion = "css-visual-diff.catalog.v1"
@@ -40,13 +38,13 @@ type CatalogManifest struct {
 }
 
 type CatalogTargetRecord struct {
-	Slug        string          `json:"slug"`
-	Name        string          `json:"name,omitempty"`
-	URL         string          `json:"url,omitempty"`
-	Selector    string          `json:"selector,omitempty"`
-	Viewport    config.Viewport `json:"viewport,omitempty"`
-	Description string          `json:"description,omitempty"`
-	Metadata    map[string]any  `json:"metadata,omitempty"`
+	Slug        string         `json:"slug"`
+	Name        string         `json:"name,omitempty"`
+	URL         string         `json:"url,omitempty"`
+	Selector    string         `json:"selector,omitempty"`
+	Viewport    Viewport       `json:"viewport,omitempty"`
+	Description string         `json:"description,omitempty"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
 }
 
 type CatalogPreflightRecord struct {

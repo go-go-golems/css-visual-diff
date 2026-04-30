@@ -37,7 +37,6 @@ Built-ins include:
 css-visual-diff verbs script compare region ...
 css-visual-diff verbs script compare brief ...
 css-visual-diff verbs catalog inspect-page ...
-css-visual-diff verbs catalog inspect-config ...
 ```
 
 ## Repository sources
@@ -352,17 +351,6 @@ css-visual-diff verbs catalog inspect-page \
   --output json
 ```
 
-### Inspect a YAML config
-
-```bash
-css-visual-diff verbs catalog inspect-config \
-  ./page.css-visual-diff.yml original /tmp/cssvd-config \
-  --artifacts css-json \
-  --output json
-```
-
-`inspect-config` loads the Go YAML config, picks `original` or `react`, derives probes from `styles` first and `sections` second, then writes a catalog manifest/index.
-
 ## Duplicate command paths
 
 If two repositories define the same generated command path, command construction fails with a clear error such as:
@@ -399,5 +387,4 @@ scripts/007-binary-js-api-success-smoke.sh
 scripts/008-binary-js-api-typed-error-smoke.sh
 scripts/009-binary-catalog-smoke.sh
 scripts/010-binary-built-in-catalog-inspect-page-smoke.sh
-scripts/011-binary-built-in-catalog-inspect-config-smoke.sh
 ```

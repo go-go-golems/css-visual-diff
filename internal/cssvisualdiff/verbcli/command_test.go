@@ -29,11 +29,6 @@ func TestNewCommandIncludesBuiltinVerbs(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, found)
 	require.Equal(t, "inspect-page", found.Name())
-
-	found, _, err = cmd.Find([]string{"catalog", "inspect-config"})
-	require.NoError(t, err)
-	require.NotNil(t, found)
-	require.Equal(t, "inspect-config", found.Name())
 }
 
 func TestLazyCommandRunsVerbFromGitRootLocalConfig(t *testing.T) {

@@ -3,18 +3,15 @@ package modes
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
-	"time"
 	"unicode"
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/css"
 	"github.com/chromedp/cdproto/dom"
 	"github.com/chromedp/chromedp"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 	"github.com/rs/zerolog/log"
 )
 
@@ -124,105 +121,7 @@ type Candidate struct {
 	Order       int
 }
 
-func RunMatchedStyles(ctx context.Context, cfg *config.Config) error {
-	if !cfg.Output.WriteJSON && !cfg.Output.WriteMarkdown {
-		return nil
-	}
-
-	if err := os.MkdirAll(cfg.Output.Dir, 0o755); err != nil {
-		return err
-	}
-
-	browser, err := driver.NewBrowser(ctx)
-	if err != nil {
-		return err
-	}
-	defer browser.Close()
-
-	originalPage, err := browser.NewPage()
-	if err != nil {
-		return err
-	}
-	defer originalPage.Close()
-
-	reactPage, err := browser.NewPage()
-	if err != nil {
-		return err
-	}
-	defer reactPage.Close()
-
-	if err := originalPage.SetViewport(cfg.Original.Viewport.Width, cfg.Original.Viewport.Height); err != nil {
-		return err
-	}
-	if err := reactPage.SetViewport(cfg.React.Viewport.Width, cfg.React.Viewport.Height); err != nil {
-		return err
-	}
-
-	if err := originalPage.Goto(cfg.Original.URL); err != nil {
-		return err
-	}
-	if cfg.Original.WaitMS > 0 {
-		originalPage.Wait(time.Duration(cfg.Original.WaitMS) * time.Millisecond)
-	}
-	if err := prepareTarget(originalPage, cfg.Original); err != nil {
-		return err
-	}
-
-	if err := reactPage.Goto(cfg.React.URL); err != nil {
-		return err
-	}
-	if cfg.React.WaitMS > 0 {
-		reactPage.Wait(time.Duration(cfg.React.WaitMS) * time.Millisecond)
-	}
-	if err := prepareTarget(reactPage, cfg.React); err != nil {
-		return err
-	}
-
-	result := MatchedStylesResult{}
-	for _, style := range cfg.Styles {
-		origSelector := selectorForTarget(style.Selector, style.SelectorOriginal)
-		reactSelector := selectorForTarget(style.Selector, style.SelectorReact)
-
-		origSpec := style
-		origSpec.Selector = origSelector
-		reactSpec := style
-		reactSpec.Selector = reactSelector
-
-		origSnap, err := evaluateMatched(originalPage, origSpec)
-		if err != nil {
-			return err
-		}
-		reactSnap, err := evaluateMatched(reactPage, reactSpec)
-		if err != nil {
-			return err
-		}
-		winners := buildWinnerDiffs(style.Props, origSnap, reactSnap)
-		result.Styles = append(result.Styles, MatchedStyleEntry{
-			Name:             style.Name,
-			Selector:         style.Selector,
-			OriginalSelector: origSelector,
-			ReactSelector:    reactSelector,
-			Original:         origSnap,
-			React:            reactSnap,
-			Winners:          winners,
-		})
-	}
-
-	if cfg.Output.WriteJSON {
-		if err := writeJSON(filepath.Join(cfg.Output.Dir, "matched-styles.json"), result); err != nil {
-			return err
-		}
-	}
-	if cfg.Output.WriteMarkdown {
-		if err := writeMatchedMarkdown(filepath.Join(cfg.Output.Dir, "matched-styles.md"), result); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func evaluateMatched(page *driver.Page, spec config.StyleSpec) (MatchedSnapshot, error) {
+func evaluateMatched(page *driver.Page, spec service.StyleEvalSpec) (MatchedSnapshot, error) {
 	var nodeIDs []cdp.NodeID
 	log.Info().Str("selector", spec.Selector).Msg("css-visual-diff matched-styles: query node IDs")
 	if err := chromedp.Run(page.Context(), chromedp.NodeIDs(spec.Selector, &nodeIDs, chromedp.ByQuery)); err != nil {
@@ -400,30 +299,6 @@ func boxModelBounds(model *dom.BoxModel) *Bounds {
 		Width:  content[2] - content[0],
 		Height: content[5] - content[1],
 	}
-}
-
-func writeMatchedMarkdown(path string, result MatchedStylesResult) error {
-	content := "# css-visual-diff Matched Styles Report\n\n"
-	content += "Winners are resolved using CSS cascade rules: `!important` first, then origin (inline > author > user-agent), then selector specificity, then source order.\n\n"
-	for _, s := range result.Styles {
-		content += fmt.Sprintf("## %s\n\n", s.Name)
-		if s.OriginalSelector != "" && s.ReactSelector != "" && s.OriginalSelector != s.ReactSelector {
-			content += fmt.Sprintf("Selector (original): `%s`\n\n", s.OriginalSelector)
-			content += fmt.Sprintf("Selector (react): `%s`\n\n", s.ReactSelector)
-		} else if s.Selector != "" {
-			content += fmt.Sprintf("Selector: `%s`\n\n", s.Selector)
-		} else if s.OriginalSelector != "" {
-			content += fmt.Sprintf("Selector: `%s`\n\n", s.OriginalSelector)
-		}
-		content += "### Winner Summary\n\n"
-		content += "| Property | Original Winner | React Winner |\n"
-		content += "| --- | --- | --- |\n"
-		for _, w := range s.Winners {
-			content += fmt.Sprintf("| %s | %s | %s |\n", w.Property, formatWinner(w.Original), formatWinner(w.React))
-		}
-		content += "\n"
-	}
-	return os.WriteFile(path, []byte(content), 0o644)
 }
 
 func hasReport(reports []string, value string) bool {
