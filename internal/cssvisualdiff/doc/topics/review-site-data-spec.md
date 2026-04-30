@@ -817,88 +817,11 @@ if __name__ == "__main__":
 css-visual-diff serve --data-dir /tmp/review-run --port 8097
 ```
 
-### Approach B: Use `css-visual-diff run` with a YAML spec
+### Approach B: Use verb scripts for custom pipelines
 
-When you have many pages and sections, manual `compare` calls become tedious. The `run` command reads a YAML spec that declares all pages, sections, selectors, and policy bands.
+The `verbs` subsystem lets you write JavaScript verb scripts that orchestrate comparison, catalog, and summary generation in a single command. This is the preferred approach for project-scale suites and is what the Pyxis project uses.
 
-#### Step 1: Write a YAML spec
-
-Create a file like `my-project.visual.yml`:
-
-```yaml
-name: my-project
-targets:
-  original:
-    base: http://localhost:7070
-  react:
-    base: http://localhost:6007
-
-viewport:
-  width: 920
-  height: 1460
-
-defaults:
-  waitMs: 1000
-  threshold: 30
-  inspect: rich
-  variant: desktop
-
-policy:
-  bands:
-    - name: accepted
-      maxChangedPercent: 0.5
-    - name: review
-      maxChangedPercent: 10
-    - name: tune-required
-      maxChangedPercent: 30
-    - name: major-mismatch
-      maxChangedPercent: 100
-
-pages:
-  about:
-    original: /about.html
-    react: /iframe.html?id=about--desktop&viewMode=story
-    sections:
-      content:
-        originalSelector: "[data-page='about']"
-        reactSelector: "[data-page='about']"
-      header:
-        originalSelector: "header"
-        reactSelector: "header"
-  pricing:
-    original: /pricing.html
-    react: /iframe.html?id=pricing--desktop&viewMode=story
-    sections:
-      cards:
-        originalSelector: "#pricing-cards"
-        reactSelector: "#pricing-cards"
-```
-
-#### Step 2: Run the spec
-
-```bash
-css-visual-diff run \
-  --config my-project.visual.yml \
-  --modes capture,cssdiff \
-  --out /tmp/my-project-run
-```
-
-This produces all artifacts in one pass. The output directory will have the `<page>/artifacts/<section>/` structure the review site expects.
-
-#### Step 3: Build summary and serve
-
-Use the same Python script from Approach A to build `summary.json`, then:
-
-```bash
-python3 build-summary.py /tmp/my-project-run
-css-visual-diff serve --data-dir /tmp/my-project-run --port 8097
-```
-
-### Approach C: Use verb scripts for custom pipelines
-
-The `verbs` subsystem lets you write JavaScript verb scripts that orchestrate comparison, catalog, and summary generation in a single command. This is the most flexible approach and is what the Pyxis project uses.
-
-A verb script has access to the `css-visual-diff` JavaScript API, which provides browser automation, catalog management, screenshot capture, and structured output. The script can run comparisons for many pages, collect results, and emit a summary JSON in the exact format the review site expects.
+A verb script has access to the `css-visual-diff` JavaScript API, which provides browser automation, catalog management, screenshot capture, and structured output. The script can load project-specific data files, run comparisons for many pages, collect results, and emit a summary JSON in the exact format the review site expects.
 
 #### Example verb structure
 
@@ -924,7 +847,7 @@ This approach gives you full control over the comparison pipeline, including cus
 
 #### Built-in example: review-sweep
 
-The repository includes a complete external verb example at `examples/verbs/review-sweep.js`. It reads a small YAML spec, runs comparisons, writes artifacts in the review-site directory layout, and emits `summary.json`.
+The repository includes a complete external verb example at `examples/verbs/review-sweep.js`. It reads a small project spec, runs comparisons, writes artifacts in the review-site directory layout, and emits `summary.json`.
 
 ```bash
 css-visual-diff verbs --repository examples/verbs \
@@ -951,10 +874,9 @@ The example demonstrates `require("yaml")`, `require("fs")`, `require("path")`, 
 | Approach | Best for | Pros | Cons |
 | --- | --- | --- | --- |
 | A: `compare` | Quick one-off reviews, 1–5 sections | Simple, no YAML needed | Manual, tedious for many sections |
-| B: `run` + YAML | Structured multi-page projects | Repeatable, version-controlled spec | Need to write the YAML spec upfront |
-| C: Verb scripts | Complex or custom pipelines | Full flexibility, programmatic | More code to write and maintain |
+| B: Verb scripts | Complex or project-scale pipelines | Full flexibility, programmatic, can load project specs | More code to write and maintain |
 
-All three approaches produce the same directory structure and JSON formats. The review site does not care how the data was produced; it only cares that `summary.json` and the artifact directories exist and follow the spec.
+Both approaches produce the same directory structure and JSON formats. The review site does not care how the data was produced; it only cares that `summary.json` and the artifact directories exist and follow the spec.
 
 ---
 
@@ -966,7 +888,7 @@ This script is a reference implementation, not a production tool. For real proje
 
 1. **Classification bands are hardcoded** to match the Pyxis policy (0.5%, 10%, 30%). Adjust these thresholds for your own policy.
 2. **Paths are written as absolute paths** pointing into the run directory. The review site's React app rewrites them to relative URLs.
-3. **The `variant` field defaults to "desktop"** if not present in compare.json. If you compare at multiple viewports, add a `variant` field to your YAML spec or verb output.
+3. **The `variant` field defaults to "desktop"** if not present in compare.json. If you compare at multiple viewports, add a `variant` field to your verb output or project spec.
 
 To adapt this script for your project:
 

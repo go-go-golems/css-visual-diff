@@ -2,11 +2,11 @@ package jsapi
 
 import (
 	"github.com/dop251/goja"
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
+	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 )
 
 type targetBuilder struct {
-	target config.Target
+	target service.PageTarget
 }
 
 func installTargetAPI(vm *goja.Runtime, exports *goja.Object) {
@@ -18,14 +18,14 @@ func installTargetAPI(vm *goja.Runtime, exports *goja.Object) {
 	viewportFn := vm.ToValue(func(call goja.FunctionCall) goja.Value {
 		return vm.ToValue(lowerViewport(viewportFromCall(vm, "css-visual-diff.viewport", call.Arguments)))
 	}).ToObject(vm)
-	_ = viewportFn.Set("desktop", func() map[string]any { return lowerViewport(config.Viewport{Width: 1280, Height: 720}) })
-	_ = viewportFn.Set("tablet", func() map[string]any { return lowerViewport(config.Viewport{Width: 1024, Height: 768}) })
-	_ = viewportFn.Set("mobile", func() map[string]any { return lowerViewport(config.Viewport{Width: 390, Height: 844}) })
+	_ = viewportFn.Set("desktop", func() map[string]any { return lowerViewport(service.Viewport{Width: 1280, Height: 720}) })
+	_ = viewportFn.Set("tablet", func() map[string]any { return lowerViewport(service.Viewport{Width: 1024, Height: 768}) })
+	_ = viewportFn.Set("mobile", func() map[string]any { return lowerViewport(service.Viewport{Width: 390, Height: 844}) })
 	_ = exports.Set("viewport", viewportFn)
 }
 
 func newTargetBuilder(vm *goja.Runtime, name string) goja.Value {
-	builder := &targetBuilder{target: config.Target{Name: name}}
+	builder := &targetBuilder{target: service.PageTarget{Name: name}}
 	return newProxyValue(vm, nil, ProxySpec{
 		Owner: "cvd.target",
 		Methods: map[string]ProxyMethod{
@@ -97,6 +97,37 @@ func (b *targetBuilder) build(vm *goja.Runtime) ProxyMethod {
 		if b.target.Viewport.Height <= 0 {
 			b.target.Viewport.Height = 720
 		}
-		return vm.ToValue(lowerConfigTarget(b.target))
+		return vm.ToValue(lowerPageTarget(b.target))
+	}
+}
+
+func lowerPageTarget(target service.PageTarget) map[string]any {
+	ret := map[string]any{
+		"name":         target.Name,
+		"url":          target.URL,
+		"waitMs":       target.WaitMS,
+		"viewport":     lowerViewport(target.Viewport),
+		"rootSelector": target.RootSelector,
+	}
+	if target.Prepare != nil {
+		ret["prepare"] = lowerServicePrepareSpec(*target.Prepare)
+	}
+	return ret
+}
+
+func lowerServicePrepareSpec(prepare service.PrepareSpec) map[string]any {
+	return map[string]any{
+		"type":             prepare.Type,
+		"script":           prepare.Script,
+		"scriptFile":       prepare.ScriptFile,
+		"waitFor":          prepare.WaitFor,
+		"waitForTimeoutMs": prepare.WaitForTimeoutMS,
+		"afterWaitMs":      prepare.AfterWaitMS,
+		"component":        prepare.Component,
+		"props":            prepare.Props,
+		"rootSelector":     prepare.RootSelector,
+		"width":            prepare.Width,
+		"minHeight":        prepare.MinHeight,
+		"background":       prepare.Background,
 	}
 }

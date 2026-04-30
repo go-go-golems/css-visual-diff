@@ -1,0 +1,5 @@
+- [x] Phase 1: Introduce config-free runtime page types (Viewport, PrepareSpec, PageTarget)
+- [x] Phase 2: Migrate service and JS API packages away from internal/cssvisualdiff/config
+- [x] Phase 3: Remove cvd.loadConfig and built-in catalog inspect-config verb
+- [x] Phase 4: Remove css-visual-diff run command, runner package, and config-driven modes
+- [x] Phase 5: Delete old native YAML examples/docs and validate Pyxis JS userland smoke tests

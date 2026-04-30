@@ -84,7 +84,11 @@ func runServe(cmd *cobra.Command, s *serveSettings) error {
 			http.Error(w, "page and section query parameters required", http.StatusBadRequest)
 			return
 		}
-		comparePath := filepath.Join(s.dataDir, page, "artifacts", section, "compare.json")
+		comparePath, err := reviewComparePath(s.dataDir, page, section)
+		if err != nil {
+			http.Error(w, "invalid page or section", http.StatusBadRequest)
+			return
+		}
 		data, err := os.ReadFile(comparePath)
 		if err != nil {
 			http.Error(w, "compare.json not found", http.StatusNotFound)
@@ -108,7 +112,11 @@ func runServe(cmd *cobra.Command, s *serveSettings) error {
 			return
 		}
 		page, section, file := parts[0], parts[1], parts[2]
-		fullPath := filepath.Join(s.dataDir, page, "artifacts", section, file)
+		fullPath, err := reviewArtifactPath(s.dataDir, page, section, file)
+		if err != nil {
+			http.Error(w, "invalid artifact path", http.StatusBadRequest)
+			return
+		}
 		if _, err := os.Stat(fullPath); err != nil {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
@@ -143,6 +151,44 @@ func runServe(cmd *cobra.Command, s *serveSettings) error {
 	}
 
 	return http.ListenAndServe(addr, mux)
+}
+
+func reviewComparePath(baseDir, page, section string) (string, error) {
+	return reviewDataPath(baseDir, []string{page, "artifacts", section, "compare.json"})
+}
+
+func reviewArtifactPath(baseDir, page, section, file string) (string, error) {
+	return reviewDataPath(baseDir, []string{page, "artifacts", section, file})
+}
+
+func reviewDataPath(baseDir string, parts []string) (string, error) {
+	for _, part := range parts {
+		if err := validateReviewPathSegment(part); err != nil {
+			return "", err
+		}
+	}
+
+	baseAbs, err := filepath.Abs(baseDir)
+	if err != nil {
+		return "", err
+	}
+	joinedParts := append([]string{baseAbs}, parts...)
+	candidate := filepath.Clean(filepath.Join(joinedParts...))
+	rel, err := filepath.Rel(baseAbs, candidate)
+	if err != nil {
+		return "", err
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("path escapes data dir")
+	}
+	return candidate, nil
+}
+
+func validateReviewPathSegment(segment string) error {
+	if segment == "" || segment == "." || segment == ".." || filepath.IsAbs(segment) || strings.ContainsAny(segment, `/\\`) {
+		return fmt.Errorf("invalid path segment %q", segment)
+	}
+	return nil
 }
 
 func openBrowser(url string) error {

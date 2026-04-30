@@ -7,14 +7,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/config"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 )
 
 const DefaultPrepareWaitTimeout = 30 * time.Second
 const DefaultPrepareAfterWait = 500 * time.Millisecond
 
-func PrepareTarget(page *driver.Page, target config.Target) error {
+func PrepareTarget(page *driver.Page, target PageTarget) error {
 	prepare := target.Prepare
 	if prepare == nil {
 		return nil
@@ -59,7 +58,7 @@ func PrepareTarget(page *driver.Page, target config.Target) error {
 	return nil
 }
 
-func RunScriptPrepare(page *driver.Page, prepare *config.PrepareSpec) error {
+func RunScriptPrepare(page *driver.Page, prepare *PrepareSpec) error {
 	script := prepare.Script
 	if strings.TrimSpace(script) == "" && strings.TrimSpace(prepare.ScriptFile) != "" {
 		data, err := os.ReadFile(prepare.ScriptFile)
@@ -74,7 +73,7 @@ func RunScriptPrepare(page *driver.Page, prepare *config.PrepareSpec) error {
 	return page.Eval(script)
 }
 
-func RunDirectReactGlobalPrepare(page *driver.Page, prepare *config.PrepareSpec) error {
+func RunDirectReactGlobalPrepare(page *driver.Page, prepare *PrepareSpec) error {
 	script, err := BuildDirectReactGlobalScript(prepare)
 	if err != nil {
 		return err
@@ -97,7 +96,7 @@ type DirectReactGlobalPrepareResult struct {
 	Bounds        map[string]float64 `json:"bounds"`
 }
 
-func BuildDirectReactGlobalScript(prepare *config.PrepareSpec) (string, error) {
+func BuildDirectReactGlobalScript(prepare *PrepareSpec) (string, error) {
 	component := strings.TrimSpace(prepare.Component)
 	if component == "" {
 		return "", fmt.Errorf("direct-react-global prepare requires component")
