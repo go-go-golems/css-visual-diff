@@ -245,3 +245,139 @@ I then added a detailed crop-support implementation guide to the design document
 - Baseline commit: `88c45cb51955185316485c32482d6c734fc2c558`.
 - Crop V1 API planned: `.cropTo(selector)` and `.cropPadding(value)`.
 - Crop V1 behavior planned: draw only targets intersecting the crop rect, translate target bounds into crop-local coordinates, and include only drawn targets in legend/result colors.
+
+---
+
+## Step 5: Crop Service Geometry and Rendering
+
+I implemented the service-side crop model and wired it into the existing Go-rendered overlay pipeline. Crop now resolves a crop selector in document coordinates, expands it by typed padding, clamps it to the screenshot image, copies that region into a new image, translates target bounds into crop-local coordinates, and draws only targets that intersect the crop.
+
+This turned crop from a design-only task into working image behavior. The implementation keeps full-page output as the default when `spec.Crop` is nil, so existing overlay screenshots remain unchanged.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Implement the documented crop tasks incrementally and commit each reviewable chunk.
+
+**Inferred user intent:** The user wants crop support to be implemented with traceable steps, validation, and commits.
+
+**Commit (code):** ea310891a0a77ffd3b518e959013d1ae18202c1f — "Add overlay crop geometry"
+
+### What I did
+- Added `OverlayCrop` to `OverlaySpec`.
+- Added crop helpers in `internal/cssvisualdiff/service/overlay.go`:
+  - `documentBoundsToRect`,
+  - `expandRect`,
+  - `translateBounds`,
+  - `rectsOverlap`,
+  - `resolveCropRect`,
+  - `cropOverlayImage`.
+- Wired crop into `OverlayScreenshot` before drawing boxes, labels, and legend.
+- Made `OverlayResult.Targets` and `OverlayResult.Colors` reflect only targets drawn in the cropped output.
+
+### Why
+- Component-system organism PNGs need focused output dimensions, not full-page screenshots with selective labels.
+- The service already had full-page screenshots and document-coordinate bounds, so crop belongs naturally in the service pipeline before drawing.
+
+### What worked
+- The Go-rendered overlay architecture made crop straightforward: crop the screenshot image, translate bounds, then draw as before.
+- Pre-commit lint and full tests passed after removing unused helpers.
+
+### What didn't work
+- The first crop geometry commit attempt failed lint because some planned helpers were not yet used:
+  - `documentBoundsToRect is unused`,
+  - `rectToDocumentBounds is unused`,
+  - `expandRect is unused`,
+  - `translateBounds is unused`,
+  - `rectsOverlap is unused`,
+  - `uniformInsets is unused`.
+- I fixed this by wiring the crop logic into `OverlayScreenshot` in the same commit and removing helpers that were still unused.
+
+### What I learned
+- In this repo, pre-commit lint prevents placeholder helpers from being committed, so implementation commits need to keep helpers and call sites together.
+- Crop filtering should happen before colors/result targets are computed; otherwise legends and returned metadata include off-crop targets.
+
+### What was tricky to build
+- The important invariant is coordinate space: target bounds start in document coordinates, but drawing after crop happens in crop-local image coordinates. Translating by `cropRect.Min` after filtering keeps drawing logic unchanged.
+- The result metadata also has to be filtered so userland sees what is actually visible in the output PNG.
+
+### What warrants a second pair of eyes
+- Confirm that clamping/translation behaves correctly on very tall pages and near image edges.
+- Confirm that returning an error when a crop contains no targets is the preferred policy.
+
+### What should be done in the future
+- Add public `.cropToTarget(name)` if scripts frequently crop to an existing target.
+
+### Code review instructions
+- Review `OverlayScreenshot`, `resolveCropRect`, and `cropOverlayImage` in `internal/cssvisualdiff/service/overlay.go`.
+- Validate with `go test ./internal/cssvisualdiff/service` or `go test ./...`.
+
+### Technical details
+- Crop default remains nil/full-page.
+- V1 crop supports selector-based crop through `OverlayCrop.Selector`; `OverlayCrop.Target` exists in the model for follow-up use.
+
+---
+
+## Step 6: Crop Tests and JavaScript Builder API
+
+I added tests for the service crop behavior and exposed crop through the fluent JS overlay builder. Scripts can now write `.cropTo(".hero")` and `.cropPadding(...)` on `cvd.overlaySpec()` before calling `page.overlay(spec).screenshot(path)`.
+
+This completes the planned V1 crop API: focused cropped images are available from JavaScript, padding accepts scalar/two-value/four-value forms, and invalid padding is rejected before service execution.
+
+### Prompt Context
+
+**User prompt (verbatim):** (same as Step 4)
+
+**Assistant interpretation:** Finish the crop task list by adding test coverage and JS-facing builder methods.
+
+**Inferred user intent:** The user wants crop usable from scripts, not only available as an internal Go service field.
+
+**Commit (code):** fdc97fc594f9d48c2e8d8fd6d8d72a7fddac1247 — "Test overlay crop rendering"
+
+**Commit (code):** b5419498e58c74310f4eb07ccbaf2a1c6eb5d0b4 — "Add JS overlay crop builders"
+
+### What I did
+- Added a service test that crops `.hero` with 10px padding and verifies a `240x140` output for a `220x120` element.
+- Added service assertions that an outside target is omitted from result targets/colors.
+- Added a missing crop selector error test.
+- Added `.cropTo(selector)` and `.cropPadding(value)` to the overlay spec builder.
+- Added JS tests for four-value padding and invalid three-value padding.
+
+### Why
+- Crop is geometry-heavy, so tests need to verify dimensions and filtering, not only file existence.
+- JS builder tests protect the opaque builder contract and catch accidental acceptance of malformed crop padding.
+
+### What worked
+- The existing `decodeInsets` helper was reusable for `.cropPadding(...)`.
+- The service test could use deterministic CSS dimensions to assert exact crop output dimensions.
+- Pre-commit lint and full tests passed on both commits.
+
+### What didn't work
+- N/A after the service wiring commit; tests and JS builder commits passed pre-commit on the first try.
+
+### What I learned
+- The output result object is a good place to expose crop filtering behavior: tests can assert `result.Targets` and `result.Colors` without image OCR.
+- Keeping crop padding decoding in the builder gives fast script-level feedback for invalid API usage.
+
+### What was tricky to build
+- The service test needs a viewport and element dimensions that avoid crop clamping, otherwise expected width/height depends on page edges. I used a `.hero` at `(40,40)` with `220x120` size and `10px` padding so the expected crop is exactly `240x140`.
+
+### What warrants a second pair of eyes
+- Review whether `.cropPadding([vertical, horizontal])` and `.cropPadding([top, right, bottom, left])` should accept only integer values or also floats rounded to integers.
+- Review whether missing crop selectors should be a hard error or produce a full-page fallback. Current behavior is a hard error.
+
+### What should be done in the future
+- Add a real example verb that creates organism crops for a component gallery.
+- Add docs/help entries for `.cropTo` and `.cropPadding`.
+
+### Code review instructions
+- Review `internal/cssvisualdiff/service/overlay_test.go` for crop behavior expectations.
+- Review `internal/cssvisualdiff/jsapi/overlay.go` and `internal/cssvisualdiff/jsapi/overlay_test.go` for builder behavior.
+- Validate with `go test ./...`.
+
+### Technical details
+- `.cropPadding(24)` maps to all sides.
+- `.cropPadding([16, 24])` maps to vertical/horizontal.
+- `.cropPadding([8, 16, 24, 32])` maps to top/right/bottom/left.
+- `.cropPadding([1, 2, 3])` is rejected.

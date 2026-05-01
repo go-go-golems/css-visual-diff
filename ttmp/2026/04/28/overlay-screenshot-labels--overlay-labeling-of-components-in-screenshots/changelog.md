@@ -65,3 +65,26 @@ Implemented the first working overlay screenshot API.
 
 - `go test ./...` passes.
 
+## 2026-05-01 crop support
+
+Implemented crop support for overlay screenshots.
+
+### Changes
+
+- Added `OverlayCrop` to the service model with selector/target fields and typed padding.
+- Added crop geometry helpers for document-bounds to image-rect conversion, padding expansion, overlap checks, and coordinate translation.
+- Wired crop into `OverlayScreenshot`: cropped outputs now draw only intersecting targets and report only those targets/colors.
+- Added service tests for crop selector output dimensions, padding behavior, target filtering, and missing crop selector errors.
+- Added JS builder methods `.cropTo(selector)` and `.cropPadding(value)`.
+- Added JS builder tests for crop selector/padding and invalid padding arrays.
+
+### Commits
+
+- `ea31089` — Add overlay crop geometry
+- `fdc97fc` — Test overlay crop rendering
+- `b541949` — Add JS overlay crop builders
+
+### Validation
+
+- Pre-commit lint and `GOWORK=off go test ./...` passed for all crop code commits.
+
