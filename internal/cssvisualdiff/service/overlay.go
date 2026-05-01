@@ -12,6 +12,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 	"golang.org/x/image/font"
@@ -24,6 +25,13 @@ type OverlaySpec struct {
 	Legend     bool            `json:"legend"`
 	Screenshot string          `json:"screenshot"`
 	Style      OverlayStyle    `json:"style"`
+	Crop       *OverlayCrop    `json:"crop,omitempty"`
+}
+
+type OverlayCrop struct {
+	Selector string `json:"selector,omitempty"`
+	Target   string `json:"target,omitempty"`
+	Padding  Insets `json:"padding"`
 }
 
 type OverlayTarget struct {
@@ -96,15 +104,31 @@ func OverlayScreenshot(page *driver.Page, spec OverlaySpec, outPath string) (*Ov
 	draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
 
 	annotated := make([]annotatedTarget, 0, len(spec.Targets))
-	colors := map[string]string{}
 	for i, target := range spec.Targets {
 		if target.Name == "" {
 			target.Name = SanitizeName(target.Selector)
 		}
 		style := ResolveTargetStyle(spec.Style, target.Style, defaultPalette[i%len(defaultPalette)])
 		c := *style.BorderColor
-		colors[target.Name] = RGBAHex(c)
 		annotated = append(annotated, annotatedTarget{OverlayTarget: target, Bounds: bounds[i], Style: style, Color: c})
+	}
+
+	if spec.Crop != nil {
+		cropRect, err := resolveCropRect(page, *spec.Crop, spec.Targets, rgba.Bounds())
+		if err != nil {
+			return nil, err
+		}
+		rgba, annotated = cropOverlayImage(rgba, annotated, cropRect)
+		if len(annotated) == 0 {
+			return nil, fmt.Errorf("overlay crop %q contains no overlay targets", spec.Crop.Selector)
+		}
+	}
+
+	colors := map[string]string{}
+	resultTargets := make([]OverlayTarget, 0, len(annotated))
+	for _, target := range annotated {
+		colors[target.Name] = RGBAHex(target.Color)
+		resultTargets = append(resultTargets, target.OverlayTarget)
 	}
 
 	for _, target := range annotated {
@@ -132,7 +156,52 @@ func OverlayScreenshot(page *driver.Page, spec OverlaySpec, outPath string) (*Ov
 		return nil, fmt.Errorf("close output png: %w", err)
 	}
 
-	return &OverlayResult{OutputPath: outPath, Targets: spec.Targets, Colors: colors, Width: rgba.Bounds().Dx(), Height: rgba.Bounds().Dy()}, nil
+	return &OverlayResult{OutputPath: outPath, Targets: resultTargets, Colors: colors, Width: rgba.Bounds().Dx(), Height: rgba.Bounds().Dy()}, nil
+}
+
+func resolveCropRect(page *driver.Page, crop OverlayCrop, targets []OverlayTarget, imageBounds image.Rectangle) (image.Rectangle, error) {
+	selector := strings.TrimSpace(crop.Selector)
+	if crop.Target != "" {
+		if selector != "" {
+			return image.Rectangle{}, fmt.Errorf("overlay crop cannot specify both selector and target")
+		}
+		for _, target := range targets {
+			if target.Name == crop.Target {
+				selector = target.Selector
+				break
+			}
+		}
+		if selector == "" {
+			return image.Rectangle{}, fmt.Errorf("overlay crop target %q: no overlay target with that name", crop.Target)
+		}
+	}
+	if selector == "" {
+		return image.Rectangle{}, fmt.Errorf("overlay crop selector is required")
+	}
+	bounds, err := resolveDocumentBounds(page, []OverlayTarget{{Name: "crop", Selector: selector}})
+	if err != nil {
+		return image.Rectangle{}, fmt.Errorf("overlay crop selector %q: %w", selector, err)
+	}
+	cropRect := expandRect(documentBoundsToRect(bounds[0]), crop.Padding).Intersect(imageBounds)
+	if cropRect.Empty() {
+		return image.Rectangle{}, fmt.Errorf("overlay crop selector %q is empty after clamping", selector)
+	}
+	return cropRect, nil
+}
+
+func cropOverlayImage(img *image.RGBA, targets []annotatedTarget, cropRect image.Rectangle) (*image.RGBA, []annotatedTarget) {
+	cropped := image.NewRGBA(image.Rect(0, 0, cropRect.Dx(), cropRect.Dy()))
+	draw.Draw(cropped, cropped.Bounds(), img, cropRect.Min, draw.Src)
+	kept := make([]annotatedTarget, 0, len(targets))
+	for _, target := range targets {
+		targetRect := documentBoundsToRect(target.Bounds)
+		if !rectsOverlap(targetRect, cropRect) {
+			continue
+		}
+		target.Bounds = translateBounds(target.Bounds, cropRect.Min.X, cropRect.Min.Y)
+		kept = append(kept, target)
+	}
+	return cropped, kept
 }
 
 func resolveDocumentBounds(page *driver.Page, targets []OverlayTarget) ([]documentBounds, error) {
@@ -170,6 +239,28 @@ return targets.map((target) => {
 		ret[i] = documentBounds{X: b.X, Y: b.Y, Width: b.Width, Height: b.Height}
 	}
 	return ret, nil
+}
+
+func documentBoundsToRect(bounds documentBounds) image.Rectangle {
+	x0 := int(math.Floor(bounds.X))
+	y0 := int(math.Floor(bounds.Y))
+	x1 := int(math.Ceil(bounds.X + bounds.Width))
+	y1 := int(math.Ceil(bounds.Y + bounds.Height))
+	return image.Rect(x0, y0, x1, y1)
+}
+
+func expandRect(rect image.Rectangle, padding Insets) image.Rectangle {
+	return image.Rect(rect.Min.X-padding.Left, rect.Min.Y-padding.Top, rect.Max.X+padding.Right, rect.Max.Y+padding.Bottom)
+}
+
+func translateBounds(bounds documentBounds, dx, dy int) documentBounds {
+	bounds.X -= float64(dx)
+	bounds.Y -= float64(dy)
+	return bounds
+}
+
+func rectsOverlap(a, b image.Rectangle) bool {
+	return a.Min.X < b.Max.X && a.Max.X > b.Min.X && a.Min.Y < b.Max.Y && a.Max.Y > b.Min.Y
 }
 
 func drawTargetBox(img *image.RGBA, target annotatedTarget) {
