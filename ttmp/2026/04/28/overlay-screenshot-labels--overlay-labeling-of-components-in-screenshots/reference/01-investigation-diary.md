@@ -177,3 +177,71 @@ Ran `docmgr doctor` to validate the ticket, added missing vocabulary entries, an
 
 ### Code review instructions
 - N/A
+
+---
+
+## Step 4: Baseline JS Overlay API Implementation and Crop Planning
+
+I checkpointed the implemented JS-first overlay API before starting crop work so the crop changes can be reviewed separately. The baseline implementation provides typed Goja builders, typed Go-side overlay styling, real browser CSS injection through `page.css(...)`, and Go-rendered full-page annotated screenshots.
+
+I then added a detailed crop-support implementation guide to the design document. The plan keeps crop intentionally small for V1: `.cropTo(selector)` plus `.cropPadding(...)`, with target filtering, coordinate translation, and focused organism/component outputs.
+
+### Prompt Context
+
+**User prompt (verbatim):** "ok, add a detailed guide / implementation plan to add crop support to the ticket and upload to remarkable, then add tasks to the ticket, and implement the tasks one by one, committing at appropriate intervals, and keeping a diary."
+
+**Assistant interpretation:** Add a crop-support plan to the overlay ticket, publish it to reMarkable, add concrete tasks, then implement those tasks incrementally with commits and diary updates.
+
+**Inferred user intent:** The user wants crop support handled as a documented, reviewable feature rather than an ad-hoc code change, with intermediate commits and enough diary context to resume or audit the work later.
+
+**Commit (code):** 88c45cb51955185316485c32482d6c734fc2c558 — "Implement JS overlay screenshot API"
+
+### What I did
+- Committed the baseline overlay API implementation before crop work.
+- Fixed pre-commit lint failures before the baseline commit:
+  - checked `f.Close()` in `OverlayScreenshot`,
+  - added the missing `LegendBottomRight` switch case,
+  - renamed a local `close` variable in RGB parsing to avoid shadowing the predeclared identifier.
+- Added a new "Crop Support: Detailed Implementation Guide" section to the design document.
+- Rewrote `tasks.md` with explicit crop tasks.
+
+### Why
+- Crop changes build directly on the baseline overlay pipeline, so committing the baseline first gives reviewers a clean boundary.
+- The crop feature touches geometry, image clipping, JS builder decoding, and tests; documenting the intended pipeline reduces implementation ambiguity.
+
+### What worked
+- The baseline commit passed the repository pre-commit hook after lint fixes.
+- The crop plan maps cleanly onto the existing Go-rendered overlay architecture: crop can be implemented by cropping the full screenshot, translating document-coordinate bounds, and drawing only intersecting targets.
+
+### What didn't work
+- The first attempt to commit the baseline failed in the pre-commit hook with:
+  - `internal/cssvisualdiff/service/overlay.go:127:15: Error return value of f.Close is not checked (errcheck)`
+  - `internal/cssvisualdiff/service/overlay.go:263:2: missing cases in switch of type service.LegendPosition: service.LegendBottomRight (exhaustive)`
+  - `internal/cssvisualdiff/service/overlay_style.go:230:2: variable close has same name as predeclared identifier (predeclared)`
+- I fixed those issues and reran the commit successfully.
+
+### What I learned
+- The repository pre-commit hook runs both lint and tests, so commits are a useful validation checkpoint.
+- The current Go-rendered overlay design makes crop simpler than a CDP overlay implementation would: all annotations are already drawn onto an in-memory image.
+
+### What was tricky to build
+- The baseline implementation had a subtle screenshot decoding issue: `chromedp.FullScreenshot` with quality can return JPEG bytes, so the service now uses `image.Decode` with JPEG registered instead of assuming PNG input. The final output is still encoded as PNG.
+- The crop plan has to distinguish annotation scope from image extent: selective selectors reduce labels, but only crop reduces the output image.
+
+### What warrants a second pair of eyes
+- The current baseline uses Go-drawn boxes instead of CDP Overlay domain highlights. That is intentional for reliability, but reviewers should confirm it satisfies the visual requirements.
+- Crop coordinate assumptions rely on screenshot pixels matching document CSS pixels at device scale factor `1`.
+
+### What should be done in the future
+- Implement the crop tasks one by one.
+- Add `.cropToTarget(name)` after `.cropTo(selector)` is stable.
+
+### Code review instructions
+- Start with `internal/cssvisualdiff/service/overlay.go` and `internal/cssvisualdiff/jsapi/overlay.go` for the baseline API.
+- Review the new crop guide in `design-doc/01-overlay-screenshot-labels-design-and-implementation-guide.md` before reviewing crop implementation commits.
+- Validate with `go test ./...` and rely on the pre-commit hook for lint + full tests.
+
+### Technical details
+- Baseline commit: `88c45cb51955185316485c32482d6c734fc2c558`.
+- Crop V1 API planned: `.cropTo(selector)` and `.cropPadding(value)`.
+- Crop V1 behavior planned: draw only targets intersecting the crop rect, translate target bounds into crop-local coordinates, and include only drawn targets in legend/result colors.

@@ -1075,6 +1075,197 @@ Each target receives a color by index (`i % len(palette)`). The same color is us
 
 ---
 
+## Crop Support: Detailed Implementation Guide
+
+Crop support lets scripts export an annotated component or organism image instead of always writing the entire full-page screenshot. Selective targets control what is annotated; crop controls the output image extent.
+
+### Problem crop solves
+
+A script can already annotate only Hero internals by using selectors such as `section.hero h1` and `section.hero .button-primary`, but the exported PNG is still the full page. That is awkward for component-system documentation where each organism should have a compact image:
+
+```text
+hero.parts.annotated.png
+header.parts.annotated.png
+feature-grid.parts.annotated.png
+home.organisms.annotated.png
+```
+
+Crop support should make the first three files focused organism crops while preserving the full-screen map for the last one.
+
+### V1 API
+
+Keep the API small:
+
+```js
+const spec = cvd.overlaySpec()
+  .legend(false)
+  .cropTo("section.hero")
+  .cropPadding(24)
+  .target(cvd.overlayTarget("Hero").selector("section.hero"))
+  .target(cvd.overlayTarget("Headline").selector("section.hero h1"))
+  .target(cvd.overlayTarget("CTA").selector("section.hero .button-primary"))
+  .build()
+
+await page.overlay(spec).screenshot("/tmp/hero.parts.annotated.png")
+```
+
+Add these builder methods:
+
+- `.cropTo(selector)` — crop to a CSS selector resolved in document coordinates.
+- `.cropPadding(value)` — expand the crop rect by padding. Accept:
+  - `24` for all sides,
+  - `[16, 24]` for vertical/horizontal,
+  - `[8, 16, 24, 16]` for top/right/bottom/left.
+
+Optionally add `.cropToTarget(name)` after `.cropTo(selector)` works. It is convenient but not necessary for V1.
+
+### Service model
+
+Add an optional crop block:
+
+```go
+type OverlaySpec struct {
+    Targets    []OverlayTarget `json:"targets"`
+    Legend     bool            `json:"legend"`
+    Screenshot string          `json:"screenshot"`
+    Style      OverlayStyle    `json:"style"`
+    Crop       *OverlayCrop    `json:"crop,omitempty"`
+}
+
+type OverlayCrop struct {
+    Selector string `json:"selector,omitempty"`
+    Target   string `json:"target,omitempty"` // future / optional V1
+    Padding  Insets `json:"padding"`
+}
+```
+
+Rules:
+
+- `Crop == nil` keeps current full-page behavior.
+- `Crop.Selector` and `Crop.Target` are mutually exclusive.
+- V1 should implement `Selector` first.
+- If crop resolves to an empty rectangle, return a clear error.
+- Clamp crop bounds to the screenshot image bounds.
+
+### Coordinate model
+
+The current implementation resolves target bounds in document coordinates:
+
+```js
+const rect = el.getBoundingClientRect()
+return {
+  x: rect.x + window.scrollX,
+  y: rect.y + window.scrollY,
+  width: rect.width,
+  height: rect.height,
+}
+```
+
+Because the browser viewport is configured with device scale factor `1`, full-page screenshot pixels correspond to document CSS pixels. Crop should preserve that assumption and keep tests around it.
+
+### Rendering pipeline with crop
+
+Current pipeline:
+
+```text
+capture full-page image
+resolve document bounds for targets
+draw boxes/labels/legend in document coordinates
+write full image
+```
+
+Crop pipeline:
+
+```text
+capture full-page image
+resolve document bounds for targets
+resolve crop selector bounds
+expand crop bounds by padding
+clamp crop bounds to image bounds
+copy crop region into a new image
+filter targets to those intersecting the crop
+translate target bounds into crop-local coordinates
+draw boxes/labels/legend in crop-local coordinates
+write cropped image
+```
+
+Pseudocode:
+
+```go
+fullBounds := rgba.Bounds()
+cropRect := fullBounds
+
+if spec.Crop != nil {
+    cropBounds, err := resolveDocumentBounds(page, []OverlayTarget{{Name: "crop", Selector: spec.Crop.Selector}})
+    if err != nil { return nil, err }
+    cropRect = documentBoundsToRect(cropBounds[0])
+    cropRect = expandRect(cropRect, spec.Crop.Padding)
+    cropRect = cropRect.Intersect(fullBounds)
+    if cropRect.Empty() { return nil, fmt.Errorf("overlay crop is empty after clamping") }
+}
+
+canvas := image.NewRGBA(image.Rect(0, 0, cropRect.Dx(), cropRect.Dy()))
+draw.Draw(canvas, canvas.Bounds(), rgba, cropRect.Min, draw.Src)
+
+for each annotated target:
+    targetRect := documentBoundsToRect(target.Bounds)
+    if !targetRect.Overlaps(cropRect): skip target
+    target.Bounds.X -= float64(cropRect.Min.X)
+    target.Bounds.Y -= float64(cropRect.Min.Y)
+    keep target
+
+draw kept targets on canvas
+```
+
+### Target filtering and legend behavior
+
+Default V1 behavior:
+
+- Draw only targets whose bounds intersect the crop rectangle.
+- Include only drawn targets in the legend.
+- Clip partially intersecting boxes naturally through image-bound clipping.
+- Preserve explicit `.legend(false)` for clean organism images.
+
+This avoids a crop legend listing off-screen components.
+
+### Tests
+
+Add service tests:
+
+1. Full-page behavior still writes the viewport/full-page-sized image.
+2. `Crop.Selector` writes a smaller image than the full screenshot.
+3. `Crop.Padding` increases output dimensions by the expected amount when not clamped.
+4. Missing crop selector returns an error containing the selector.
+5. Targets outside the crop are not included in `OverlayResult.Targets` / legend colors.
+
+Add JS API tests:
+
+1. `.cropTo(".hero")` stores `spec.Crop.Selector`.
+2. `.cropPadding(24)` decodes to all sides.
+3. `.cropPadding([16, 24])` decodes vertical/horizontal.
+4. `.cropPadding([8, 16, 24, 16])` decodes top/right/bottom/left.
+5. invalid padding arrays are rejected.
+
+### Implementation tasks
+
+1. Add `OverlayCrop` to the service model and crop helper functions (`documentBoundsToRect`, `expandRect`, `translateBounds`, `filterAnnotatedTargetsForCrop`).
+2. Wire crop logic into `OverlayScreenshot` before drawing annotations.
+3. Add service tests for crop selector, padding, and filtering.
+4. Add JS builder methods `.cropTo(...)` and `.cropPadding(...)`.
+5. Add JS builder tests.
+6. Run `go test ./...` and commit.
+
+### Future extensions
+
+After V1:
+
+- `.cropToTarget(name)` to crop to a named overlay target.
+- `.crop({ selector, padding, includeOutsideTargets })` object form for advanced scripts.
+- `padding` defaults per spec style.
+- scale-factor support if screenshots are ever captured at device scale factors other than `1`.
+
+---
+
 ## Phased Implementation Plan
 
 ### Phase 1: Driver Foundation

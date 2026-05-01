@@ -10,11 +10,22 @@
 - [x] Implement `service.OverlayScreenshot` with full-page screenshot capture, document-coordinate bounds, Go-drawn boxes, labels, and legend.
 - [x] Implement Goja overlay builders and opaque spec unwrapping.
 - [x] Add service and JS API tests.
+- [x] Commit baseline overlay API implementation (`88c45cb`).
+- [x] Add crop support implementation guide to design doc.
 
-## TODO
+## Crop support TODO
+
+- [ ] Crop Task 1: Add `OverlayCrop` service model and crop geometry helpers.
+- [ ] Crop Task 2: Wire crop logic into `OverlayScreenshot` before drawing annotations.
+- [ ] Crop Task 3: Add service tests for crop selector, padding, and filtering.
+- [ ] Crop Task 4: Add JS builder methods `.cropTo(...)` and `.cropPadding(...)`.
+- [ ] Crop Task 5: Add JS builder tests for crop methods and invalid padding.
+- [ ] Crop Task 6: Run full validation and commit crop implementation.
+
+## Future TODO
 
 - [ ] Add richer docs/help page entries for the new APIs.
 - [ ] Add end-to-end example verb/script files under `examples/`.
-- [ ] Consider V2 crop support: `.cropTo(selector)` / `.cropToTarget(name)`.
+- [ ] Consider V2 crop support: `.cropToTarget(name)`.
 - [ ] Consider removable style handles for `page.css(...)`.
 - [ ] Consider CDP Overlay-domain integration later if native compositor highlights are still desired; current implementation draws boxes in Go for reliable multi-target full-page output.
