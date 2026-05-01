@@ -24,6 +24,7 @@ func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
 		installExtractAPI(ctx, vm, exports)
 		installSnapshotAPI(ctx, vm, exports)
 		installDiffAPI(ctx, vm, exports)
+		installOverlayAPI(ctx, vm, exports)
 		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
 			catalog, err := newCatalogFromJS(raw)
 			if err != nil {
@@ -225,6 +226,24 @@ func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageSta
 				return targetSummary(target), nil
 			})
 		}, nil)
+	})
+	_ = obj.Set("css", func(cssText string) goja.Value {
+		return promiseValue(ctx, vm, "css-visual-diff.page.css", func() (any, error) {
+			return state.runExclusive(func() (any, error) {
+				id, err := state.page.Page().AddStyleTag(cssText)
+				if err != nil {
+					return nil, err
+				}
+				return map[string]any{"id": id}, nil
+			})
+		}, nil)
+	})
+	_ = obj.Set("overlay", func(value goja.Value) goja.Value {
+		spec, err := overlaySpecFromValue(vm, value)
+		if err != nil {
+			panic(vm.NewTypeError(err.Error()))
+		}
+		return wrapOverlayScreenshotBuilder(ctx, vm, state, spec)
 	})
 	_ = obj.Set("prepare", func(raw map[string]any) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.prepare", func() (any, error) {

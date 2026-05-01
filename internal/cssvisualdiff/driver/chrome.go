@@ -121,12 +121,20 @@ func (p *Page) Wait(d time.Duration) {
 
 func (p *Page) FullScreenshot(path string) error {
 	log.Info().Str("path", path).Msg("css-visual-diff chromedp: full screenshot")
-	var buf []byte
-	if err := chromedp.Run(p.ctx, chromedp.FullScreenshot(&buf, 90)); err != nil {
+	buf, err := p.FullScreenshotBytes()
+	if err != nil {
 		log.Error().Err(err).Str("path", path).Msg("css-visual-diff chromedp: full screenshot failed")
 		return err
 	}
 	return os.WriteFile(path, buf, 0o644)
+}
+
+func (p *Page) FullScreenshotBytes() ([]byte, error) {
+	var buf []byte
+	if err := chromedp.Run(p.ctx, chromedp.FullScreenshot(&buf, 90)); err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
 
 func (p *Page) Screenshot(selector, path string) error {
@@ -151,6 +159,23 @@ func (p *Page) Evaluate(script string, out any) error {
 func (p *Page) Eval(script string) error {
 	var out any
 	return p.Evaluate(script, &out)
+}
+
+func (p *Page) AddStyleTag(cssText string) (string, error) {
+	var id string
+	escaped := strings.ReplaceAll(fmt.Sprintf("%q", cssText), "</", "<\\/")
+	script := fmt.Sprintf(`(() => {
+	  const style = document.createElement("style");
+	  style.setAttribute("data-css-visual-diff", "true");
+	  style.textContent = %s;
+	  document.head.appendChild(style);
+	  if (!style.id) style.id = "css-visual-diff-style-" + Math.random().toString(36).slice(2);
+	  return style.id;
+	})()`, escaped)
+	if err := p.Evaluate(script, &id); err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 func (p *Page) WaitForFunction(expr string, timeout time.Duration) error {

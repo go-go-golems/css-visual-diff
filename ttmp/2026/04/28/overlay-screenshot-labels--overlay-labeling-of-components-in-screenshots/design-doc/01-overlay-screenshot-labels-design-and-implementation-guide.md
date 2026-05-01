@@ -12,19 +12,21 @@ DocType: design-doc
 Intent: long-term
 Owners: []
 RelatedFiles:
-    - Path: internal/cssvisualdiff/config/config.go
-      Note: Config schema; OverlaySpec and OverlayTarget will be added here
     - Path: internal/cssvisualdiff/driver/chrome.go
       Note: Page screenshot and CDP primitives; overlay methods will be added here
+    - Path: internal/cssvisualdiff/service/overlay.go
+      Note: New high-level overlay screenshot service; resolves selectors, applies highlights, and composites labels
     - Path: internal/cssvisualdiff/jsapi/module.go
       Note: Goja page proxy registration; overlay builder will be wired here
-    - Path: internal/cssvisualdiff/modes/capture.go
-      Note: Capture orchestration; overlay screenshot hook will be added here
+    - Path: internal/cssvisualdiff/jsapi/overlay.go
+      Note: New Goja overlay builder implementation
     - Path: internal/cssvisualdiff/service/dom.go
       Note: LocatorBounds and selector resolution used by overlay label positioning
+    - Path: internal/cssvisualdiff/verbcli/bootstrap.go
+      Note: Current small app config only discovers JS verb repositories; it is not a visual-diff spec schema
 ExternalSources: []
 Summary: Comprehensive design and implementation guide for adding overlay labeling of components in screenshots to css-visual-diff, targeting a new intern audience.
-LastUpdated: 2026-04-28T08:30:00-04:00
+LastUpdated: 2026-05-01T13:00:00-04:00
 WhatFor: Provide architecture, API design, phased implementation plan, and risks for overlay screenshot annotation.
 WhenToUse: When implementing or reviewing the overlay labeling feature.
 ---
@@ -38,7 +40,7 @@ WhenToUse: When implementing or reviewing the overlay labeling feature.
 
 ## Executive Summary
 
-This document describes how to add **overlay labeling of components in screenshots** to `css-visual-diff`, a Go CLI tool that captures and compares rendered web pages across two browser targets. Today, the tool can take full-page and per-element screenshots, but those screenshots contain no visual indication of which UI component is which. The goal is to let users — both via YAML config and via JavaScript scripts running inside the tool's Goja runtime — declare a list of named components (by CSS selector), and produce annotated screenshots where each component has a visible bounding box, a text label, and optionally a legend that maps colors to component names.
+This document describes how to add **overlay labeling of components in screenshots** to `css-visual-diff`, a Go CLI tool that captures and compares rendered web pages. The current tool is intentionally **JavaScript-first**: the old native `run --config` YAML pipeline has been removed, and project-specific orchestration belongs in JavaScript verbs using `require("css-visual-diff")`. Today, the tool can take full-page and per-element screenshots, but those screenshots contain no visual indication of which UI component is which. The goal is to let JavaScript scripts declare typed overlay specs through fluent builders, avoiding untyped `map[string]any` payloads, and produce annotated PNGs where each component has a visible bounding box, text label, optional legend, and typed Go-side style customization for colors, labels, and legend appearance, while reserving `.css(...)` for real browser CSS only.
 
 The recommended approach is a **hybrid pipeline**:
 
@@ -49,7 +51,7 @@ The feature will be exposed at three layers:
 
 - **Driver layer** (`driver/chrome.go`): low-level CDP Overlay commands.
 - **Service layer** (`service/overlay.go`): high-level orchestration — map selectors to nodes, apply highlights, capture screenshot, composite labels.
-- **JavaScript API layer** (`jsapi/overlay.go`): Goja bindings so that script authors can write `await page.overlay([{name: "NavBar", selector: "nav"}]).screenshot("/tmp/out.png")`.
+- **JavaScript API layer** (`jsapi/overlay.go`): Goja bindings exposing opaque, fluent overlay specs so script authors can write `await page.overlay(cvd.overlaySpec().target(cvd.overlayTarget("NavBar").selector("nav")).build()).screenshot("/tmp/out.png")`.
 
 ---
 
@@ -62,7 +64,7 @@ The feature will be exposed at three layers:
 5. [Proposed Solution](#proposed-solution)
 6. [Annotation Strategies Compared](#annotation-strategies-compared)
 7. [API Design](#api-design)
-8. [Data Models and Config Schema](#data-models-and-config-schema)
+8. [JavaScript Data Model and Script Examples](#javascript-data-model-and-script-examples)
 9. [Phased Implementation Plan](#phased-implementation-plan)
 10. [Testing and Validation Strategy](#testing-and-validation-strategy)
 11. [Risks, Alternatives, and Open Questions](#risks-alternatives-and-open-questions)
@@ -76,13 +78,18 @@ The feature will be exposed at three layers:
 
 ### The high-level flow
 
-When you run `css-visual-diff run --config plan.yml`, the tool performs the following steps:
+The current tool has two live usage paths:
 
-1. **Parse a YAML config** that declares two `Target` objects (`original` and `react`), a list of `SectionSpec` objects (named regions to inspect), and an `OutputSpec` (what files to write).
-2. **Launch a headless Chrome browser** via `chromedp`, a Go library that speaks the Chrome DevTools Protocol (CDP). See `internal/cssvisualdiff/driver/chrome.go`.
-3. **Navigate each target** to its URL, set the viewport, optionally run a prepare script (e.g., open a modal), and wait for stability.
-4. **Capture screenshots** — both full-page and per-section — by evaluating CDP commands such as `Page.captureScreenshot`.
-5. **Run additional modes** if requested: `cssdiff` (compute-style comparison), `pixeldiff` (image diff), `ai-review` (LLM-based assessment), and `html-report` (generate a summary page).
+1. **Direct commands** such as `css-visual-diff compare`, `llm-review`, `chromedp-probe`, and `serve`. These are narrow, built-in commands for one-off work or serving generated review datasets.
+2. **JavaScript verbs** invoked through `css-visual-diff verbs ...`. These scripts are scanned from verb repositories and use `require("css-visual-diff")` to launch browsers, open pages, inspect selectors, compare regions, write artifacts, and load any project-specific data they need.
+
+A typical JS-first workflow performs the following steps:
+
+1. A JS verb loads project data if needed (YAML specs, JSON registries, Storybook metadata, or inline selector maps).
+2. The script calls `const cvd = require("css-visual-diff")` and creates a browser/page.
+3. The page is prepared by script code: viewport, waits, navigation, application-specific clicks or JS evaluation.
+4. The script calls native page APIs such as `preflight`, `inspectAll`, `snapshot`, and — after this feature — `overlay(...).screenshot(path)`.
+5. The script writes project-shaped outputs and returns structured rows for Glazed/CLI formatting.
 
 ### Key architectural layers
 
@@ -104,7 +111,7 @@ Think of the codebase as four concentric layers, each depending only on the laye
 └─────────────────────────────────────────┘
 ```
 
-**Why this matters for overlay labels:** any new feature must be added bottom-up. First extend the `driver` so it can speak new CDP commands. Then add `service` functions that orchestrate those commands for a useful workflow. Then expose that workflow through the `jsapi` so scripts can use it. Finally, wire it into CLI `modes` if it should be available from YAML configs.
+**Why this matters for overlay labels:** any new feature must be added bottom-up. First extend the `driver` so it can speak new CDP commands. Then add `service` functions that orchestrate those commands for a useful workflow. Then expose that workflow through the `jsapi` so scripts can use it. Do **not** add a new native manifest/config format for overlays; if a project wants YAML, its JavaScript verb should load that YAML as userland data and convert it into overlay targets.
 
 ### How screenshots work today
 
@@ -155,10 +162,7 @@ The user wants to:
 - Add a **text label** near each box showing the component name.
 - Optionally include a **legend** (a color key) so that a single glance at the screenshot explains every annotation.
 
-This must work for:
-
-- **YAML-driven runs** (the existing `capture` mode should support an `overlay` field in the config).
-- **Script-driven runs** (Goja scripts should be able to call an overlay API dynamically, after inspecting the page to discover selectors).
+This must work for **script-driven runs**. Goja scripts should be able to call an overlay API dynamically, including after inspecting the page to discover selectors. If a project stores selector definitions in YAML, JSON, or a component registry, that parsing happens in JavaScript userland before calling the native overlay primitive.
 
 ---
 
@@ -178,8 +182,8 @@ To understand where the new code fits, we need to map the existing subsystems th
 | `internal/cssvisualdiff/jsapi/module.go` | 552 | Goja module registration, `wrapPage`, `wrapBrowser`, promise helper |
 | `internal/cssvisualdiff/jsapi/probe.go` | ~120 | Probe builder API for scripts: `cvd.probe("name").selector("#id").text().build()` |
 | `internal/cssvisualdiff/jsapi/snapshot.go` | ~80 | `page.snapshot([...probes])` binding |
-| `internal/cssvisualdiff/config/config.go` | 258 | YAML config structs: `Config`, `Target`, `SectionSpec`, `StyleSpec`, `OutputSpec` |
-| `internal/cssvisualdiff/modes/capture.go` | 435 | `RunCapture`: orchestrates full capture workflow for original + react targets |
+| `internal/cssvisualdiff/verbcli/bootstrap.go` | ~330 | Small app config loader for discovering JS verb repositories from `.css-visual-diff.yml`; not a visual spec schema |
+| `cmd/css-visual-diff/main.go` | ~380 | Cobra root command; registers direct commands and `verbs`, but no old `run --config` pipeline |
 
 ### How selectors resolve to elements today
 
@@ -210,12 +214,15 @@ This pattern — marshal a selector into a JS snippet, evaluate it via `chromedp
 Open `internal/cssvisualdiff/jsapi/module.go` and look at `wrapPage`. Every method on the page proxy follows this template:
 
 ```go
-_ = obj.Set("preflight", func(raw []map[string]any) goja.Value {
-    return promiseValue(ctx, vm, "css-visual-diff.page.preflight", func() (any, error) {
+_ = obj.Set("someAsyncPageMethod", func(value goja.Value) goja.Value {
+    return promiseValue(ctx, vm, "css-visual-diff.page.someAsyncPageMethod", func() (any, error) {
         return state.runExclusive(func() (any, error) {
-            probes, err := decodeProbes(raw)
+            spec, err := decodeTypedOrOpaqueSpec(value)
+            if err != nil {
+                return nil, err
+            }
             // ... business logic ...
-            return lowerSelectorStatuses(statuses), nil
+            return lowerResult(result), nil
         })
     }, nil)
 })
@@ -239,7 +246,7 @@ Our overlay API must follow these exact conventions.
 | Capture screenshots with overlays visible | Screenshots are raw page pixels | Need to trigger highlights before `Page.captureScreenshot` |
 | Composite text labels onto screenshots | No image processing | Need Go image manipulation (or DOM-injected labels) |
 | Generate a legend mapping colors to names | Not supported | Need legend compositing logic |
-| Declare overlay targets in YAML config | Config has `sections`, `styles` | Need `OverlaySpec` added to config schema |
+| Declare overlay targets from JavaScript | Scripts can build probes but not typed overlay specs | Need opaque `OverlaySpec` / `OverlayTargetSpec` builders instead of `[]map[string]any` |
 | Scriptable overlay API | `page` proxy has no overlay methods | Need `page.overlay()` or similar in `jsapi` |
 | Dynamic selector discovery + overlay | Scripts can inspect but not annotate | Need overlay builder in `jsapi` |
 
@@ -421,11 +428,44 @@ import (
     "github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 )
 
+// OverlaySpec is the typed, validated service input produced by the JS builders.
+type OverlaySpec struct {
+    Targets    []OverlayTarget `json:"targets"`
+    Legend     bool            `json:"legend"`
+    Screenshot string          `json:"screenshot"` // "fullPage" for V1
+    Style      OverlayStyle    `json:"style"`
+}
+
 // OverlayTarget identifies one component to annotate.
 type OverlayTarget struct {
-    Name     string `json:"name"`
-    Selector string `json:"selector"`
+    Name     string             `json:"name"`
+    Selector string             `json:"selector"`
+    Label    string             `json:"label,omitempty"`
+    Style    TargetOverlayStyle `json:"style"`
 }
+
+// OverlayStyle controls Go-side label/legend rendering and target defaults.
+type OverlayStyle struct {
+    Label          LabelOverlayStyle  `json:"label"`
+    Legend         LegendOverlayStyle `json:"legend"`
+    TargetDefaults TargetOverlayStyle `json:"target_defaults"`
+}
+
+// TargetOverlayStyle controls one target's CDP highlight and label appearance.
+type TargetOverlayStyle struct {
+    BorderColor       *color.RGBA `json:"border_color,omitempty"`
+    ContentBackground *color.RGBA `json:"content_background,omitempty"`
+    PaddingBackground *color.RGBA `json:"padding_background,omitempty"`
+    MarginBackground  *color.RGBA `json:"margin_background,omitempty"`
+    BorderWidth       int         `json:"border_width,omitempty"`
+    LabelColor        *color.RGBA `json:"label_color,omitempty"`
+    Label             LabelTargetStyle `json:"label"`
+}
+
+// LabelOverlayStyle and LegendOverlayStyle are intentionally typed structs, not CSS.
+type LabelOverlayStyle struct { /* font family, font size, radius, padding */ }
+type LegendOverlayStyle struct { /* position, background, text color */ }
+type LabelTargetStyle struct { /* background, text color, position */ }
 
 // OverlayResult holds the annotated image and metadata.
 type OverlayResult struct {
@@ -437,135 +477,582 @@ type OverlayResult struct {
 
 // OverlayScreenshot captures a screenshot with annotated overlays.
 // Steps:
-//   1. Resolve each selector to a NodeID.
-//   2. Apply a distinct HighlightConfig per target.
-//   3. Capture full-page screenshot.
-//   4. Decode PNG to image.Image.
-//   5. Query bounding boxes for each target.
-//   6. Draw text labels + legend.
-//   7. Hide highlights.
-//   8. Encode and write final PNG.
-func OverlayScreenshot(page *driver.Page, targets []OverlayTarget, outPath string) (*OverlayResult, error)
+//   1. Normalize typed spec-level + target-level overlay styles.
+//   2. Resolve each selector to a NodeID.
+//   3. Apply a distinct HighlightConfig per target.
+//   4. Capture full-page screenshot.
+//   5. Decode PNG to image.Image.
+//   6. Query bounding boxes for each target.
+//   7. Draw text labels + legend.
+//   8. Hide highlights.
+//   9. Encode and write final PNG.
+func OverlayScreenshot(page *driver.Page, spec OverlaySpec, outPath string) (*OverlayResult, error)
 ```
 
 ### JavaScript API (Goja)
 
-Create a new file `internal/cssvisualdiff/jsapi/overlay.go`. Expose an overlay builder and a convenience method on the page proxy.
+Create a new file `internal/cssvisualdiff/jsapi/overlay.go`. Expose **opaque overlay spec objects** and fluent builders. The important design constraint is: do **not** make the page method accept `[]map[string]any` or arbitrary arrays of plain objects. That pattern is too loose, makes validation inconsistent, and leaks Go implementation details into user scripts.
+
+Also keep a sharp semantic boundary:
+
+- `.css(...)` means **real browser CSS** that is injected/evaluated in Chromium.
+- Overlay label/legend/highlight appearance is **Go-side renderer style**, configured with typed `.style(...)` objects and fluent style methods.
+
+This avoids a confusing fake CSS language where users expect variables, media queries, selectors, `calc()`, DevTools visibility, or normal cascade behavior, but the Go renderer only supports a tiny subset.
+
+#### Browser CSS API
+
+Add or document a page-level browser CSS helper separately from overlays:
+
+```js
+const injected = await page.css(`
+  html { scroll-behavior: auto !important; }
+  body { background: white !important; }
+`)
+
+// Optional future API if we return handles:
+// await injected.remove()
+```
+
+This is ordinary browser CSS. It is useful for stabilizing screenshots, disabling animations, forcing print-like backgrounds, or applying project-specific debug outlines. It should not control Go-rendered overlay labels or legends.
+
+#### Opaque overlay builders
+
+Scripts construct branded/native-backed overlay values:
+
+- `cvd.overlayTarget(name)` returns an `OverlayTargetBuilder`.
+- `cvd.overlaySpec()` returns an `OverlaySpecBuilder`.
+- `.build()` returns an opaque `OverlayTargetSpec` or `OverlaySpec` value.
+- `page.overlay(spec)` accepts only the opaque `OverlaySpec` value, or a builder that can be finalized internally.
+
+The Goja wrapper should therefore look conceptually like this:
 
 ```go
-// In jsapi/module.go, inside wrapPage:
-_ = obj.Set("overlay", func(raw []map[string]any) goja.Value {
-    return wrapOverlayBuilder(ctx, vm, state, raw)
+// In module installation:
+_ = exports.Set("overlayTarget", func(name string) goja.Value {
+    return wrapOverlayTargetBuilder(ctx, vm, name)
+})
+_ = exports.Set("overlaySpec", func() goja.Value {
+    return wrapOverlaySpecBuilder(ctx, vm)
+})
+
+// In wrapPage:
+_ = obj.Set("overlay", func(value goja.Value) goja.Value {
+    spec, err := decodeOpaqueOverlaySpec(value)
+    if err != nil {
+        return rejectPromise(vm, err)
+    }
+    return wrapOverlayScreenshotBuilder(ctx, vm, state, spec)
 })
 ```
 
-The builder API for scripts:
+Recommended V1: use Go struct-backed builders because they are easy to validate and hard for userland to accidentally forge.
+
+#### Fluent builder API with typed Go-side style
 
 ```js
-// Builder pattern
-const overlay = page.overlay([
-  { name: "NavBar", selector: "nav.top" },
-  { name: "Hero", selector: ".hero-section" },
-  { name: "CTA", selector: "button.primary" },
-])
-const result = await overlay.screenshot("/tmp/annotated.png")
-// result = { outputPath: "/tmp/annotated.png", colors: { NavBar: "#0096ff", ... } }
+const spec = cvd.overlaySpec()
+  .target(
+    cvd.overlayTarget("NavBar")
+      .selector("nav.top")
+      .label("Navigation")
+      .borderColor("#0096ff")
+      .labelBackground("rgba(0, 150, 255, 0.92)")
+      .labelColor("white"),
+  )
+  .target(
+    cvd.overlayTarget("Hero")
+      .selector(".hero-section")
+      .style({
+        borderColor: "#ff6347",
+        contentBackground: "rgba(255, 99, 71, 0.12)",
+        label: {
+          background: "#ff6347",
+          color: "white",
+          position: "inside-start",
+        },
+      }),
+  )
+  .legend(true)
+  .screenshot("fullPage")
+  .style({
+    label: {
+      fontFamily: "Inter, system-ui, sans-serif",
+      fontSize: 13,
+      radius: 4,
+      padding: [4, 7],
+    },
+    legend: {
+      position: "bottom-right",
+      background: "rgba(255, 255, 255, 0.92)",
+      color: "#27221b",
+    },
+    targetDefaults: {
+      borderWidth: 2,
+      labelColor: "white",
+    },
+  })
+  .build()
+
+const result = await page.overlay(spec).screenshot("/tmp/annotated.png")
 ```
 
-Or, for programmatic discovery:
+Notes:
+
+- `.selector(cssSelector)` is required for every target.
+- `.label(text)` is optional; default label text is the target name.
+- `.style({...})` may appear on both the target builder and the spec builder.
+- Common target style properties should also have fluent convenience methods such as `.borderColor(...)`, `.labelBackground(...)`, `.labelColor(...)`, and `.labelPosition(...)`.
+- Target-level style overrides spec-level defaults.
+- `.build()` validates required fields and returns an opaque value, not a plain object.
+- `page.overlay(spec)` returns a screenshot builder with `.screenshot(path)`.
+
+The result should remain plain JSON because it is output data, not input spec:
 
 ```js
-const statuses = await page.preflight([...])
-const targets = statuses
-  .filter(s => s.exists)
-  .map(s => ({ name: s.name, selector: s.selector }))
-const result = await page.overlay(targets).screenshot("/tmp/out.png")
-```
-
-The Goja wrapper will:
-
-1. Decode the raw `[]map[string]any` into `[]service.OverlayTarget`.
-2. Call `service.OverlayScreenshot` inside `state.runExclusive`.
-3. Return a Promise that resolves to an object with `outputPath` and `colors`.
-
-### CLI / Config Integration
-
-Extend `config.Config` with an optional overlay field:
-
-```go
-// In config/config.go, add to Config:
-Overlay *OverlaySpec `yaml:"overlay,omitempty"`
-
-// And define:
-type OverlaySpec struct {
-    Enabled bool              `yaml:"enabled"`
-    Targets []OverlayTarget   `yaml:"targets"`
-    // Future: LabelPosition, LegendPosition, Palette, etc.
-}
-
-type OverlayTarget struct {
-    Name     string `yaml:"name"`
-    Selector string `yaml:"selector"`
+{
+  outputPath: "/tmp/annotated.png",
+  colors: { NavBar: "#0096ff", Hero: "#ff6347" },
+  targets: [
+    { name: "NavBar", selector: "nav.top", label: "Navigation", color: "#0096ff" }
+  ]
 }
 ```
 
-Then, in `modes/capture.go`, after capturing the full screenshot but before iterating sections, optionally run the overlay pipeline and write an additional annotated screenshot:
+#### Typed style schema
 
-```go
-if cfg.Overlay != nil && cfg.Overlay.Enabled {
-    annotatedPath := filepath.Join(output.Dir, fmt.Sprintf("%s-annotated.png", prefix))
-    _, err := service.OverlayScreenshot(page.Page(), cfg.Overlay.Targets, annotatedPath)
-    if err != nil {
-        log.Warn().Err(err).Msg("overlay screenshot failed")
-    }
+The Go-side style object is a structured API, not CSS:
+
+```ts
+type OverlayStyle = {
+  label?: {
+    fontFamily?: string
+    fontSize?: number
+    radius?: number
+    padding?: number | [number, number] | [number, number, number, number]
+  }
+  legend?: {
+    position?: "top-left" | "top-right" | "bottom-left" | "bottom-right"
+    background?: Color
+    color?: Color
+  }
+  targetDefaults?: TargetOverlayStyle
+}
+
+type TargetOverlayStyle = {
+  borderColor?: Color
+  contentBackground?: Color
+  paddingBackground?: Color
+  marginBackground?: Color
+  borderWidth?: number
+  labelColor?: Color
+  label?: {
+    background?: Color
+    color?: Color
+    position?: "auto" | "above" | "below" | "inside-start" | "inside-end"
+  }
 }
 ```
+
+Color values can still use familiar scalar strings (`#ff6347`, `rgb(...)`, `rgba(...)`, `white`, `transparent`), but they are parsed as individual values, not as CSS declarations.
+
+#### Why no custom overlay CSS parser?
+
+A constrained CSS-looking DSL creates false expectations. Users would reasonably expect CSS variables, browser selectors, media queries, shorthands, `calc()`, and DevTools visibility. Supporting only a subset would be surprising, while supporting real CSS would not map cleanly to CDP highlight configs and Go image compositing.
+
+Therefore:
+
+- use `page.css(...)` for real browser CSS injection;
+- use `overlaySpec.style(...)` / `overlayTarget.style(...)` for Go-side rendering;
+- parse only scalar values such as colors, enum positions, and padding arrays;
+- do not parse CSS syntax in the overlay service.
+
+#### Programmatic discovery without raw maps
+
+Scripts can still start from userland maps, YAML, or DOM discovery; the conversion point should be a builder function, not passing raw objects into Go:
+
+```js
+function targetFromEntry([name, selector], style = {}) {
+  return cvd.overlayTarget(name).selector(selector).style(style).build()
+}
+
+function specFromMap(map, styleByName = {}) {
+  const builder = cvd.overlaySpec().legend(true)
+  for (const entry of Object.entries(map)) {
+    const [name] = entry
+    builder.target(targetFromEntry(entry, styleByName[name] ?? {}))
+  }
+  return builder.build()
+}
+
+const spec = specFromMap(
+  { NavBar: "nav.top", Hero: ".hero" },
+  { Hero: { borderColor: "#ff6347", label: { background: "#ff6347" } } },
+)
+const result = await page.overlay(spec).screenshot("/tmp/out.png")
+```
+
+### Userland YAML / JSON Integration
+
+There is intentionally no core visual-diff config schema for overlays. The old native YAML `run --config` pipeline has been removed. If a project wants to store overlay targets in YAML, JSON, Storybook metadata, or generated component registries, a JavaScript verb should load that file and convert it into opaque overlay specs with `cvd.overlayTarget(...)` and `cvd.overlaySpec(...)`.
+
+For example, userland may read a map like `{ NavBar: "nav.top", Hero: ".hero" }`, convert each entry into an `OverlayTargetSpec` builder, attach typed style objects, and pass a finalized `OverlaySpec` to `page.overlay(spec)`. This keeps the Go core focused on browser/artifact primitives rather than project-specific schema design.
 
 ---
 
-## Data Models and Config Schema
+## JavaScript Data Model and Script Examples
 
-### YAML Example
+### Opaque spec model
+
+The primary JS API should use opaque builder-produced values rather than plain target objects.
+
+```js
+const spec = cvd.overlaySpec()
+  .target(cvd.overlayTarget("NavBar").selector("nav.top"))
+  .target(cvd.overlayTarget("Hero").selector(".hero-section"))
+  .target(cvd.overlayTarget("Primary CTA").selector("button.primary"))
+  .build()
+
+await page.overlay(spec).screenshot("/tmp/landing-annotated.png")
+```
+
+For convenience, userland can write helpers that convert maps into specs while still keeping the native API typed:
+
+```js
+function overlaySpecFromMap(map, styleByName = {}) {
+  const builder = cvd.overlaySpec()
+  for (const [name, selector] of Object.entries(map)) {
+    const target = cvd.overlayTarget(name).selector(selector)
+    if (styleByName[name]) target.style(styleByName[name])
+    builder.target(target)
+  }
+  return builder.build()
+}
+```
+
+### Full-page annotated PNG script sketch
+
+This example takes a map of human-readable names to selectors, opens a page, verifies selectors with `preflight`, builds an opaque overlay spec, and exports an annotated full-page PNG.
+
+```js
+// examples/scripts/annotate-full-page.js
+const cvd = require("css-visual-diff")
+
+function overlaySpecFromMap(map) {
+  const spec = cvd.overlaySpec()
+    .legend(true)
+    .screenshot("fullPage")
+    .style({
+      label: { fontSize: 13, radius: 4, padding: [4, 7] },
+      legend: { position: "bottom-right", background: "rgba(255, 255, 255, 0.92)" },
+      targetDefaults: { borderWidth: 2, labelColor: "white" },
+    })
+
+  for (const [name, selector] of Object.entries(map)) {
+    spec.target(cvd.overlayTarget(name).selector(selector))
+  }
+  return spec.build()
+}
+
+async function main() {
+  const url = "http://localhost:3000/landing"
+  const outPath = "/tmp/landing-annotated.png"
+
+  const components = {
+    NavBar: "nav.top",
+    Hero: ".hero-section",
+    "Feature Grid": "#features",
+    "Primary CTA": "button.primary",
+    Footer: "footer",
+  }
+
+  const browser = await cvd.browser()
+  try {
+    const page = await browser.page(url, {
+      viewport: cvd.viewport(1440, 1600),
+      waitMs: 500,
+      name: "landing-page",
+    })
+
+    // Optional real browser CSS, separate from Go-side overlay style.
+    await page.css(`html { scroll-behavior: auto !important; }`)
+
+    const probeTargets = Object.entries(components).map(([name, selector]) => ({ name, selector }))
+    const statuses = await page.preflight(probeTargets)
+    const missing = statuses.filter((s) => !s.exists)
+    if (missing.length > 0) {
+      throw new cvd.SelectorError(
+        `Missing overlay selectors: ${missing.map((s) => `${s.name}=${s.selector}`).join(", ")}`,
+      )
+    }
+
+    const result = await page.overlay(overlaySpecFromMap(components)).screenshot(outPath)
+    console.log(JSON.stringify({ ok: true, outputPath: result.outputPath, colors: result.colors }, null, 2))
+  } finally {
+    await browser.close()
+  }
+}
+
+main()
+```
+
+### Loading YAML as userland data
+
+YAML is still fine for project-owned specs; it is just not interpreted by the Go core. A verb can load YAML and map it to fluent builders and typed style objects:
+
+```js
+const fs = require("fs")
+const yaml = require("yaml")
+const cvd = require("css-visual-diff")
+
+function overlaySpecFromYaml(path) {
+  const specData = yaml.parse(fs.readFileSync(path, "utf8"))
+  const builder = cvd.overlaySpec().legend(specData.legend ?? true)
+  if (specData.style) builder.style(specData.style)
+
+  for (const [name, entry] of Object.entries(specData.components ?? {})) {
+    const selector = typeof entry === "string" ? entry : entry.selector
+    const target = cvd.overlayTarget(name).selector(selector)
+    if (typeof entry === "object" && entry.label) target.label(entry.label)
+    if (typeof entry === "object" && entry.style) target.style(entry.style)
+    builder.target(target)
+  }
+  return builder.build()
+}
+```
+
+Example userland YAML:
 
 ```yaml
-metadata:
-  slug: landing-page-overlay
-  title: Landing Page with Overlay Labels
-
-original:
-  url: http://localhost:3000/original
-  viewport:
-    width: 1280
-    height: 720
-
-react:
-  url: http://localhost:3000/react
-  viewport:
-    width: 1280
-    height: 720
-
-sections:
-  - name: hero
-    selector: ".hero"
-  - name: features
-    selector: "#features"
-
-# NEW: overlay annotation
-overlay:
-  enabled: true
-  targets:
-    - name: NavBar
-      selector: "nav.top"
-    - name: Hero
-      selector: ".hero-section"
-    - name: CTA
-      selector: "button.primary"
-
-output:
-  dir: ./out
-  write_pngs: true
-  write_json: true
+style:
+  label:
+    fontSize: 13
+    radius: 4
+  legend:
+    position: bottom-right
+    background: rgba(255, 255, 255, 0.92)
+  targetDefaults:
+    borderWidth: 2
+    labelColor: white
+components:
+  NavBar:
+    selector: nav.top
+    label: Navigation
+    style:
+      borderColor: '#0096ff'
+      label:
+        background: '#0096ff'
+  Hero:
+    selector: .hero-section
+    style:
+      borderColor: '#ff6347'
+      label:
+        background: '#ff6347'
+  Feature Grid: '#features'
+  Primary CTA: button.primary
+  Footer: footer
 ```
+
+### JavaScript Example Cookbook
+
+This section sketches the scripts we want to make possible once the overlay API exists. The examples are intentionally userland-oriented: they keep project meaning in JavaScript while relying on the Go core for browser, screenshot, selector, CSS extraction, and overlay primitives.
+
+#### Example 1: annotated full-page PNG from a name-to-selector map
+
+```js
+// examples/scripts/overlay-annotated-png.js
+const cvd = require("css-visual-diff")
+
+const componentSelectors = {
+  Header: "header.site-header",
+  Navigation: "nav.primary-nav",
+  Hero: "section.hero",
+  "Hero CTA": "section.hero a.button-primary",
+  "Feature Cards": "section.features",
+  Footer: "footer.site-footer",
+}
+
+const perTargetStyle = {
+  Header: { borderColor: "#0096ff", label: { background: "#0096ff" } },
+  Hero: { borderColor: "#ff6347", label: { background: "#ff6347" } },
+  "Feature Cards": { borderColor: "#32cd32", label: { background: "#32cd32" } },
+}
+
+function overlaySpecFromMap(map) {
+  const builder = cvd.overlaySpec()
+    .legend(true)
+    .screenshot("fullPage")
+    .style({ legend: { position: "bottom-right" }, label: { fontSize: 13 } })
+
+  for (const [name, selector] of Object.entries(map)) {
+    const target = cvd.overlayTarget(name).selector(selector)
+    if (perTargetStyle[name]) target.style(perTargetStyle[name])
+    builder.target(target)
+  }
+  return builder.build()
+}
+
+async function main() {
+  const browser = await cvd.browser()
+  try {
+    const page = await browser.page("http://localhost:3000/", {
+      name: "home",
+      viewport: cvd.viewport(1440, 1800),
+      waitMs: 500,
+    })
+
+    const result = await page.overlay(overlaySpecFromMap(componentSelectors))
+      .screenshot("/tmp/cssvd/home.annotated.png")
+    console.log(JSON.stringify(result, null, 2))
+  } finally {
+    await browser.close()
+  }
+}
+
+main()
+```
+
+#### Example 2: extract a component-system inventory with individual PNGs
+
+This script treats a rendered page as evidence for a component system. It extracts a list of known atoms, molecules, and organisms; writes one cropped PNG per component; captures selected CSS properties; and emits a `components.json` manifest that a later report page can consume.
+
+```js
+// examples/scripts/component-system-extract.js
+const fs = require("fs")
+const path = require("path")
+const cvd = require("css-visual-diff")
+
+const outDir = "/tmp/cssvd/component-system"
+const components = [
+  cvd.probe("Button / Primary").selector(".button-primary").props(["display", "font-size", "background-color"]).build(),
+  cvd.probe("Button / Secondary").selector(".button-secondary").props(["display", "font-size", "background-color"]).build(),
+  cvd.probe("Logo").selector(".site-logo").build(),
+  cvd.probe("Nav Item").selector(".primary-nav li:first-child").build(),
+  cvd.probe("Feature Card").selector(".feature-card:first-child").build(),
+  cvd.probe("Hero").selector("section.hero").build(),
+  cvd.probe("Feature Grid").selector("section.features").build(),
+]
+
+async function main() {
+  fs.mkdirSync(outDir, { recursive: true })
+  const browser = await cvd.browser()
+  try {
+    const page = await browser.page("http://localhost:3000/", { viewport: cvd.viewport(1440, 1800), waitMs: 500 })
+    const inspected = await page.inspectAll(components, { outDir, artifacts: "screenshot-css-json" })
+    fs.writeFileSync(path.join(outDir, "components.json"), JSON.stringify({ components: inspected.results }, null, 2))
+    console.log(JSON.stringify({ outDir, count: inspected.results.length }, null, 2))
+  } finally {
+    await browser.close()
+  }
+}
+
+main()
+```
+
+#### Example 3: component-system HTML gallery with individual and annotated PNGs
+
+This script combines component extraction with overlays. It writes cropped PNGs for individual components, annotated PNGs for organisms and full screens, `components.json`, and a static `index.html` gallery.
+
+```js
+// examples/scripts/component-system-gallery.js
+const fs = require("fs")
+const path = require("path")
+const cvd = require("css-visual-diff")
+
+const outDir = "/tmp/cssvd/component-gallery"
+const url = "http://localhost:3000/"
+const system = {
+  atoms: { Logo: ".site-logo", "Primary Button": ".button-primary", "Secondary Button": ".button-secondary" },
+  molecules: { "Navigation Item": ".primary-nav li:first-child", "Feature Card": ".feature-card:first-child" },
+  organisms: { Header: "header.site-header", Hero: "section.hero", "Feature Grid": "section.features", Footer: "footer.site-footer" },
+  screens: { "Home Page": "body" },
+}
+
+function probesFromSystem(system) {
+  return Object.entries(system).flatMap(([level, map]) =>
+    Object.entries(map).map(([name, selector]) => cvd.probe(name).selector(selector).attribute("class").build()),
+  )
+}
+
+function overlaySpecFromMap(map, style = {}) {
+  const builder = cvd.overlaySpec().legend(true).screenshot("fullPage").style(style)
+  for (const [name, selector] of Object.entries(map)) builder.target(cvd.overlayTarget(name).selector(selector))
+  return builder.build()
+}
+
+function writeHtmlReport(outDir, model) {
+  const esc = (s) => String(s).replace(/[&<>\"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[ch]))
+  const cards = model.components.map((component) => `<article class="card"><h3>${esc(component.name)}</h3><p><code>${esc(component.selector)}</code></p>${component.image ? `<img src="${esc(path.relative(outDir, component.image))}">` : ""}</article>`).join("\n")
+  const annotated = model.annotated.map((item) => `<section class="annotated"><h2>${esc(item.name)}</h2><img src="${esc(path.relative(outDir, item.path))}"></section>`).join("\n")
+  fs.writeFileSync(path.join(outDir, "index.html"), `<!doctype html><html><head><meta charset="utf-8"><title>Component System</title><style>body{font-family:system-ui;margin:32px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}.card,.annotated{border:1px solid #ddd;padding:14px}img{max-width:100%}</style></head><body><h1>Component System</h1><div class="grid">${cards}</div>${annotated}</body></html>`)
+}
+
+async function main() {
+  fs.mkdirSync(outDir, { recursive: true })
+  const browser = await cvd.browser()
+  try {
+    const page = await browser.page(url, { viewport: cvd.viewport(1440, 1800), waitMs: 500 })
+    const inspected = await page.inspectAll(probesFromSystem(system), { outDir: path.join(outDir, "components"), artifacts: "screenshot-css-json" })
+    const fullScreenPath = path.join(outDir, "annotated", "home.organisms.annotated.png")
+    fs.mkdirSync(path.dirname(fullScreenPath), { recursive: true })
+    await page.overlay(overlaySpecFromMap(system.organisms, {
+      legend: { position: "bottom-right" },
+      targetDefaults: { labelColor: "white", borderWidth: 2 },
+    })).screenshot(fullScreenPath)
+    const model = { url, components: inspected.results, annotated: [{ name: "Home Page / Organism Map", path: fullScreenPath }] }
+    fs.writeFileSync(path.join(outDir, "components.json"), JSON.stringify(model, null, 2))
+    writeHtmlReport(outDir, model)
+    console.log(JSON.stringify({ ok: true, html: path.join(outDir, "index.html") }, null, 2))
+  } finally {
+    await browser.close()
+  }
+}
+
+main()
+```
+
+#### Example 4: annotated organisms with nested child labels
+
+```js
+// examples/scripts/organism-overlays.js
+const path = require("path")
+const fs = require("fs")
+const cvd = require("css-visual-diff")
+const outDir = "/tmp/cssvd/organism-overlays"
+const organisms = {
+  Hero: { root: "section.hero", parts: { Eyebrow: "section.hero .eyebrow", Headline: "section.hero h1", Copy: "section.hero .lede", CTA: "section.hero .button-primary", Media: "section.hero .hero-media" } },
+  Header: { root: "header.site-header", parts: { Logo: "header.site-header .site-logo", Navigation: "header.site-header nav.primary-nav", Actions: "header.site-header .header-actions" } },
+}
+
+function organismSpec(name, organism) {
+  const builder = cvd.overlaySpec()
+    .legend(true)
+    .screenshot("fullPage")
+    .style({ legend: { position: "bottom-right" }, targetDefaults: { labelColor: "white" } })
+    .target(cvd.overlayTarget(name).selector(organism.root).style({ borderColor: "#27221b", label: { background: "#27221b" } }))
+  for (const [partName, selector] of Object.entries(organism.parts)) builder.target(cvd.overlayTarget(partName).selector(selector))
+  return builder.build()
+}
+
+async function main() {
+  fs.mkdirSync(outDir, { recursive: true })
+  const browser = await cvd.browser()
+  try {
+    const page = await browser.page("http://localhost:3000/", { viewport: cvd.viewport(1440, 1800), waitMs: 500 })
+    for (const [organismName, organism] of Object.entries(organisms)) {
+      const slug = organismName.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+      const result = await page.overlay(organismSpec(organismName, organism)).screenshot(path.join(outDir, `${slug}.parts.annotated.png`))
+      console.log(`${organismName}: ${result.outputPath}`)
+    }
+  } finally {
+    await browser.close()
+  }
+}
+
+main()
+```
+
+A useful V2/V3 enhancement is `.cropTo(selector)` or `.cropToTarget(name)` on the overlay spec, so an organism-level PNG contains only the organism bounds plus padding.
 
 ### Color Palette
 
@@ -613,8 +1100,8 @@ GOWORK=off go test ./internal/cssvisualdiff/driver/... -v -run TestHighlightNode
 - `internal/cssvisualdiff/service/overlay_test.go`
 
 **Tasks:**
-1. Define `OverlayTarget`, `OverlayResult`, and `OverlayScreenshot`.
-2. Implement the pipeline: resolve → highlight → screenshot → decode → label → encode → write.
+1. Define `OverlaySpec`, `OverlayTarget`, `OverlayResult`, and `OverlayScreenshot`.
+2. Implement the pipeline: normalize typed styles → resolve → highlight → screenshot → decode → label → legend → encode → write.
 3. For image manipulation, add a dependency such as `golang.org/x/image` and `github.com/golang/freetype` (or `github.com/fogleman/gg` for higher-level drawing). **Decision needed:** `gg` is more ergonomic for rectangles and text; `x/image/draw` + `freetype` is lighter. For an intern-friendly codebase, `gg` is recommended.
 4. Implement `drawLabel` and `drawLegend` helpers.
 5. Handle edge cases: labels that would draw above the image top edge should be drawn inside the image instead; legend should not obscure important content (default to bottom-right corner with a semi-transparent background).
@@ -631,10 +1118,12 @@ GOWORK=off go test ./internal/cssvisualdiff/service/... -v -run TestOverlayScree
 - `internal/cssvisualdiff/jsapi/module.go` (add `overlay` to `wrapPage`)
 
 **Tasks:**
-1. Implement `wrapOverlayBuilder` that returns a Goja object with `.screenshot(path)`.
-2. Decode `[]map[string]any` into `[]service.OverlayTarget` with validation (name and selector required).
-3. Follow the `promiseValue` + `runExclusive` pattern exactly.
-4. Return a plain object: `{ outputPath: string, colors: Record<string, string> }`.
+1. Implement `cvd.overlayTarget(name)` and `cvd.overlaySpec()` fluent builders.
+2. Ensure `.build()` returns opaque/branded `OverlayTargetSpec` and `OverlaySpec` values rather than plain JS objects.
+3. Implement `page.overlay(spec)` so it only accepts an opaque `OverlaySpec` (or an unbuilt `OverlaySpecBuilder` that is finalized internally), never `[]map[string]any`.
+4. Add typed style decoding/normalization for spec-level and target-level overlay styling; do not parse custom overlay CSS.
+5. Follow the `promiseValue` + `runExclusive` pattern exactly.
+6. Return a plain result object: `{ outputPath: string, colors: Record<string, string>, targets: [...] }`.
 
 **Validation (manual script test):**
 Create `examples/scripts/test-overlay.js`:
@@ -644,9 +1133,11 @@ const cvd = require("css-visual-diff")
 async function main() {
   const browser = await cvd.browser()
   const page = await browser.page("https://example.com")
-  const result = await page.overlay([
-    { name: "Heading", selector: "h1" },
-  ]).screenshot("/tmp/test-overlay.png")
+  const spec = cvd.overlaySpec()
+    .target(cvd.overlayTarget("Heading").selector("h1").style({ borderColor: "#0096ff", label: { background: "#0096ff" } }))
+    .legend(true)
+    .build()
+  const result = await page.overlay(spec).screenshot("/tmp/test-overlay.png")
   console.log(JSON.stringify(result, null, 2))
   await browser.close()
 }
@@ -658,33 +1149,26 @@ Run:
 GOWORK=off go run ./cmd/css-visual-diff verbs script run examples/scripts/test-overlay.js
 ```
 
-### Phase 4: Config Schema and CLI Integration
+### Phase 4: JavaScript Verb Examples and Documentation
 
-**Files to modify:**
-- `internal/cssvisualdiff/config/config.go`
-- `internal/cssvisualdiff/modes/capture.go`
+**Files to create/modify:**
+- `examples/scripts/annotate-full-page.js` or an example verb under `examples/verbs/`
+- `internal/cssvisualdiff/doc/topics/javascript-api.md`
+- `README.md`
 
 **Tasks:**
-1. Add `OverlaySpec` and `OverlayTarget` to config structs.
-2. Add validation: if `overlay.enabled` is true, each target must have a non-empty `name` and `selector`.
-3. In `captureTarget` (in `modes/capture.go`), after the full screenshot is captured, check `cfg.Overlay` and call `service.OverlayScreenshot` to produce an `*-annotated.png`.
-4. Include the annotated screenshot path in the JSON/Markdown output.
+1. Write a self-contained JavaScript example that takes a name-to-selector map, preflights selectors, and exports a full-page annotated PNG.
+2. Write a component-system extraction example that writes individual component screenshots, CSS/JSON metadata, and `components.json`.
+3. Write a static HTML gallery example that lists extracted atoms/molecules/organisms/screens and links to annotated organism/full-screen PNGs.
+4. Write a YAML/JSON loader example in userland and convert it to fluent overlay builders.
+5. Document that `.css-visual-diff.yml` only discovers verb repositories and is not where overlay targets belong.
+6. Update the JavaScript API docs with `page.css(...)` for real browser CSS, `cvd.overlayTarget`, `cvd.overlaySpec`, typed `.style(...)` overlay styling, and `page.overlay(spec).screenshot(path)`.
 
 **Validation:**
 ```bash
-GOWORK=off go run ./cmd/css-visual-diff run --config examples/overlay-test.yaml
+GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs --help
+# Then run the concrete example verb or script once it exists.
 ```
-
-### Phase 5: Documentation and Examples
-
-**Files to create:**
-- `examples/overlay-example.yaml`
-- `examples/scripts/overlay-dynamic.js`
-
-**Tasks:**
-1. Write a self-contained YAML example that demonstrates overlay annotation.
-2. Write a JavaScript verb example that discovers selectors dynamically and overlays them.
-3. Update `README.md` with a section on overlay mode.
 
 ---
 
@@ -694,12 +1178,12 @@ GOWORK=off go run ./cmd/css-visual-diff run --config examples/overlay-test.yaml
 
 - **Driver tests:** mock or launch a real Chrome instance to verify that `HighlightNode` + `FullScreenshot` produces an image different from a non-highlighted screenshot. Use image hash comparison (perceptual or simple average color shift).
 - **Service tests:** use a static HTML fixture served via `httptest.Server`. Capture an overlay screenshot and assert that the output file exists and is larger than the non-annotated version (labels add pixels).
-- **Config tests:** in `config/config_test.go`, add test cases for valid and invalid `OverlaySpec` blocks.
+- **JS builder/decoder tests:** in `jsapi` tests, add valid and invalid cases for opaque `OverlayTargetSpec` / `OverlaySpec` values, missing selectors, invalid typed style values, color parsing failures, and attempts to pass raw arrays/maps to `page.overlay`.
 
 ### Integration tests
 
-- Add an overlay target to one of the existing example configs and verify the CLI run produces `original-annotated.png` and `react-annotated.png`.
-- Run the JavaScript verb example manually and visually inspect the PNG.
+- Run the JavaScript verb/script example manually and visually inspect the PNG.
+- If a userland YAML example is added, verify the JS verb loads it and produces the same target array as the inline-map example.
 
 ### Visual regression guard
 
@@ -729,7 +1213,7 @@ Because this feature produces images, automated pixel-perfect assertions are bri
 
 ### Open questions
 
-1. **Should the legend be optional?** Yes — add `OverlaySpec.Legend bool` (default true).
+1. **Should the legend be optional?** Yes — expose `legend: boolean` in the JS options object, defaulting to `true`.
 2. **Should label position be configurable?** For the first version, always place labels above the bounding box, clamped to image bounds. Future: `LabelPosition: "above" | "below" | "auto"`.
 3. **Should overlay work with per-section screenshots?** For V1, only full-page annotated screenshots. Per-section overlays can be added later by cropping the annotated full page or by running the pipeline on a clipped viewport.
 4. **Font choice:** use a built-in font (Go's `basicfont` or embed a small TTF) to avoid system dependency. **Decision:** embed `golang.org/x/image/font/gofont/goregular` for consistency across OSes.
@@ -749,8 +1233,8 @@ Because this feature produces images, automated pixel-perfect assertions are bri
 | `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/service/inspect.go` | Artifact writing and metadata patterns. Overlay results should follow the same artifact conventions. |
 | `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/jsapi/module.go` | Goja module registration and `wrapPage`. The `overlay` builder will be registered here. |
 | `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/jsapi/probe.go` | Builder pattern for probes. The overlay builder should mirror this API style. |
-| `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/config/config.go` | Config schema. `OverlaySpec` and `OverlayTarget` will be added here. |
-| `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/modes/capture.go` | Capture orchestration. Overlay screenshot production will be hooked into `captureTarget`. |
+| `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/internal/cssvisualdiff/verbcli/bootstrap.go` | App config discovery for JS verb repositories. Important because `.css-visual-diff.yml` is only for finding scripts, not for overlay target schema. |
+| `/home/manuel/code/wesen/corporate-headquarters/css-visual-diff/cmd/css-visual-diff/main.go` | Root CLI command registration. Confirms the live entry points are direct commands plus `verbs`, not the removed `run --config` pipeline. |
 | `/home/manuel/code/wesen/2026-04-25--overlay-select-components/extension/content_scripts/modules/dom-overlay.js` | Reference DOM overlay implementation. Demonstrates visual design of boxes and labels (used for inspiration, not implementation). |
 
 ### External API references
@@ -784,48 +1268,54 @@ Because this feature produces images, automated pixel-perfect assertions are bri
 This appendix ties together all concepts into one readable pseudocode function. It is not copy-paste Go, but it maps closely to the intended implementation.
 
 ```go
-func OverlayScreenshot(page *driver.Page, targets []OverlayTarget, outPath string) (*OverlayResult, error) {
-    // 1. Resolve selectors and assign colors
+func OverlayScreenshot(page *driver.Page, spec OverlaySpec, outPath string) (*OverlayResult, error) {
+    // 1. Normalize typed Go-side overlay styles.
+    spec, err := NormalizeOverlaySpec(spec)
+    if err != nil {
+        return nil, err
+    }
+
+    // 2. Resolve selectors, merge target styles, and assign colors.
     type annotatedTarget struct {
         OverlayTarget
         nodeID cdp.NodeID
         color  color.RGBA
+        style  TargetOverlayStyle
     }
     var annotated []annotatedTarget
-    for i, t := range targets {
+    for i, t := range spec.Targets {
         nodeID, err := page.ResolveNodeID(t.Selector)
         if err != nil {
             return nil, fmt.Errorf("resolve %q: %w", t.Selector, err)
         }
+        style := ResolveTargetStyle(spec.Style, t.Style, t, defaultPalette[i % len(defaultPalette)])
+        if style.BorderColor == nil {
+            style.BorderColor = ptr(defaultPalette[i % len(defaultPalette)])
+        }
         annotated = append(annotated, annotatedTarget{
             OverlayTarget: t,
             nodeID:        nodeID,
-            color:         defaultPalette[i % len(defaultPalette)],
+            color:         *style.BorderColor,
+            style:         style,
         })
     }
 
-    // 2. Apply CDP highlights
+    // 3. Apply CDP highlights.
     for _, at := range annotated {
-        cfg := &overlay.HighlightConfig{
-            ShowInfo:      false, // we draw our own labels
-            ContentColor:  rgbaToCDP(at.color, 0.3),
-            PaddingColor:  rgbaToCDP(at.color, 0.2),
-            BorderColor:   rgbaToCDP(at.color, 0.8),
-            MarginColor:   rgbaToCDP(at.color, 0.1),
-        }
+        cfg := highlightConfigFromStyle(at.style)
         if err := page.HighlightNode(at.Selector, cfg); err != nil {
             return nil, err
         }
     }
 
-    // 3. Capture screenshot
+    // 4. Capture screenshot
     var buf []byte
     if err := chromedp.Run(page.Context(), chromedp.FullScreenshot(&buf, 90)); err != nil {
         _ = page.HideHighlight()
         return nil, err
     }
 
-    // 4. Decode PNG
+    // 5. Decode PNG
     img, err := png.Decode(bytes.NewReader(buf))
     if err != nil {
         _ = page.HideHighlight()
@@ -834,7 +1324,7 @@ func OverlayScreenshot(page *driver.Page, targets []OverlayTarget, outPath strin
     rgba := image.NewRGBA(img.Bounds())
     draw.Draw(rgba, rgba.Bounds(), img, image.Point{}, draw.Src)
 
-    // 5. Query bounds for label placement
+    // 6. Query bounds for label placement
     for i := range annotated {
         bounds, err := service.LocatorBounds(page, service.LocatorSpec{Selector: annotated[i].Selector})
         if err != nil {
@@ -843,21 +1333,27 @@ func OverlayScreenshot(page *driver.Page, targets []OverlayTarget, outPath strin
         annotated[i].bounds = bounds
     }
 
-    // 6. Draw labels
+    // 7. Draw labels
     for _, at := range annotated {
         if at.bounds == nil {
             continue
         }
-        drawLabel(rgba, *at.bounds, at.Name, at.color)
+        label := at.Label
+        if label == "" {
+            label = at.Name
+        }
+        drawLabel(rgba, *at.bounds, label, at.style)
     }
 
-    // 7. Draw legend
-    drawLegend(rgba, annotated)
+    // 8. Draw legend
+    if spec.Legend {
+        drawLegend(rgba, annotated, spec.Style.Legend)
+    }
 
-    // 8. Hide highlights
+    // 9. Hide highlights
     _ = page.HideHighlight()
 
-    // 9. Encode and write
+    // 10. Encode and write
     f, err := os.Create(outPath)
     if err != nil {
         return nil, err
@@ -867,7 +1363,7 @@ func OverlayScreenshot(page *driver.Page, targets []OverlayTarget, outPath strin
         return nil, err
     }
 
-    // 10. Build result
+    // 11. Build result
     colors := make(map[string]string)
     for _, at := range annotated {
         colors[at.Name] = rgbaToHex(at.color)
@@ -875,7 +1371,7 @@ func OverlayScreenshot(page *driver.Page, targets []OverlayTarget, outPath strin
     return &OverlayResult{
         Image:      rgba,
         OutputPath: outPath,
-        Targets:    targets,
+        Targets:    spec.Targets,
         Colors:     colors,
     }, nil
 }
