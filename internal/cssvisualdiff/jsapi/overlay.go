@@ -110,7 +110,8 @@ func targetColorMethod(vm *goja.Runtime, op string, set func(color.RGBA)) ProxyM
 func newOverlaySpecBuilder(vm *goja.Runtime, spec service.OverlaySpec) goja.Value {
 	b := &overlaySpecBuilder{spec: spec}
 	return newProxyValue(vm, nil, ProxySpec{Owner: overlaySpecBuilderOwner, Methods: map[string]ProxyMethod{
-		"target": b.target(vm), "targets": b.targets(vm), "legend": b.legend(vm), "screenshot": b.screenshot(vm), "style": b.style(vm), "build": b.build(vm),
+		"target": b.target(vm), "targets": b.targets(vm), "legend": b.legend(vm), "screenshot": b.screenshot(vm), "style": b.style(vm),
+		"cropTo": b.cropTo(vm), "cropPadding": b.cropPadding(vm), "build": b.build(vm),
 	}}, b)
 }
 
@@ -157,6 +158,29 @@ func (b *overlaySpecBuilder) style(vm *goja.Runtime) ProxyMethod {
 			panic(vm.NewTypeError(err.Error()))
 		}
 		b.spec.Style = b.spec.Style.Merge(st)
+		return receiver
+	}
+}
+func (b *overlaySpecBuilder) cropTo(vm *goja.Runtime) ProxyMethod {
+	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
+		if b.spec.Crop == nil {
+			b.spec.Crop = &service.OverlayCrop{}
+		}
+		b.spec.Crop.Selector = requiredStringArg(vm, "cvd.overlaySpec.cropTo", call.Argument(0))
+		b.spec.Crop.Target = ""
+		return receiver
+	}
+}
+func (b *overlaySpecBuilder) cropPadding(vm *goja.Runtime) ProxyMethod {
+	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
+		padding, ok := decodeInsets(call.Argument(0).Export())
+		if !ok {
+			panic(typeMismatchError(vm, "cvd.overlaySpec.cropPadding", "number, [vertical, horizontal], or [top, right, bottom, left]", call.Argument(0)))
+		}
+		if b.spec.Crop == nil {
+			b.spec.Crop = &service.OverlayCrop{}
+		}
+		b.spec.Crop.Padding = padding
 		return receiver
 	}
 }
