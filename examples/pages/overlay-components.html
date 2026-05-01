@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>css-visual-diff overlay example page</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #27221b;
+      --muted: #6f6559;
+      --paper: #f7f3ea;
+      --card: #fffaf1;
+      --blue: #0b84ff;
+      --tomato: #ff6347;
+      --green: #32cd32;
+      --gold: #ffbf00;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: auto; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: var(--paper);
+    }
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 18px 48px;
+      background: rgba(255, 250, 241, 0.94);
+      border-bottom: 1px solid #dfd3bf;
+      backdrop-filter: blur(8px);
+    }
+    .site-logo { font-weight: 800; letter-spacing: -0.04em; font-size: 22px; }
+    .primary-nav { display: flex; gap: 18px; font-size: 14px; }
+    .primary-nav a { color: var(--muted); text-decoration: none; }
+    .header-actions { display: flex; gap: 10px; align-items: center; }
+    .button-primary, .button-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 38px;
+      border-radius: 999px;
+      padding: 0 18px;
+      text-decoration: none;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+    .button-primary { color: white; background: var(--ink); }
+    .button-secondary { color: var(--ink); border-color: #d8cbb8; background: white; }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+      gap: 48px;
+      align-items: center;
+      min-height: 520px;
+      padding: 72px 48px 64px;
+      background: radial-gradient(circle at 80% 20%, #ffe0bc, transparent 35%), #fff8ec;
+    }
+    .hero-copy { max-width: 640px; }
+    .eyebrow { color: var(--blue); font-weight: 800; text-transform: uppercase; letter-spacing: 0.12em; font-size: 13px; }
+    .hero h1 { margin: 14px 0 18px; font-size: clamp(46px, 6vw, 84px); line-height: 0.92; letter-spacing: -0.07em; }
+    .lede { color: var(--muted); font-size: 20px; line-height: 1.5; max-width: 560px; }
+    .hero-actions { display: flex; gap: 14px; margin-top: 28px; }
+    .hero-media {
+      min-height: 360px;
+      border-radius: 28px;
+      background:
+        linear-gradient(135deg, rgba(11,132,255,.22), rgba(255,99,71,.22)),
+        repeating-linear-gradient(45deg, #fff, #fff 12px, #f0e5d4 12px, #f0e5d4 24px);
+      border: 1px solid #ddcdb6;
+      box-shadow: 0 24px 60px rgba(39, 34, 27, .16);
+    }
+    .features { padding: 72px 48px; }
+    .section-heading { max-width: 680px; margin-bottom: 28px; }
+    .section-heading h2 { font-size: 42px; line-height: 1; letter-spacing: -0.04em; margin: 0 0 10px; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+    .feature-card {
+      min-height: 210px;
+      padding: 24px;
+      border-radius: 22px;
+      background: var(--card);
+      border: 1px solid #e2d5c2;
+      box-shadow: 0 12px 30px rgba(39, 34, 27, .08);
+    }
+    .feature-card h3 { margin: 0 0 10px; font-size: 22px; }
+    .feature-card p { color: var(--muted); line-height: 1.55; }
+    .newsletter { margin: 32px 48px 72px; padding: 42px; border-radius: 28px; background: #27221b; color: white; }
+    .newsletter-form { display: flex; gap: 12px; max-width: 520px; }
+    .newsletter-form input { flex: 1; min-height: 44px; border-radius: 999px; border: 0; padding: 0 16px; }
+    .site-footer { padding: 36px 48px; border-top: 1px solid #dfd3bf; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="site-logo">OverlayKit</div>
+    <nav class="primary-nav" aria-label="Primary navigation">
+      <a href="#hero">Hero</a>
+      <a href="#features">Features</a>
+      <a href="#newsletter">Newsletter</a>
+    </nav>
+    <div class="header-actions">
+      <a class="button-secondary" href="#features">Docs</a>
+      <a class="button-primary" href="#newsletter">Start</a>
+    </div>
+  </header>
+
+  <main>
+    <section id="hero" class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">Visual component map</div>
+        <h1>Annotated screenshots for UI systems.</h1>
+        <p class="lede">Export full-screen maps, crop organisms, and label component parts for design review and implementation handoff.</p>
+        <div class="hero-actions">
+          <a class="button-primary" href="#features">Explore parts</a>
+          <a class="button-secondary" href="#newsletter">Get updates</a>
+        </div>
+      </div>
+      <div class="hero-media" role="img" aria-label="Abstract screenshot placeholder"></div>
+    </section>
+
+    <section id="features" class="features">
+      <div class="section-heading">
+        <h2>Component-system evidence</h2>
+        <p class="lede">Use this page as a deterministic local fixture for overlay screenshot examples.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card"><h3>Atoms</h3><p>Buttons, logo marks, text styles, and other small reusable pieces.</p></article>
+        <article class="feature-card"><h3>Molecules</h3><p>Navigation items, cards, forms, and compact repeated patterns.</p></article>
+        <article class="feature-card"><h3>Organisms</h3><p>Header, hero, feature grid, newsletter, and full-screen maps.</p></article>
+      </div>
+    </section>
+
+    <section id="newsletter" class="newsletter">
+      <h2>Keep a record of UI decisions.</h2>
+      <form class="newsletter-form">
+        <input aria-label="Email" placeholder="designer@example.com" />
+        <button class="button-primary" type="button">Subscribe</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="site-footer">© 2026 OverlayKit example fixture.</footer>
+</body>
+</html>

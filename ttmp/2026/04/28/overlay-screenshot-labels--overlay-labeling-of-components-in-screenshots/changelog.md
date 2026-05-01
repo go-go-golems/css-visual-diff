@@ -88,3 +88,31 @@ Implemented crop support for overlay screenshots.
 
 - Pre-commit lint and `GOWORK=off go test ./...` passed for all crop code commits.
 
+## 2026-05-01 example scripts and fixture validation
+
+Added runnable overlay example verbs and validated them against a local fixture page.
+
+### Changes
+
+- Added `examples/pages/overlay-components.html` as a deterministic static page with header, hero, feature grid, newsletter, and footer organisms.
+- Added `examples/verbs/overlay-examples.js` with:
+  - `examples overlay annotated-png` for one full-page annotated organism map.
+  - `examples overlay gallery` for component extraction, full-page organism map, cropped Hero-parts overlay, JSON, and an HTML gallery.
+- Updated `examples/verbs/README.md` with commands and expected output files.
+
+### Validation
+
+- Served the fixture with `python3 -m http.server 19876 --directory "$PWD"`.
+- Ran `GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs examples overlay annotated-png http://127.0.0.1:19876/examples/pages/overlay-components.html /tmp/cssvd-overlay-example`.
+- Ran `GOWORK=off go run ./cmd/css-visual-diff verbs --repository examples/verbs examples overlay gallery http://127.0.0.1:19876/examples/pages/overlay-components.html /tmp/cssvd-overlay-gallery`.
+- Verified generated PNG dimensions:
+  - `/tmp/cssvd-overlay-example/full-page.organisms.annotated.png` — `1280x1527`.
+  - `/tmp/cssvd-overlay-gallery/annotated/full-page.organisms.png` — `1280x1527`.
+  - `/tmp/cssvd-overlay-gallery/annotated/hero.parts.crop.png` — `1280x602`.
+- `go test ./...` passes.
+
+### Review notes
+
+- The examples functionally work and produce the expected artifacts.
+- Visual review suggests label/overlay aesthetics need user feedback: the cropped Hero parts are correctly labeled, but dense nested boxes can overlap and may obscure content.
+

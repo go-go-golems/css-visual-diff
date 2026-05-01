@@ -37,6 +37,47 @@ The command writes:
 
 Use this example when you want a small programmable feedback loop while building UI components. Use the catalog example when you want durable manifests, indexes, and standard inspect artifacts.
 
+## Overlay screenshot examples
+
+The overlay examples use `examples/pages/overlay-components.html` as a deterministic local fixture.
+
+Start a static server from the repository root:
+
+```bash
+python3 -m http.server 8767
+```
+
+Export one annotated full-page PNG:
+
+```bash
+css-visual-diff verbs --repository examples/verbs examples overlay annotatedPng \
+  http://127.0.0.1:8767/examples/pages/overlay-components.html \
+  /tmp/cssvd-overlay-example \
+  --output json
+```
+
+This writes:
+
+- `/tmp/cssvd-overlay-example/full-page.organisms.annotated.png`
+
+Export a small component-system gallery with extracted component screenshots, a full-page organism map, and a cropped Hero-parts overlay:
+
+```bash
+css-visual-diff verbs --repository examples/verbs examples overlay gallery \
+  http://127.0.0.1:8767/examples/pages/overlay-components.html \
+  /tmp/cssvd-overlay-gallery \
+  --output json
+```
+
+This writes:
+
+- `/tmp/cssvd-overlay-gallery/index.html`
+- `/tmp/cssvd-overlay-gallery/components.json`
+- `/tmp/cssvd-overlay-gallery/annotated/full-page.organisms.png`
+- `/tmp/cssvd-overlay-gallery/annotated/hero.parts.crop.png`
+
+Open the HTML file in a browser and inspect the PNGs to review label placement, crop bounds, and component grouping.
+
 ## Authoring mode: keep going on missing selectors
 
 By default `failOnMissing=false`, so selector misses are recorded in the manifest and returned as a structured row instead of making the command fail:

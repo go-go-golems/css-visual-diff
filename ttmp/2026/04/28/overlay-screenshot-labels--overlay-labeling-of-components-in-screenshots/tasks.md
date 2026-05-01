@@ -22,7 +22,7 @@
 ## Future TODO
 
 - [ ] Add richer docs/help page entries for the new APIs.
-- [ ] Add end-to-end example verb/script files under `examples/`.
+- [x] Add end-to-end example verb/script files under `examples/` and validate them against `examples/pages/overlay-components.html`.
 - [ ] Consider V2 crop support: `.cropToTarget(name)` public JS builder method (service model already has a `Target` field).
 - [ ] Consider removable style handles for `page.css(...)`.
 - [ ] Consider CDP Overlay-domain integration later if native compositor highlights are still desired; current implementation draws boxes in Go for reliable multi-target full-page output.
