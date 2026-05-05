@@ -21,6 +21,7 @@ func wrapLocator(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *page
 			"status":        locator.status(ctx, vm),
 			"exists":        locator.exists(ctx, vm),
 			"visible":       locator.visible(ctx, vm),
+			"waitFor":       locator.waitFor(ctx, vm),
 			"text":          locator.text(ctx, vm),
 			"bounds":        locator.bounds(ctx, vm),
 			"computedStyle": locator.computedStyle(ctx, vm),
@@ -76,6 +77,32 @@ func (l *locatorHandle) visible(ctx *engine.RuntimeModuleContext, vm *goja.Runti
 					return nil, err
 				}
 				return status.Visible, nil
+			})
+		}, nil)
+	}
+}
+
+func (l *locatorHandle) waitFor(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
+		rawOptions := map[string]any{}
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
+			if exported, ok := call.Argument(0).Export().(map[string]any); ok {
+				rawOptions = exported
+			} else {
+				panic(typeMismatchError(vm, "css-visual-diff.locator.waitFor", "options object", call.Argument(0)))
+			}
+		}
+		return promiseValue(ctx, vm, "css-visual-diff.locator.waitFor", func() (any, error) {
+			return l.page.runExclusive(func() (any, error) {
+				opts, err := decodeInto[service.WaitForSelectorOptions](rawOptions)
+				if err != nil {
+					return nil, err
+				}
+				result, err := service.WaitForLocator(l.page.page.Page(), l.spec(), opts)
+				if err != nil {
+					return nil, err
+				}
+				return lowerWaitForSelectorResult(result), nil
 			})
 		}, nil)
 	}
@@ -174,4 +201,21 @@ func lowerSelectorStatus(status service.SelectorStatus) map[string]any {
 		return map[string]any{}
 	}
 	return statuses[0]
+}
+
+func lowerWaitForSelectorResult(result service.WaitForSelectorResult) map[string]any {
+	ret := map[string]any{
+		"name":      result.Name,
+		"selector":  result.Selector,
+		"source":    result.Source,
+		"exists":    result.Exists,
+		"visible":   result.Visible,
+		"textStart": result.TextStart,
+		"error":     result.Error,
+		"elapsedMs": result.ElapsedMS,
+	}
+	if result.Bounds != nil {
+		ret["bounds"] = lowerBounds(*result.Bounds)
+	}
+	return ret
 }

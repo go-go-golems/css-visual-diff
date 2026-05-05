@@ -16,6 +16,13 @@ async function inspect(url, selector, outDir, values) {
     });
 
     const locator = page.locator(selector);
+    await locator.waitFor({
+      timeoutMs: values.timeoutMs || 5000,
+      pollIntervalMs: values.pollIntervalMs || 100,
+      visible: values.visible !== false,
+      afterWaitMs: values.afterWaitMs || 0,
+    });
+
     const element = await cvd.extract(locator, [
       cvd.extractors.exists(),
       cvd.extractors.visible(),
@@ -65,6 +72,10 @@ __verb__("inspect", {
     values: { bind: "all" },
     name: { type: "string", default: "target", help: "Name for the generated probe" },
     waitMs: { type: "int", default: 0, help: "Wait after navigation in ms" },
+    timeoutMs: { type: "int", default: 5000, help: "Maximum selector wait time in ms" },
+    pollIntervalMs: { type: "int", default: 100, help: "Selector wait polling interval in ms" },
+    afterWaitMs: { type: "int", default: 0, help: "Extra stabilization wait after selector match in ms" },
+    visible: { type: "bool", default: true, help: "Require selector to be visible before extracting" },
     width: { type: "int", default: 800, help: "Viewport width" },
     height: { type: "int", default: 600, help: "Viewport height" }
   }

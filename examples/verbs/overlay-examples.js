@@ -30,12 +30,74 @@ function targetMapToSpec(map, options) {
   if (options.cropPadding !== undefined) builder.cropPadding(options.cropPadding);
 
   const styleByName = options.styleByName || {};
+  const contentAlpha = normalizeContentAlpha(options.contentAlphaPercent);
+  let index = 0;
   for (const [name, selector] of Object.entries(map)) {
     const target = cvd.overlayTarget(name).selector(selector);
-    if (styleByName[name]) target.style(styleByName[name]);
+    const style = Object.assign({}, styleByName[name] || {});
+    if (contentAlpha !== null && style.contentBackground === undefined) {
+      const baseColor = style.borderColor || defaultPalette[index % defaultPalette.length];
+      style.contentBackground = colorWithAlpha(baseColor, contentAlpha);
+    }
+    if (Object.keys(style).length > 0) target.style(style);
     builder.target(target);
+    index++;
   }
   return builder.build();
+}
+
+const defaultPalette = [
+  "#0096ff",
+  "#ff6347",
+  "#32cd32",
+  "#ffbf00",
+  "#ba55d3",
+  "#00ced1",
+  "#ff69b4",
+  "#ff8c00",
+];
+
+function normalizeContentAlpha(percent) {
+  if (percent === undefined || percent === null || percent < 0) return null;
+  if (percent > 100) percent = 100;
+  return percent / 100;
+}
+
+function colorWithAlpha(color, alpha) {
+  const rgba = parseColor(color);
+  if (!rgba) return color;
+  return `rgba(${rgba.r}, ${rgba.g}, ${rgba.b}, ${alpha.toFixed(3)})`;
+}
+
+function parseColor(color) {
+  const raw = String(color || "").trim().toLowerCase();
+  const named = {
+    red: [255, 0, 0],
+    green: [0, 128, 0],
+    blue: [0, 0, 255],
+    white: [255, 255, 255],
+    black: [0, 0, 0],
+  };
+  if (named[raw]) return { r: named[raw][0], g: named[raw][1], b: named[raw][2] };
+  if (raw[0] === "#") {
+    let hex = raw.slice(1);
+    if (hex.length === 3) hex = hex.split("").map((ch) => ch + ch).join("");
+    if (hex.length === 6 || hex.length === 8) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+      };
+    }
+  }
+  const match = raw.match(/^rgba?\(([^)]+)\)$/);
+  if (match) {
+    const parts = match[1].split(",").map((p) => Number(p.trim()));
+    if (parts.length >= 3 && parts.slice(0, 3).every((n) => Number.isFinite(n))) {
+      return { r: parts[0], g: parts[1], b: parts[2] };
+    }
+  }
+  return null;
 }
 
 const organismSelectors = {
@@ -94,7 +156,10 @@ async function annotatedPng(url, outDir, values) {
   return withPage(url, values, async (page) => {
     const outPath = path.join(outDir, "full-page.organisms.annotated.png");
     const result = await page
-      .overlay(targetMapToSpec(organismSelectors, { styleByName: organismStyles }))
+      .overlay(targetMapToSpec(organismSelectors, {
+        styleByName: organismStyles,
+        contentAlphaPercent: values.contentAlphaPercent,
+      }))
       .screenshot(outPath);
     return { ok: true, kind: "annotated-png", outPath: result.outputPath, width: result.width, height: result.height, targetCount: result.targets.length, colors: result.colors };
   });
@@ -110,7 +175,10 @@ async function componentGallery(url, outDir, values) {
     });
 
     const fullMap = await page
-      .overlay(targetMapToSpec(organismSelectors, { styleByName: organismStyles }))
+      .overlay(targetMapToSpec(organismSelectors, {
+        styleByName: organismStyles,
+        contentAlphaPercent: values.contentAlphaPercent,
+      }))
       .screenshot(path.join(outDir, "annotated", "full-page.organisms.png"));
 
     const heroParts = await page
@@ -124,6 +192,7 @@ async function componentGallery(url, outDir, values) {
           Actions: { borderColor: "#0096ff", label: { background: "#0096ff" } },
           Media: { borderColor: "#32cd32", label: { background: "#32cd32" } },
         },
+        contentAlphaPercent: values.contentAlphaPercent,
       }))
       .screenshot(path.join(outDir, "annotated", "hero.parts.crop.png"));
 
@@ -186,6 +255,7 @@ __verb__("annotatedPng", {
     width: { type: "int", default: 1280, help: "Viewport width" },
     height: { type: "int", default: 1400, help: "Viewport height" },
     waitMs: { type: "int", default: 250, help: "Wait after navigation in ms" },
+    contentAlphaPercent: { type: "int", default: 10, help: "Overlay content fill alpha as a percentage (0-100); use 0 for border-only" },
   },
 });
 
@@ -203,5 +273,6 @@ __verb__("gallery", {
     width: { type: "int", default: 1280, help: "Viewport width" },
     height: { type: "int", default: 1400, help: "Viewport height" },
     waitMs: { type: "int", default: 250, help: "Wait after navigation in ms" },
+    contentAlphaPercent: { type: "int", default: 10, help: "Overlay content fill alpha as a percentage (0-100); use 0 for border-only" },
   },
 });

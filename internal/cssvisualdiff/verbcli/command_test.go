@@ -637,7 +637,14 @@ __verb__("buildersSmoke", {
 func TestCVDModuleExposesLocatorMethods(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprint(w, `<html><body><button id="cta" class="primary" data-kind="booking" style="color: rgb(255, 0, 0)">  Book
-now  </button><div id="hidden" style="display:none">Hidden</div></body></html>`)
+now  </button><div id="hidden" style="display:none">Hidden</div><script>
+setTimeout(() => {
+  const delayed = document.createElement('div');
+  delayed.id = 'delayed';
+  delayed.textContent = 'Ready';
+  document.body.appendChild(delayed);
+}, 100);
+</script></body></html>`)
 	}))
 	defer server.Close()
 
@@ -650,7 +657,7 @@ async function locatorSmoke(url) {
   try {
     page = await browser.page(url, { viewport: { width: 320, height: 240 } });
     const cta = page.locator("#cta");
-    const [status, exists, visible, text, bounds, styles, attrs, missingExists, hiddenVisible] = await Promise.all([
+    const [status, exists, visible, text, bounds, styles, attrs, missingExists, hiddenVisible, hiddenPresent] = await Promise.all([
       cta.status(),
       cta.exists(),
       cta.visible(),
@@ -659,8 +666,10 @@ async function locatorSmoke(url) {
       cta.computedStyle(["color", "display"]),
       cta.attributes(["id", "class", "data-kind", "missing"]),
       page.locator("#missing").exists(),
-      page.locator("#hidden").visible()
+      page.locator("#hidden").visible(),
+      page.locator("#hidden").waitFor({ visible: false, timeoutMs: 500, pollIntervalMs: 25 })
     ]);
+    const delayed = await page.locator("#delayed").waitFor({ timeoutMs: 2000, pollIntervalMs: 50 });
     return {
       statusExists: status.exists,
       exists,
@@ -671,7 +680,12 @@ async function locatorSmoke(url) {
       attrClass: attrs.class,
       attrMissing: attrs.missing,
       missingExists,
-      hiddenVisible
+      hiddenVisible,
+      hiddenPresentExists: hiddenPresent.exists,
+      hiddenPresentVisible: hiddenPresent.visible,
+      delayedExists: delayed.exists,
+      delayedVisible: delayed.visible,
+      delayedText: delayed.textStart
     };
   } finally {
     if (page) await page.close();
@@ -715,6 +729,11 @@ __verb__("locatorSmoke", {
 	require.Equal(t, "", row["attrMissing"])
 	require.Equal(t, false, row["missingExists"])
 	require.Equal(t, false, row["hiddenVisible"])
+	require.Equal(t, true, row["hiddenPresentExists"])
+	require.Equal(t, false, row["hiddenPresentVisible"])
+	require.Equal(t, true, row["delayedExists"])
+	require.Equal(t, true, row["delayedVisible"])
+	require.Contains(t, row["delayedText"], "Ready")
 }
 
 func TestCVDModuleLocatorWrongParentError(t *testing.T) {
