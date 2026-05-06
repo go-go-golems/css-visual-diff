@@ -11,6 +11,8 @@ DocType: index
 Intent: long-term
 Owners: []
 RelatedFiles:
+    - Path: internal/cssvisualdiff/doc/tutorials/site-comparison-workflow.md
+      Note: Dedicated site-comparison review workflow documentation
     - Path: internal/cssvisualdiff/dsl/registrar.go
       Note: Registration point for existing require(diff).compareRegion API that should remain the high-level compare path
     - Path: internal/cssvisualdiff/jsapi/locator.go
@@ -27,6 +29,7 @@ LastUpdated: 2026-05-04T17:08:00-04:00
 WhatFor: Coordinate implementation tasks for locator.waitFor, internal pixel service extraction, artifact path auditing, and Pyxis adaptation.
 WhenToUse: Before implementing or reviewing any hair-booking branch utility port into css-visual-diff main.
 ---
+
 
 
 # Port useful hair-booking utilities to main
