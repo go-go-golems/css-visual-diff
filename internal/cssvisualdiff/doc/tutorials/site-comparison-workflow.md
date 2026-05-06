@@ -315,7 +315,7 @@ If a selector fails, run a narrow inspection command or open the page in the bro
 | --- | --- | --- |
 | `unknown flag: --spec-file` | The example verb uses camelCase field names from its JS metadata. | Use `--specFile` and `--outDir`. |
 | The review site opens but shows no cards. | The server cannot read `summary.json`, or the data directory is wrong. | Check `css-visual-diff serve --data-dir ...` and verify `<data-dir>/summary.json` exists. |
-| Cards show but images are broken. | Artifact paths do not match `<data-dir>/<page>/artifacts/<section>/<file>`, or the frontend bundle is stale. | Verify files exist, then rebuild the web bundle with `BUILD_WEB_LOCAL=1 go run ./cmd/build-web` and rebuild the CLI. |
+| Cards show but images are broken. | Artifact paths do not match `<data-dir>/<page>/artifacts/<section>/<file>`, or the frontend bundle is stale. | Verify files exist, then rebuild the embedded review site with `make build-embed`; use `make build-web-local` if Docker/Dagger is unavailable. |
 | `compare.json not found` when expanding a card. | A summary row references a page/section without a matching artifact directory. | Re-run `from-spec` or rebuild the summary with `examples review-sweep summary`. |
 | A section records an error row. | The selector was missing, invalid, or not visible/capturable at comparison time. | Increase `waitMs`, set side-specific selectors, or inspect the page manually. |
 | CSS diff is empty even though the screenshots differ. | The changed property is not listed in `computed`, or the difference is caused by layout/content rather than CSS properties in the list. | Add relevant properties to `computed` and re-run the comparison. |

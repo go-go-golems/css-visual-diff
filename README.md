@@ -415,7 +415,8 @@ For repository development, use the Makefile targets:
 ```bash
 make test           # run Go tests
 make build          # run go generate and build packages
-make build-web      # build React app and copy dist to the embed directory
+make build-web      # build React app via Dagger and copy dist to the embed directory
+make build-web-local # build React app with local Node/pnpm instead of Dagger
 make build-embed    # build frontend, then compile dist/css-visual-diff
 make dev-web        # run Vite dev server for the review site
 make dev-serve      # serve /tmp/cssvd-review-test on port 8098

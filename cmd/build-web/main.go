@@ -183,7 +183,7 @@ func getenv(key, def string) string {
 func recreate(dir string) error {
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
-		if e.Name() == ".keep" || e.Name() == ".gitignore" {
+		if e.Name() == "keep.txt" || e.Name() == ".keep" || e.Name() == ".gitignore" {
 			continue
 		}
 		_ = os.RemoveAll(filepath.Join(dir, e.Name()))
