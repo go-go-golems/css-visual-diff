@@ -390,7 +390,7 @@ func drawRect(img *image.RGBA, r image.Rectangle, c color.RGBA) {
 	// strings (for example rgba(255, 99, 71, 0.03)). Go's color.RGBA is
 	// alpha-premultiplied, so pass the same channel values through NRGBA before
 	// compositing; otherwise low-alpha fills render nearly opaque.
-	draw.Draw(img, r, image.NewUniform(color.NRGBA{R: c.R, G: c.G, B: c.B, A: c.A}), image.Point{}, draw.Over)
+	draw.Draw(img, r, image.NewUniform(color.NRGBA(c)), image.Point{}, draw.Over)
 }
 
 func drawRectOutline(img *image.RGBA, r image.Rectangle, c color.RGBA) {
