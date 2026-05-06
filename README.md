@@ -57,7 +57,7 @@ python3 -m http.server 18767
 In another terminal, generate review-site data:
 
 ```bash
-go run ./cmd/css-visual-diff verbs \
+css-visual-diff verbs \
   --repository examples/verbs \
   examples review-sweep from-spec \
   --specFile examples/specs/review-site-smoke.yaml \
@@ -68,7 +68,7 @@ go run ./cmd/css-visual-diff verbs \
 Serve the review website:
 
 ```bash
-go run ./cmd/css-visual-diff serve \
+css-visual-diff serve \
   --data-dir /tmp/cssvd-review-site-smoke \
   --port 18098 \
   --open
@@ -391,36 +391,34 @@ This writes screenshots, `compare.json`, `compare.md`, and pixel diff images. It
 
 For project-scale suites, prefer JavaScript verbs so the project can own page names, section names, policies, and spec formats.
 
-## Build and install
+## Install and development builds
 
-From a checkout:
+Most examples assume `css-visual-diff` is already installed and available on your `PATH`:
+
+```bash
+css-visual-diff --help
+css-visual-diff verbs --help
+css-visual-diff serve --help
+```
+
+From a checkout, install the CLI with Go:
 
 ```bash
 go install ./cmd/css-visual-diff
 ```
 
-For repository development:
+For repository development, use the Makefile targets:
 
 ```bash
-go test ./...
-go build ./cmd/css-visual-diff
-```
-
-The review website is a React/Vite app embedded into the Go binary. If you change frontend code under `web/review-site`, rebuild the web assets and then rebuild the CLI:
-
-```bash
-BUILD_WEB_LOCAL=1 go run ./cmd/build-web
-go build -o dist/css-visual-diff ./cmd/css-visual-diff
-```
-
-Convenience targets:
-
-```bash
+make test           # run Go tests
+make build          # run go generate and build packages
 make build-web      # build React app and copy dist to the embed directory
-make build-embed    # build frontend, then compile the CLI
+make build-embed    # build frontend, then compile dist/css-visual-diff
 make dev-web        # run Vite dev server for the review site
 make dev-serve      # serve /tmp/cssvd-review-test on port 8098
 ```
+
+The review website is a React/Vite app embedded into the Go binary. If you change frontend code under `web/review-site`, run `make build-embed` before testing the installed binary.
 
 ## Documentation
 
