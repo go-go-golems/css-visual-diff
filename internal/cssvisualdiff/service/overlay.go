@@ -213,15 +213,17 @@ func resolveDocumentBounds(page *driver.Page, targets []OverlayTarget) ([]docume
 const targets = %s;
 return targets.map((target) => {
   const selector = target.selector || "";
-  if (!selector) return { error: "selector is empty" };
+  const name = target.name || "";
+  if (!selector) return { name, selector, error: "selector is empty" };
   let el;
-  try { el = document.querySelector(selector); } catch (err) { return { error: String(err && err.message ? err.message : err) }; }
-  if (!el) return { error: "selector not found" };
+  try { el = document.querySelector(selector); } catch (err) { return { name, selector, error: String(err && err.message ? err.message : err) }; }
+  if (!el) return { name, selector, error: "selector not found" };
   const rect = el.getBoundingClientRect();
-  return { x: rect.x + window.scrollX, y: rect.y + window.scrollY, width: rect.width, height: rect.height };
+  return { name, selector, x: rect.x + window.scrollX, y: rect.y + window.scrollY, width: rect.width, height: rect.height };
 });
 })()`, string(payload))
 	var raw []struct {
+		Name, Selector      string
 		X, Y, Width, Height float64
 		Error               string
 	}
@@ -234,7 +236,7 @@ return targets.map((target) => {
 	ret := make([]documentBounds, len(raw))
 	for i, b := range raw {
 		if b.Error != "" {
-			return nil, fmt.Errorf("overlay target %q (%s): %s", targets[i].Name, targets[i].Selector, b.Error)
+			return nil, fmt.Errorf("overlay target %q (%s): %s", b.Name, b.Selector, b.Error)
 		}
 		ret[i] = documentBounds{X: b.X, Y: b.Y, Width: b.Width, Height: b.Height}
 	}
