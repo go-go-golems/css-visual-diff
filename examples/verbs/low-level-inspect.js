@@ -5,7 +5,9 @@
 
 async function inspect(url, selector, outDir, values) {
   values = values || {};
+  const fs = require("fs");
   const cvd = require("css-visual-diff");
+  fs.mkdirSync(outDir, { recursive: true });
   const browser = await cvd.browser();
   let page;
   try {

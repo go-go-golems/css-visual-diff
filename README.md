@@ -82,7 +82,10 @@ The low-level JavaScript API is the core of the tool. It lets you write small sc
 
 ```js
 async function inspect(url, selector, outDir) {
+  const fs = require("fs")
   const cvd = require("css-visual-diff")
+  fs.mkdirSync(outDir, { recursive: true })
+
   const browser = await cvd.browser()
 
   try {
