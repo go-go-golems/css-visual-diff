@@ -306,6 +306,7 @@ Locator methods:
 - `await locator.status()` — returns selector status with existence, visibility, bounds, text start, and selector error.
 - `await locator.exists()` — returns a boolean.
 - `await locator.visible()` — returns a boolean.
+- `await locator.waitFor(options?)` — polls until the selector exists and is visible by default.
 - `await locator.text(options?)` — returns text content. Use `{ normalizeWhitespace: true, trim: true }` for stable comparisons.
 - `await locator.bounds()` — returns `{ x, y, width, height }` or `null` for a missing selector.
 - `await locator.computedStyle(props)` — returns a map of CSS property values.
@@ -315,11 +316,33 @@ Example:
 
 ```js
 const cta = page.locator("#cta")
+await cta.waitFor({ timeoutMs: 5000, pollIntervalMs: 100 })
 const [text, bounds, styles] = await Promise.all([
   cta.text({ normalizeWhitespace: true, trim: true }),
   cta.bounds(),
   cta.computedStyle(["height", "color", "background-color"]),
 ])
+```
+
+`waitFor` options:
+
+- `timeoutMs` — maximum wait time in milliseconds, default `5000`.
+- `pollIntervalMs` — polling interval in milliseconds, default `100`.
+- `visible` — require visibility when omitted or `true`; set `false` to wait only for selector presence.
+- `afterWaitMs` — extra stabilization wait after success, default `0`.
+
+`waitFor` returns the final selector status plus `elapsedMs`:
+
+```js
+{
+  selector: "#cta",
+  exists: true,
+  visible: true,
+  bounds: { x: 10, y: 20, width: 120, height: 40 },
+  textStart: "Book now",
+  error: "",
+  elapsedMs: 124
+}
 ```
 
 Operations on one page are serialized internally, so `Promise.all` is safe for page-bound reads.

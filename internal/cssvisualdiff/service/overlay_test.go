@@ -2,12 +2,38 @@ package service
 
 import (
 	"context"
+	"image"
+	"image/color"
 	"image/png"
 	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
 )
+
+func TestDrawRectTreatsRGBAAsStraightAlpha(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	drawRect(img, img.Bounds(), color.RGBA{R: 255, G: 255, B: 255, A: 255})
+	drawRect(img, img.Bounds(), color.RGBA{R: 255, G: 99, B: 71, A: 8})
+	got := img.RGBAAt(0, 0)
+	if got.R < 250 || got.G < 245 || got.B < 240 {
+		t.Fatalf("expected low-alpha overlay to stay close to white, got %#v", got)
+	}
+}
+
+func TestResolveTargetStyleDefaultsToSubtleContentFill(t *testing.T) {
+	blue := color.RGBA{R: 1, G: 2, B: 3, A: 255}
+	style := ResolveTargetStyle(DefaultOverlayStyle(), TargetOverlayStyle{}, blue)
+	if style.ContentBackground == nil {
+		t.Fatalf("expected default overlay target to have a subtle content fill")
+	}
+	if style.ContentBackground.A != 26 {
+		t.Fatalf("expected 10 percent default content fill alpha, got %#v", style.ContentBackground)
+	}
+	if style.BorderColor == nil || *style.BorderColor != blue {
+		t.Fatalf("expected palette border color, got %#v", style.BorderColor)
+	}
+}
 
 func TestOverlayScreenshotWritesAnnotatedPNG(t *testing.T) {
 	browser, err := NewBrowserService(context.Background())

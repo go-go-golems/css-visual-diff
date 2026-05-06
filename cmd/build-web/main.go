@@ -183,7 +183,7 @@ func getenv(key, def string) string {
 func recreate(dir string) error {
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
-		if e.Name() == ".keep" || e.Name() == ".gitignore" {
+		if e.Name() == "keep.txt" || e.Name() == ".keep" || e.Name() == ".gitignore" {
 			continue
 		}
 		_ = os.RemoveAll(filepath.Join(dir, e.Name()))
@@ -192,16 +192,19 @@ func recreate(dir string) error {
 }
 
 func copyTree(src, dst string) error {
-	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+	sourceFS := os.DirFS(src)
+	return fs.WalkDir(sourceFS, ".", func(rel string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		rel, _ := filepath.Rel(src, p)
+		if d.Type()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("copy web dist: symlink %q is not supported", rel)
+		}
 		target := filepath.Join(dst, rel)
 		if d.IsDir() {
 			return os.MkdirAll(target, 0755)
 		}
-		in, err := os.Open(p)
+		in, err := sourceFS.Open(rel)
 		if err != nil {
 			return err
 		}

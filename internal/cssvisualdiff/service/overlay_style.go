@@ -220,9 +220,9 @@ func parseHexColor(s string) (color.RGBA, error) {
 		return color.RGBA{}, fmt.Errorf("invalid hex color %q", s)
 	}
 	if len(h) == 6 {
-		return color.RGBA{R: uint8(v >> 16), G: uint8(v >> 8), B: uint8(v), A: 255}, nil
+		return color.RGBA{R: uint8((v >> 16) & 0xff), G: uint8((v >> 8) & 0xff), B: uint8(v & 0xff), A: 255}, nil
 	}
-	return color.RGBA{R: uint8(v >> 24), G: uint8(v >> 16), B: uint8(v >> 8), A: uint8(v)}, nil
+	return color.RGBA{R: uint8((v >> 24) & 0xff), G: uint8((v >> 16) & 0xff), B: uint8((v >> 8) & 0xff), A: uint8(v & 0xff)}, nil
 }
 
 func parseRGBColor(s string) (color.RGBA, error) {

@@ -1,0 +1,2 @@
+This placeholder keeps the embedded review-site directory present in fresh checkouts.
+Run `make build-web` or `BUILD_WEB_LOCAL=1 go run ./cmd/build-web` to replace it with the generated React/Vite assets.

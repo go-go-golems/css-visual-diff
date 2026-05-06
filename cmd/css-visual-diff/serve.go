@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/review"
 	"github.com/spf13/cobra"
@@ -150,7 +151,15 @@ func runServe(cmd *cobra.Command, s *serveSettings) error {
 		_ = openBrowser(fmt.Sprintf("http://%s", addr))
 	}
 
-	return http.ListenAndServe(addr, mux)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	return server.ListenAndServe()
 }
 
 func reviewComparePath(baseDir, page, section string) (string, error) {
@@ -192,5 +201,7 @@ func validateReviewPathSegment(segment string) error {
 }
 
 func openBrowser(url string) error {
-	return exec.Command("xdg-open", url).Start()
+	// The URL is constructed internally from the validated serve host/port and is
+	// passed as one argv element, not through a shell.
+	return exec.Command("xdg-open", url).Start() // #nosec G204
 }

@@ -1,378 +1,103 @@
 # css-visual-diff
 
-`css-visual-diff` is a programmable visual feedback tool for frontend work. It opens real browser pages, targets specific DOM regions, and produces the evidence you need to tune an implementation against a prototype: screenshots, cropped region images, pixel diffs, computed CSS, matched stylesheet values, structured JSON, Markdown summaries, and review-site datasets.
+Programmable visual evidence for pixel-perfect frontend work.
 
-The tool is intentionally **JavaScript-first**. The old native `run --config` YAML pipeline has been removed. For project-scale workflows, write JavaScript verbs and let those scripts load whatever project data they need: YAML specs, JSON, generated registries, Storybook metadata, or ad-hoc lists of selectors.
+`css-visual-diff` opens real browser pages, targets DOM regions, and produces the evidence needed to tune an implementation against a prototype: screenshots, cropped region images, pixel diffs, computed CSS, matched style values, annotated overlays, review-site datasets, and compact JSON/Markdown for LLM-assisted development.
 
-The core idea is simple:
+<p align="center">
+  <img src="docs/assets/review-site-smoke-expanded.png" alt="css-visual-diff review site showing side-by-side comparison cards" width="760" />
+</p>
 
-> Use Go and Chrome DevTools for reliable browser/artifact primitives. Use JavaScript for project-specific orchestration.
-
----
-
-## What problems does it solve?
-
-Visual frontend work is usually blocked by vague evidence. A screenshot says "it looks wrong", but not why. A CSS dump has the facts, but too many of them. A full visual regression suite can be useful in CI, but it is too broad for a human tuning one component.
-
-`css-visual-diff` is designed for the middle of the loop:
-
-1. choose the smallest meaningful target,
-2. verify that selectors exist and point at the right elements,
-3. compare only that target,
-4. inspect compact JSON plus image artifacts,
-5. change one CSS/token/component detail,
-6. repeat,
-7. run broader page or suite validation only after the local target is stable.
-
-This makes visual feedback token-efficient for both humans and AI agents. Instead of pasting a full DOM, a full screenshot, and a wall of JSON into a prompt, you can hand over a few high-signal artifacts:
+The tool is intentionally **JavaScript-first**. Go provides reliable browser, screenshot, CSS, and artifact primitives. JavaScript provides the project workflow: page specs, selectors, policies, accepted differences, Storybook URLs, local routes, and handoff formats.
 
 ```text
-summary.json                    compact classification + artifact paths
-compare.json                    structured per-region evidence
-left_region.png                 prototype crop
-right_region.png                implementation crop
-diff_only.png                   changed pixels only
-computed CSS / style diffs      exact properties that differ
-snapshot.json                   semantic DOM/style state, when needed
+URL + selector
+   ↓
+real Chromium page
+   ↓
+screenshot + DOM/CSS facts
+   ↓
+pixel diff + structured comparison
+   ↓
+JSON / Markdown / annotated PNG / review site / LLM context
 ```
 
----
+## Why this exists
 
-## Current shape
+A screenshot shows that something is wrong, but not why. A CSS dump contains facts, but not visual context. A broad visual regression run can detect changes, but it often produces evidence that is too large for a developer who is trying to fix one component.
 
-The live tool centers on:
+`css-visual-diff` is built for the inner loop of frontend implementation. The loop is narrow by design: choose the region that matters, capture what the browser actually rendered, compare prototype and implementation, read the visual and CSS evidence, make one CSS or component change, and run the same comparison again.
 
-- Chromium-driven capture through `chromedp` / Chrome DevTools Protocol,
-- direct one-region comparisons with `css-visual-diff compare`,
-- JavaScript verbs under `css-visual-diff verbs ...`,
-- Goja-powered project scripts using `require("css-visual-diff")`,
-- computed CSS and matched-style inspection,
-- pixel diff artifacts,
-- structured JSON and Markdown reports,
-- review-site datasets served by `css-visual-diff serve`.
+This also makes the tool useful for LLM and coding-agent work. An agent does not need an entire DOM, a whole-page screenshot, and a vague instruction. It needs compact evidence: the two cropped screenshots, the changed pixels, the computed CSS values, the bounds, the selector, and the reviewer’s note about what looks wrong.
 
-It does **not** provide the old native YAML manifest runner anymore. YAML is still useful as project data, but it is interpreted by your JavaScript userland, not by a built-in `run --config` command.
+## What you can do with it
 
----
+| Need | Use |
+| --- | --- |
+| Inspect one live selector | `page.locator(...)` and `cvd.extract(...)` |
+| Capture computed CSS and layout facts | `cvd.extractors.computedStyle(...)`, `bounds()`, `attributes(...)` |
+| Compare two rendered regions | `require("diff").compareRegion(...)` |
+| Generate annotated page maps | `cvd.overlaySpec()` and `page.overlay(...).screenshot(...)` |
+| Turn project scripts into CLI commands | JavaScript verbs with `__verb__` metadata |
+| Review many comparisons interactively | `css-visual-diff serve --data-dir ...` |
+| Export feedback for issues or agents | Review-site notes, pins, and “Send to LLM” markdown/YAML |
 
-## Install / build
+The project is not trying to replace your application code, Storybook, or design system. It gives those systems a browser-evidence layer that is precise enough for CSS debugging and structured enough for automation.
 
-From a checkout:
+## Quick start: generate and serve a comparison run
+
+The repository includes a deterministic smoke setup with two fixture pages that intentionally differ in spacing, color, typography, border radius, and button text.
+
+Start a static server from the repository root:
 
 ```bash
-go install ./cmd/css-visual-diff
+python3 -m http.server 18767
 ```
 
-Then verify the command:
-
-```bash
-css-visual-diff --help
-css-visual-diff compare --help
-css-visual-diff verbs --help
-```
-
-For repository development:
-
-```bash
-go test ./...
-go build ./cmd/css-visual-diff
-```
-
----
-
-## The two ways to use it
-
-### 1. Direct command: compare one region now
-
-Use `compare` when you already know the two URLs and selectors.
-
-```bash
-css-visual-diff compare \
-  --url1 http://localhost:7070/standalone/public/shows.html \
-  --selector1 '[data-page="shows"]' \
-  --url2 'http://localhost:6007/iframe.html?id=public-site-pages--shows-desktop&viewMode=story' \
-  --selector2 '[data-page="shows"]' \
-  --viewport-w 1280 \
-  --viewport-h 1600 \
-  --threshold 30 \
-  --out /tmp/cssvd-shows-page
-```
-
-This writes a small artifact directory with JSON, Markdown, screenshots, and pixel diff images. It is the fastest way to answer:
-
-> Are these two rendered regions visually close, and where do they differ?
-
-### 2. JavaScript verbs: encode the workflow for a project
-
-Use `verbs` when the work has project meaning: pages, sections, variants, policies, accepted differences, Storybook ports, archive directories, semantic snapshots, or CI gates.
+In another terminal, generate review-site data:
 
 ```bash
 css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages compare-spec \
-  prototype-design/visual-diff/userland/specs/public-pages.desktop.visual.yml \
-  --page shows \
-  --section shows-list \
-  --outDir /tmp/pyxis-shows-list \
-  --summary \
+  --repository examples/verbs \
+  examples review-sweep from-spec \
+  --specFile examples/specs/review-site-smoke.yaml \
+  --outDir /tmp/cssvd-review-site-smoke \
   --output json
 ```
 
-The repository path points at a folder of JavaScript files that register commands with `__verb__`. Those commands can use the native module:
+Serve the review website:
+
+```bash
+css-visual-diff serve \
+  --data-dir /tmp/cssvd-review-site-smoke \
+  --port 18098 \
+  --open
+```
+
+Open `http://127.0.0.1:18098`, expand a card, and switch between **Side-by-side**, **Overlay**, **Slider**, and **Diff only**. The generated data lives in `/tmp/cssvd-review-site-smoke` and can be reopened later without rerunning the browser comparison.
+
+## Script browser evidence with JavaScript
+
+The low-level JavaScript API is the core of the tool. It lets you write small scripts that answer precise visual questions. A script can open a page, wait for a selector, extract text and CSS, write JSON, capture screenshots, build snapshots, and compare structured data.
 
 ```js
-const cvd = require("css-visual-diff")
-const browser = await cvd.browser()
-const page = await browser.page(url, {
-  viewport: cvd.viewport(1280, 1600),
-  waitMs: 500,
-})
-
-const result = await page.inspectAll([
-  {
-    name: "shows-list",
-    selector: ".pyxis-show-grid",
-    props: ["display", "grid-template-columns", "gap", "color"],
-    attributes: ["class", "data-pyxis-component"],
-  },
-], {
-  outDir: "/tmp/pyxis-inspect/shows-list",
-  artifacts: "css-json",
-})
-```
-
-The JavaScript layer is where project-specific decisions belong. The Go core should stay focused on browser actions and artifacts.
-
----
-
-## Mental model: token-efficient visual feedback
-
-A good `css-visual-diff` workflow does not start with "run everything". It starts with the smallest question that can change your next edit.
-
-| Question | Command shape | Evidence to read |
-| --- | --- | --- |
-| Does this selector exist on both sides? | `inspect-spec` / `inspect-section` | compact JSON with `exists`, `visible`, bounds, selected CSS |
-| Is this one region visually close? | `compare-spec --page ... --section ... --summary` | changed percent + `diff_only.png`, `left_region.png`, `right_region.png` |
-| Is this atom or layout? | inspect nested elements with style presets | bounds, display/grid/flex, typography, spacing |
-| Did my CSS/token fix help? | rerun the same narrow comparison | changed percent and same artifact paths |
-| Is the whole page now acceptable? | compare the page after section-level fixes | page summary and per-section rows |
-| Can CI gate this? | `compare-all --mode ci` | policy result + failures list |
-| What changed semantically? | `snapshot-section` + `diff-snapshots` | snapshot JSON and Markdown diff |
-
-The goal is to move from high-volume evidence to high-signal evidence. For example, the Pyxis operator guide recommends comparing `shows-list` rather than the whole Shows page when tuning poster layout. The useful output is not the full suite object; it is a compact row and three images:
-
-```text
-/tmp/pyxis-shows-list/shows/artifacts/shows-list/diff_only.png
-/tmp/pyxis-shows-list/shows/artifacts/shows-list/right_region.png
-/tmp/pyxis-shows-list/shows/artifacts/shows-list/left_region.png
-```
-
-Those artifacts are small enough to inspect manually, upload to a reviewer, or pass into an AI prompt with a short instruction such as:
-
-> Compare the prototype crop and implementation crop. Focus on poster card spacing, image treatment, and typography. Use `diff_only.png` to locate the largest changes.
-
----
-
-## Pyxis-style workflow examples
-
-The Pyxis project uses `css-visual-diff` through `prototype-design/visual-diff/userland`. That directory contains:
-
-```text
-prototype-design/visual-diff/userland/
-├── lib/                    # reusable JS modules
-├── specs/                  # project-specific visual suite specs
-├── verbs/                  # registered css-visual-diff commands
-└── scripts/                # smoke scripts and repeatable operator flows
-```
-
-The specs are YAML, but they are **Pyxis specs**, not native `css-visual-diff` manifests. They are loaded and interpreted by Pyxis JavaScript.
-
-### Start with discovery
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages list-targets \
-  --output json
-```
-
-Use this before guessing page names or section names.
-
-### Inspect selectors before comparing
-
-If a comparison looks strange, first ask whether the selectors are valid and visible:
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages inspect-spec \
-  prototype-design/visual-diff/userland/specs/public-pages.desktop.visual.yml \
-  --page shows \
-  --section shows-list \
-  --elements '&,.pyxis-show-grid,.pyxis-show-tile,.pyxis-poster' \
-  --stylePreset layout \
-  --summary \
-  --output json
-```
-
-Useful Pyxis style presets include:
-
-- `layout` — bounds, display, grid/flex, width/height questions,
-- `typography` — font family, size, line height, weight, color,
-- `surface` — backgrounds, borders, radius, shadows,
-- `spacing` — margin and padding,
-- `pageShell` — page-level shell/container properties.
-
-### Compare one section during tuning
-
-```bash
-OUT=/tmp/pyxis-user-shows-list-tune
-rm -rf "$OUT"
-
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages compare-spec \
-  prototype-design/visual-diff/userland/specs/public-pages.desktop.visual.yml \
-  --page shows \
-  --section shows-list \
-  --outDir "$OUT" \
-  --summary \
-  --output json \
-  > "$OUT-summary.json"
-```
-
-Then inspect only what matters:
-
-```bash
-jq '.[0].rows[] | {
-  section,
-  classification,
-  changedPercent,
-  diffOnlyPath,
-  leftRegionPath,
-  rightRegionPath
-}' "$OUT-summary.json"
-```
-
-### Use aliases for repeated workflows
-
-Pyxis defines convenience verbs for common operations. For the user-site Shows page:
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages compare-user-shows-section \
-  shows-list \
-  --outDir /tmp/pyxis-user-shows-list-tune \
-  --output json
-```
-
-For public component targets:
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages compare-public-component \
-  show-tile-redroom \
-  --outDir /tmp/pyxis-public-component-show-tile-redroom \
-  --output json
-```
-
-This is useful when a page-level diff points at a specific atom or component. Compare the component first, fix it, then return to the page-level section.
-
-### Compare app components with explicit specs
-
-The default Pyxis registry is public-page oriented. For app components and app pages, pass the spec explicitly:
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages compare-spec \
-  prototype-design/visual-diff/userland/specs/app.components.visual.yml \
-  --page app-topbar-dashboard \
-  --section component \
-  --outDir /tmp/pyxis-topbar-dashboard-tune \
-  --summary \
-  --output json
-```
-
-This is the workflow used for atom-to-page debugging. A page diff may show an 8% pixel change, but the real fix might be a token mismatch in an atom such as `Button`, `Avatar`, or `PyxisLogo`.
-
-### Capture semantic snapshots
-
-Pixel diffs answer "where did pixels change?" Snapshots answer "what semantic DOM/style facts changed?"
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages snapshot-section archive content \
-  --outDir /tmp/pyxis-snapshot-before \
-  --stylePreset pageShell \
-  --output json
-
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages snapshot-section archive content \
-  --outDir /tmp/pyxis-snapshot-after \
-  --stylePreset pageShell \
-  --output json
-
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages diff-snapshots \
-  /tmp/pyxis-snapshot-before/snapshot.json \
-  /tmp/pyxis-snapshot-after/snapshot.json \
-  --outDir /tmp/pyxis-snapshot-diff \
-  --output json
-```
-
-Use this when a screenshot changed and you need to know whether the change is layout, typography, text, attributes, or component structure.
-
-### Gate with CI policy only after local evidence is stable
-
-```bash
-css-visual-diff verbs \
-  --repository prototype-design/visual-diff/userland \
-  pyxis pages compare-all \
-  --page archive \
-  --outDir /tmp/pyxis-archive-ci \
-  --threshold 30 \
-  --inspect minimal \
-  --mode ci \
-  --maxChangedPercent 10 \
-  --output json
-```
-
-CI mode is broad validation. Do not use it as the first command in a tuning loop.
-
----
-
-## Writing an ad-hoc script for the problem at hand
-
-The best workflows are often small scripts created for one ticket. They keep the terminal output small and write durable artifacts for review.
-
-Create a local verb repository:
-
-```text
-visual-tools/
-└── ticket-verbs.js
-```
-
-Example: inspect one selector and write only the facts needed for a CSS fix.
-
-```js
-async function inspectTokenSurface(url, selector, outDir, values) {
+async function inspect(url, selector, outDir) {
+  const fs = require("fs")
   const cvd = require("css-visual-diff")
+  fs.mkdirSync(outDir, { recursive: true })
+
   const browser = await cvd.browser()
 
   try {
     const page = await browser.page(url, {
-      viewport: cvd.viewport(values.width || 1280, values.height || 900),
-      waitMs: values.waitMs || 300,
-      name: values.name || "target",
+      viewport: cvd.viewport(1280, 720),
+      waitMs: 250,
+      name: "target-page",
     })
 
     const locator = page.locator(selector)
+    await locator.waitFor({ timeoutMs: 5000 })
+
     const element = await cvd.extract(locator, [
       cvd.extractors.exists(),
       cvd.extractors.visible(),
@@ -380,86 +105,221 @@ async function inspectTokenSurface(url, selector, outDir, values) {
       cvd.extractors.bounds(),
       cvd.extractors.computedStyle([
         "display",
-        "width",
-        "height",
-        "font-family",
         "font-size",
         "font-weight",
         "line-height",
         "color",
         "background-color",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "padding-left",
         "border-radius",
-        "box-shadow",
       ]),
-      cvd.extractors.attributes(["class", "data-pyxis-component", "data-pyxis-part"]),
+      cvd.extractors.attributes(["id", "class", "aria-label"]),
     ])
 
     await cvd.write.json(`${outDir}/element.json`, element)
-
-    return {
-      ok: !!element.exists && !!element.visible,
-      selector,
-      text: element.text || "",
-      bounds: element.bounds,
-      color: element.computed && element.computed.color,
-      background: element.computed && element.computed["background-color"],
-      out: `${outDir}/element.json`,
-    }
+    return element
   } finally {
     await browser.close()
   }
 }
+```
 
-__verb__("inspect-token-surface", {
-  parents: ["ticket"],
-  short: "Inspect one element with token/surface CSS properties",
+The result is compact and actionable. It tells you whether the element exists, whether it is visible, what text it rendered, where it is on the page, and which computed styles the browser applied. That is the kind of context a developer or coding agent needs when the task is “make this component match the prototype.”
+
+The API includes browser/page primitives, locator reads, extractors, snapshots, structural diffs, report writers, catalog helpers, and overlay builders. Project-specific orchestration stays in JavaScript; the Go core stays focused on stable browser and artifact operations.
+
+## Turn JS snippets into CLI verbs
+
+A visual workflow becomes a CLI command when the JavaScript file registers a verb. This is how teams keep repeatable visual workflows in the same repository as the frontend code.
+
+```js
+__verb__("inspect", {
+  parents: ["project", "visual"],
+  short: "Inspect one selector and write compact visual evidence",
   fields: {
-    url: { argument: true, required: true },
-    selector: { argument: true, required: true },
-    outDir: { argument: true, required: true },
-    values: { bind: "all" },
-    width: { type: "int", default: 1280 },
-    height: { type: "int", default: 900 },
-    waitMs: { type: "int", default: 300 },
-    name: { type: "string", default: "target" },
+    url: { argument: true, required: true, help: "Page URL" },
+    selector: { argument: true, required: true, help: "CSS selector" },
+    outDir: { argument: true, required: true, help: "Output directory" },
   },
 })
 ```
 
-Run it:
+Run it through `css-visual-diff verbs`:
 
 ```bash
 css-visual-diff verbs \
-  --repository visual-tools \
-  ticket inspect-token-surface \
-  'http://localhost:6008/iframe.html?id=shell-apptopbar--dashboard' \
-  '[data-pyxis-component="app-topbar"]' \
-  /tmp/topbar-token-surface \
+  --repository ./visual-tools \
+  project visual inspect \
+  http://localhost:5173 \
+  '[data-component="Hero"]' \
+  /tmp/hero-evidence \
   --output json
 ```
 
-This is the intended extension model: write the script that answers the current visual question, keep its output compact, and let the artifact files carry the detailed evidence.
+The important point is ownership. `css-visual-diff` owns the browser, screenshots, CSS extraction, pixel diffing, and artifact writing. Your repository owns the meaning of a page, section, variant, policy band, accepted difference, or release gate.
 
----
-
-## Review site workflow
-
-When a script or suite writes review-site data, serve it locally:
-
-```bash
-css-visual-diff serve \
-  --data-dir /tmp/pyxis-review-run \
-  --port 8097
-```
-
-The data directory should contain `summary.json` plus per-page/per-section artifact directories:
+The example repository under `examples/verbs` demonstrates this pattern:
 
 ```text
-/tmp/pyxis-review-run/
+examples/verbs/
+├── low-level-inspect.js     # locator/extractor/snapshot example
+├── overlay-examples.js      # annotated PNG and gallery exports
+└── review-sweep.js          # YAML spec → review-site data directory
+```
+
+## Generate annotated overlay screenshots
+
+Overlay screenshots are for communication. They make page structure, component boundaries, and handoff regions visible in one image. A designer, developer, or agent can see what the labels refer to without opening DevTools.
+
+<p align="center">
+  <img src="docs/assets/overlay-annotated.png" alt="Annotated overlay screenshot with labeled page sections" width="680" />
+</p>
+
+The underlying API is a small builder:
+
+```js
+const spec = cvd.overlaySpec()
+  .legend(true)
+  .target(cvd.overlayTarget("Header").selector("header").borderColor("#0096ff"))
+  .target(cvd.overlayTarget("Hero").selector(".hero").borderColor("#ff6347"))
+  .target(cvd.overlayTarget("CTA").selector(".cta").borderColor("#32cd32"))
+  .build()
+
+await page.overlay(spec).screenshot("/tmp/page-map.png")
+```
+
+The example verb exposes this as a command:
+
+```bash
+css-visual-diff verbs --repository examples/verbs \
+  examples overlay annotated-png \
+  http://127.0.0.1:18767/examples/pages/overlay-components.html \
+  /tmp/cssvd-overlay \
+  --contentAlphaPercent 10 \
+  --output json
+```
+
+Use `--contentAlphaPercent 0` for border-only overlays, or raise the value when you want stronger region tinting. The companion `gallery` verb writes a small HTML gallery with annotated screenshots, extracted component screenshots, and JSON metadata:
+
+```bash
+css-visual-diff verbs --repository examples/verbs \
+  examples overlay gallery \
+  http://127.0.0.1:18767/examples/pages/overlay-components.html \
+  /tmp/cssvd-overlay-gallery \
+  --output json
+```
+
+## Review comparisons in an interactive website
+
+For larger work, generate a review-site data directory and serve it. The website turns a folder of screenshots, JSON files, and pixel diffs into a review session with status decisions, notes, pins, CSS diffs, and export.
+
+```bash
+css-visual-diff verbs --repository examples/verbs \
+  examples review-sweep from-spec \
+  --specFile examples/specs/review-site-smoke.yaml \
+  --outDir /tmp/cssvd-review-site-smoke
+
+css-visual-diff serve \
+  --data-dir /tmp/cssvd-review-site-smoke \
+  --port 18098 \
+  --open
+```
+
+The review site supports:
+
+- **Side-by-side** image comparison for direct visual reading.
+- **Overlay** mode with opacity and difference blend for alignment checks.
+- **Slider** mode for sweeping across a region.
+- **Diff only** mode for seeing changed pixels without surrounding visual noise.
+- Lazy-loaded `compare.json` details per card.
+- Computed CSS differences and bounds metadata.
+- Human status decisions: unreviewed, accepted, needs work, fixed, and won't fix.
+- General notes and pin-drop comments.
+- Browser localStorage persistence.
+- Markdown/YAML export through **Send to LLM**.
+
+<p align="center">
+  <img src="docs/assets/review-site-smoke-overlay-mode.png" alt="css-visual-diff review site overlay mode" width="760" />
+</p>
+
+The comparison website does not run Chromium. It reads completed artifacts. That means you can generate evidence once, serve it repeatedly, and review it without depending on the original site still being live.
+
+## The site comparison spec
+
+The `review-sweep` example reads a YAML spec. The spec is project data interpreted by JavaScript; it is not a resurrected native YAML runner. It describes pages, sides, sections, CSS properties, attributes, viewport, waits, and policy bands.
+
+```yaml
+name: cssvd-review-site-smoke
+variant: desktop
+
+viewport:
+  width: 1000
+  height: 760
+
+defaults:
+  waitMs: 250
+  threshold: 30
+
+policy:
+  bands:
+    - name: accepted
+      maxChangedPercent: 0.5
+    - name: review
+      maxChangedPercent: 10
+    - name: tune-required
+      maxChangedPercent: 30
+    - name: major-mismatch
+      maxChangedPercent: 100
+
+computed:
+  - font-size
+  - font-weight
+  - line-height
+  - color
+  - background-color
+  - border-radius
+  - padding-top
+  - padding-right
+  - padding-bottom
+  - padding-left
+
+attributes:
+  - id
+  - class
+
+pages:
+  smoke:
+    leftUrl: http://127.0.0.1:18767/examples/pages/review-site-smoke-left.html
+    rightUrl: http://127.0.0.1:18767/examples/pages/review-site-smoke-right.html
+    sections:
+      app:
+        selector: "#app"
+      hero:
+        selector: ".hero"
+      cta:
+        selector: ".cta"
+```
+
+Each section normally uses the same selector on both sides. If the prototype and implementation use different DOM shapes, provide side-specific selectors:
+
+```yaml
+sections:
+  pricing-cards:
+    leftSelector: "#pricing-cards"
+    rightSelector: "[data-component='PricingCards']"
+```
+
+The output structure is the contract consumed by `serve`:
+
+```text
+<data-dir>/
 ├── summary.json
-└── shows/
+└── <page>/
     └── artifacts/
-        └── shows-list/
+        └── <section>/
             ├── compare.json
             ├── left_region.png
             ├── right_region.png
@@ -467,100 +327,136 @@ The data directory should contain `summary.json` plus per-page/per-section artif
             └── diff_comparison.png
 ```
 
-The review server is for local/operator review. It serves only paths under `--data-dir` and validates page/section/artifact path segments before reading files.
-
----
-
-## Built-in and example verbs
-
-Inspect a page into a catalog:
+For the full explanation, run:
 
 ```bash
-css-visual-diff verbs catalog inspect-page \
-  http://127.0.0.1:8767/ \
-  '#cta' \
-  /tmp/cssvd-page \
-  --slug cta \
-  --artifacts css-json \
-  --output json
+css-visual-diff help site-comparison-workflow
+css-visual-diff help review-site-data-spec
 ```
 
-Use the example repository for script patterns:
+## Built for LLM-assisted frontend work
+
+LLMs are better at CSS work when the prompt contains concrete browser evidence. `css-visual-diff` is designed to produce that evidence in a controlled way.
+
+A useful handoff bundle can include:
+
+- `left_region.png` and `right_region.png` for visual comparison,
+- `diff_only.png` to locate changed pixels,
+- `compare.json` for pixel counts, bounds, CSS properties, and attributes,
+- `summary.json` for classification and artifact paths,
+- reviewer notes and pin comments from the review site,
+- markdown/YAML exported through **Send to LLM**.
+
+Instead of asking an agent to “fix the card styling,” you can give it a precise instruction:
+
+```text
+Use these artifacts to make the implementation match the prototype.
+Focus on the CTA and card section. The review note says the CTA is too low,
+the radius is too square, and the card background shifted from warm paper to blue.
+Use compare.json for computed padding, border-radius, color, and bounds.
+```
+
+This is the difference between a vague visual request and a reproducible debugging task.
+
+## Core concepts
+
+| Concept | Meaning |
+| --- | --- |
+| Browser | Chromium-backed service used by JS scripts. |
+| Page | A loaded URL with viewport, prepare, locator, inspect, and overlay methods. |
+| Locator | A live selector handle bound to one page. |
+| Extractor | A typed request for one fact: existence, visibility, text, bounds, computed style, or attributes. |
+| Probe | A reusable inspection recipe used by snapshots and inspect workflows. |
+| Snapshot | Structured DOM/CSS facts collected from a page. |
+| Pixel diff | Image comparison result with changed-pixel counts and PNG artifacts. |
+| Review data | `summary.json` plus per-section artifacts consumed by `css-visual-diff serve`. |
+| JS verb | A JavaScript function exposed as a CLI command through `__verb__`. |
+
+The vocabulary matters because the tool separates responsibilities. Locators read one live page. Probes describe reusable inspection recipes. JavaScript verbs define project workflows. The review site reads completed evidence.
+
+## Direct one-region comparison
+
+When you already know the two URLs and selectors, use the direct `compare` command:
 
 ```bash
-css-visual-diff verbs \
-  --repository examples/verbs \
-  examples low-level inspect \
-  http://127.0.0.1:8767/ \
-  '#cta' \
-  /tmp/cssvd-low-level \
-  --output json
+css-visual-diff compare \
+  --url1 http://localhost:7070/prototype.html \
+  --selector1 '[data-section="hero"]' \
+  --url2 http://localhost:5173/ \
+  --selector2 '[data-section="hero"]' \
+  --viewport-w 1280 \
+  --viewport-h 900 \
+  --threshold 30 \
+  --out /tmp/cssvd-hero-compare
 ```
 
-Run the example review sweep:
+This writes screenshots, `compare.json`, `compare.md`, and pixel diff images. It is the fastest path when the current question is: “Are these two rendered regions visually close, and where do they differ?”
+
+For project-scale suites, prefer JavaScript verbs so the project can own page names, section names, policies, and spec formats.
+
+## Install and development builds
+
+Most examples assume `css-visual-diff` is already installed and available on your `PATH`:
 
 ```bash
-css-visual-diff verbs \
-  --repository examples/verbs \
-  examples review-sweep from-spec \
-  --specFile examples/specs/review-sweep.example.yaml \
-  --outDir /tmp/example-review
-
-css-visual-diff serve --data-dir /tmp/example-review --port 8098
+css-visual-diff --help
+css-visual-diff verbs --help
+css-visual-diff serve --help
 ```
 
----
-
-## Project-local verb repositories
-
-For repeatable project workflows, check in a small repository config:
-
-```yaml
-# .css-visual-diff.yml
-verbs:
-  repositories:
-    - name: project
-      path: ./visual-diff/userland
-```
-
-Relative paths are resolved from the config file that declares them. Use `.css-visual-diff.override.yml` for private local repositories and keep it gitignored.
-
-You can also pass repositories explicitly:
+From a checkout, install the CLI with Go:
 
 ```bash
-css-visual-diff verbs --repository prototype-design/visual-diff/userland --help
+go install ./cmd/css-visual-diff
 ```
 
----
+For repository development, use the Makefile targets:
 
-## Embedded help
+```bash
+make test           # run Go tests
+make build          # run go generate and build packages
+make build-web      # build React app via Dagger and copy dist to the embed directory
+make build-web-local # build React app with local Node/pnpm instead of Dagger
+make build-embed    # build frontend, then compile dist/css-visual-diff
+make dev-web        # run Vite dev server for the review site
+make dev-serve      # serve /tmp/cssvd-review-test on port 8098
+```
 
-The CLI includes Glazed help pages:
+The review website is a React/Vite app embedded into the Go binary. If you change frontend code under `web/review-site`, run `make build-embed` before testing the installed binary.
+
+## Documentation
+
+The CLI includes Glazed help pages. These are the best next step after the README:
 
 ```bash
 css-visual-diff help javascript-api
 css-visual-diff help javascript-verbs
 css-visual-diff help pixel-accuracy-scripting-guide
+css-visual-diff help site-comparison-workflow
+css-visual-diff help review-site
 css-visual-diff help review-site-data-spec
+css-visual-diff help js-verb-review-sweep
 ```
 
-Use these when authoring scripts or debugging output formats.
+Suggested reading:
 
----
+| If you want to... | Read |
+| --- | --- |
+| Learn the JS browser API | `javascript-api` |
+| Write project-local CLI workflows | `javascript-verbs` |
+| Build pixel-perfect CSS feedback loops | `pixel-accuracy-scripting-guide` |
+| Compare pages and sections from a YAML spec | `site-comparison-workflow` |
+| Use the interactive review website | `review-site` |
+| Produce review-site data yourself | `review-site-data-spec` |
+| Understand the example generator | `js-verb-review-sweep` |
 
-## Working rules
+## Project direction
 
-- Prefer the narrowest target that answers the current question.
-- Inspect selectors before trusting a visual diff.
-- Read image artifacts before reading full JSON.
-- Use `--summary` for operator loops and full JSON only for debugging internals.
-- Keep project meaning in JavaScript userland: specs, registries, policy bands, accepted differences, report shape.
-- Add core features as browser/service/JS API primitives, not as a new native manifest format.
-- Use direct commands for one-off work and JS verbs for repeatable workflows.
-- Treat stale docs as stale APIs: if a command no longer exists, remove examples that teach it.
+The old native YAML `run --config` pipeline has been removed. YAML remains useful as project data, but it should be loaded and interpreted by JavaScript verbs. This keeps the core small and reusable: browser actions, screenshots, CSS extraction, pixel comparison, overlays, artifacts, and review serving.
 
----
+The extension model is therefore straightforward:
 
-## Historical note
-
-Earlier versions had a native YAML `run --config` pipeline with Go-owned manifests and mode dispatch. That path was deliberately removed so the project could focus on a smaller, more flexible core. Project-specific YAML is still welcome, but it should be loaded by JavaScript verbs as userland data.
+1. Use the core JS API for browser evidence.
+2. Put project meaning in repository-local JavaScript verbs.
+3. Generate compact artifacts for humans, review UIs, and coding agents.
+4. Keep broad automation as a layer above the primitives, not inside the Go core.

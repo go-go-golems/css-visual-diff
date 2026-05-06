@@ -1,0 +1,75 @@
+# Deterministic review-site smoke spec.
+#
+# Start a static server from the repository root first:
+#   python3 -m http.server 18767
+#
+# Then generate data:
+#   css-visual-diff verbs --repository examples/verbs examples review-sweep from-spec \
+#     --specFile examples/specs/review-site-smoke.yaml \
+#     --outDir /tmp/cssvd-review-site-smoke
+#
+# Serve the comparison website:
+#   css-visual-diff serve --data-dir /tmp/cssvd-review-site-smoke --port 18098 --open
+
+name: cssvd-review-site-smoke
+variant: desktop
+
+viewport:
+  width: 1000
+  height: 760
+
+defaults:
+  waitMs: 250
+  threshold: 30
+
+policy:
+  bands:
+    - name: accepted
+      maxChangedPercent: 0.5
+    - name: review
+      maxChangedPercent: 10
+    - name: tune-required
+      maxChangedPercent: 30
+    - name: major-mismatch
+      maxChangedPercent: 100
+
+computed:
+  - display
+  - position
+  - width
+  - height
+  - margin-top
+  - margin-right
+  - margin-bottom
+  - margin-left
+  - padding-top
+  - padding-right
+  - padding-bottom
+  - padding-left
+  - font-family
+  - font-size
+  - font-weight
+  - line-height
+  - color
+  - background-color
+  - border-radius
+  - box-shadow
+
+attributes:
+  - id
+  - class
+  - aria-label
+
+pages:
+  smoke:
+    leftUrl: http://127.0.0.1:18767/examples/pages/review-site-smoke-left.html
+    rightUrl: http://127.0.0.1:18767/examples/pages/review-site-smoke-right.html
+    sections:
+      app:
+        selector: "#app"
+      hero:
+        selector: ".hero"
+      card:
+        selector: ".card"
+      cta:
+        selector: ".cta"

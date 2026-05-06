@@ -13,7 +13,7 @@ import { ZoomPan } from "./ZoomPan";
 import { CommentPin } from "./CommentPin";
 import { FileText } from "lucide-react";
 import type { ReviewStatus } from "../types";
-import { compareJsonUrl } from "../utils/paths";
+import { compareJsonUrl, toArtifactUrl } from "../utils/paths";
 
 const STATUS_OPTIONS: { value: ReviewStatus; label: string }[] = [
   { value: "unreviewed", label: "Unreviewed" },
@@ -45,6 +45,10 @@ export function ReviewCard({
   const pins = useSelector(selectPins(row.page, row.section));
   const [compareData, setCompareData] = useState<CompareData | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const leftRegionUrl = toArtifactUrl(row.leftRegionPath);
+  const rightRegionUrl = toArtifactUrl(row.rightRegionPath);
+  const diffOnlyUrl = toArtifactUrl(row.diffOnlyPath);
+  const artifactJsonUrl = toArtifactUrl(row.artifactJson);
   const [activePinId, setActivePinId] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
 
@@ -153,26 +157,26 @@ export function ReviewCard({
             <ZoomPan>
               {viewMode === "side-by-side" && (
                 <ViewModeSideBySide
-                  leftUrl={row.leftRegionPath}
-                  rightUrl={row.rightRegionPath}
+                  leftUrl={leftRegionUrl}
+                  rightUrl={rightRegionUrl}
                   leftLabel={row.leftSelector}
                   rightLabel={row.rightSelector}
                 />
               )}
               {viewMode === "overlay" && (
                 <ViewModeOverlay
-                  leftUrl={row.leftRegionPath}
-                  rightUrl={row.rightRegionPath}
+                  leftUrl={leftRegionUrl}
+                  rightUrl={rightRegionUrl}
                 />
               )}
               {viewMode === "slider" && (
                 <ViewModeSlider
-                  leftUrl={row.leftRegionPath}
-                  rightUrl={row.rightRegionPath}
+                  leftUrl={leftRegionUrl}
+                  rightUrl={rightRegionUrl}
                 />
               )}
               {viewMode === "diff" && (
-                <ViewModeDiff diffUrl={row.diffOnlyPath} />
+                <ViewModeDiff diffUrl={diffOnlyUrl} />
               )}
             </ZoomPan>
 
@@ -220,7 +224,7 @@ export function ReviewCard({
           {/* Artifact links */}
           <div className="px-4 pb-3 flex gap-4 text-xs">
             <a
-              href={row.leftRegionPath}
+              href={leftRegionUrl}
               className="text-red hover:underline"
               target="_blank"
               rel="noreferrer"
@@ -228,7 +232,7 @@ export function ReviewCard({
               left/prototype
             </a>
             <a
-              href={row.rightRegionPath}
+              href={rightRegionUrl}
               className="text-red hover:underline"
               target="_blank"
               rel="noreferrer"
@@ -236,7 +240,7 @@ export function ReviewCard({
               right/react
             </a>
             <a
-              href={row.diffOnlyPath}
+              href={diffOnlyUrl}
               className="text-red hover:underline"
               target="_blank"
               rel="noreferrer"
@@ -244,7 +248,7 @@ export function ReviewCard({
               diff_only
             </a>
             <a
-              href={row.artifactJson}
+              href={artifactJsonUrl}
               className="text-red hover:underline"
               target="_blank"
               rel="noreferrer"

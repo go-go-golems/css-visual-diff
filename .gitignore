@@ -27,8 +27,9 @@ css-visual-diff-compare-*
 # Generated visual-diff example artifacts
 examples/out/
 
-# Generated review site SPA assets (built by cmd/build-web)
-internal/cssvisualdiff/review/embed/public/
-!internal/cssvisualdiff/review/embed/public/.keep
+# Generated review site SPA assets (built by cmd/build-web).
+# Keep one non-dot placeholder so go:embed has a match in fresh CI checkouts.
+internal/cssvisualdiff/review/embed/public/*
+!internal/cssvisualdiff/review/embed/public/keep.txt
 .playwright-mcp/
 review-site-*.png

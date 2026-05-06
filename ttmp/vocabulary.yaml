@@ -25,6 +25,16 @@ topics:
       description: Goja JavaScript runtime integration and scripting
     - slug: chromedp
       description: Go chromedp library and browser automation
+    - slug: code-review
+      description: Code review findings, maintainability analysis, and implementation recommendations.
+    - slug: type-safety
+      description: Type correctness, runtime validation, and safer API boundaries.
+    - slug: merge-planning
+      description: Merge and branch-port planning, conflict avoidance, and selective backport decisions.
+    - slug: visual-diff
+      description: Visual comparison, screenshot diffing, artifact generation, and review workflows.
+    - slug: pyxis
+      description: Pyxis prototype/userland visual-diff integration and migration work.
 docTypes:
     - slug: design-doc
       description: Structured rationale and architecture notes

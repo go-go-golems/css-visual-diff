@@ -37,11 +37,8 @@ The review site bridges measurement and judgment. It keeps the computed evidence
 Build the frontend and embed it into the binary, then serve a comparison run:
 
 ```bash
-# Build the React SPA and copy into the Go embed directory
-BUILD_WEB_LOCAL=1 go run ./cmd/build-web
-
-# Compile the binary; the SPA is always embedded
-go build -o dist/css-visual-diff ./cmd/css-visual-diff
+# Build the React SPA through the Dagger-first pipeline and compile the CLI
+make build-embed
 
 # Serve a completed comparison run
 css-visual-diff serve \
@@ -202,12 +199,11 @@ BUILD_WEB_LOCAL=1 go run ./cmd/build-web
 The Go embed directory is populated by the build tool. To regenerate it and compile:
 
 ```bash
-# Build frontend and copy to embed directory
-BUILD_WEB_LOCAL=1 go run ./cmd/build-web
-
-# Compile with embedded SPA
-go build -o dist/css-visual-diff ./cmd/css-visual-diff
+# Build frontend via Dagger, copy to embed directory, then compile dist/css-visual-diff
+make build-embed
 ```
+
+Use `make build-web-local` only when you explicitly want local Node/pnpm instead of the Dagger container.
 
 The SPA is always embedded from `internal/cssvisualdiff/review/embed/public/`; there is no non-embedded filesystem fallback. If you change frontend code, rebuild the web assets and then rebuild the Go binary.
 
@@ -231,7 +227,8 @@ The project Makefile provides these targets for common operations:
 
 | Target | What it does |
 | --- | --- |
-| `build-web` | Build the React SPA using local pnpm and copy to embed directory. |
+| `build-web` | Build the React SPA with the Dagger-first pipeline and copy to embed directory. |
+| `build-web-local` | Build the React SPA with local Node/pnpm and copy to embed directory. |
 | `build-embed` | Build the frontend and then compile the Go binary with it embedded. |
 | `dev-web` | Start the Vite dev server with hot reload. |
 | `dev-serve` | Start the Go serve command with test data on port 8098. |
@@ -271,7 +268,7 @@ css-visual-diff serve \
 
 | Problem | Cause | Solution |
 | --- | --- | --- |
-| "No embedded SPA found" message | The embedded asset directory does not contain `index.html` when the binary was built. | Run `BUILD_WEB_LOCAL=1 go run ./cmd/build-web` then rebuild with `go build`. |
+| "No embedded SPA found" message | The embedded asset directory does not contain `index.html` when the binary was built. | Run `make build-embed`, or `make build-web-local` if Docker is unavailable, then rebuild the CLI. |
 | Cards load but images show 404 | Artifact paths in the summary JSON do not match the data directory structure. | Ensure `--data-dir` points to the directory containing `<page>/artifacts/<section>/` subdirectories. |
 | Images not loading | The Go server is not running, or the port is wrong. | Verify the server is running and the browser is accessing the correct port. |
 | Export modal is empty | The summary JSON has no rows, or all rows have empty data. | Run css-visual-diff with `--summary` to produce a valid manifest. |
