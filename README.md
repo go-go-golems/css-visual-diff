@@ -5,7 +5,7 @@ Programmable visual evidence for pixel-perfect frontend work.
 `css-visual-diff` opens real browser pages, targets DOM regions, and produces the evidence needed to tune an implementation against a prototype: screenshots, cropped region images, pixel diffs, computed CSS, matched style values, annotated overlays, review-site datasets, and compact JSON/Markdown for LLM-assisted development.
 
 <p align="center">
-  <img src="docs/assets/review-site-smoke-expanded.png" alt="css-visual-diff review site showing side-by-side comparison cards" width="900" />
+  <img src="docs/assets/review-site-smoke-expanded.png" alt="css-visual-diff review site showing side-by-side comparison cards" width="760" />
 </p>
 
 The tool is intentionally **JavaScript-first**. Go provides reliable browser, screenshot, CSS, and artifact primitives. JavaScript provides the project workflow: page specs, selectors, policies, accepted differences, Storybook URLs, local routes, and handoff formats.
@@ -172,7 +172,7 @@ examples/verbs/
 Overlay screenshots are for communication. They make page structure, component boundaries, and handoff regions visible in one image. A designer, developer, or agent can see what the labels refer to without opening DevTools.
 
 <p align="center">
-  <img src="docs/assets/overlay-annotated.png" alt="Annotated overlay screenshot with labeled page sections" width="900" />
+  <img src="docs/assets/overlay-annotated.png" alt="Annotated overlay screenshot with labeled page sections" width="680" />
 </p>
 
 The underlying API is a small builder:
@@ -239,7 +239,7 @@ The review site supports:
 - Markdown/YAML export through **Send to LLM**.
 
 <p align="center">
-  <img src="docs/assets/review-site-smoke-overlay-mode.png" alt="css-visual-diff review site overlay mode" width="900" />
+  <img src="docs/assets/review-site-smoke-overlay-mode.png" alt="css-visual-diff review site overlay mode" width="760" />
 </p>
 
 The comparison website does not run Chromium. It reads completed artifacts. That means you can generate evidence once, serve it repeatedly, and review it without depending on the original site still being live.
