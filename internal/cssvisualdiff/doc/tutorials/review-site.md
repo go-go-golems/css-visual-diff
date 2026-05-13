@@ -279,6 +279,6 @@ css-visual-diff serve \
 
 ## See Also
 
-- `css-visual-diff help inspect-workflow` — How to validate a config before running comparisons.
-- `css-visual-diff help config-selectors` — How selectors map to screenshot regions.
+- `css-visual-diff help site-comparison-workflow` — How to generate review-site data from a YAML spec and serve it.
+- `css-visual-diff help review-site-data-spec` — The `summary.json`, `compare.json`, and artifact directory contract.
 - `css-visual-diff help javascript-verbs` — How verb scripts drive comparison suites that produce the data consumed by this review site.

@@ -28,7 +28,7 @@ If you are building a script or verb pipeline that feeds the review site, this i
 
 ## Overview
 
-The review site is a viewer. It does not run comparisons itself. It reads a pre-built summary and a set of artifact files produced by css-visual-diff's `compare` command, `run` command, or user-defined verb scripts. The separation is deliberate: capture and diff computation are expensive and browser-dependent, while review and annotation should be fast, local, and repeatable.
+The review site is a viewer. It does not run comparisons itself. It reads a pre-built summary and a set of artifact files produced by css-visual-diff's `compare` command or by user-defined verb scripts such as the `examples review-sweep from-spec` workflow. The separation is deliberate: capture and diff computation are expensive and browser-dependent, while review and annotation should be fast, local, and repeatable.
 
 There are three layers of data:
 

@@ -1,7 +1,7 @@
 ---
 Title: 'JavaScript API: require("css-visual-diff")'
 Slug: javascript-api
-Short: Use the Promise-first css-visual-diff JavaScript module for browsers, pages, locators, extraction, snapshots, diffs, catalogs, and config loading.
+Short: Use the Promise-first css-visual-diff JavaScript module for browsers, pages, locators, extraction, snapshots, overlays, diffs, catalogs, and config loading.
 Topics:
 - javascript
 - goja
@@ -18,7 +18,7 @@ ShowPerDefault: true
 SectionType: GeneralTopic
 ---
 
-`css-visual-diff` exposes a Promise-first JavaScript API for repository-scanned verbs. Scripts use it to drive Chromium pages, prepare targets, preflight selectors, inspect artifacts, and write visual catalog manifests.
+`css-visual-diff` exposes a Promise-first JavaScript API for repository-scanned verbs. Scripts use it to drive Chromium pages, prepare targets, preflight selectors, inspect artifacts, generate annotated overlay screenshots, and write visual catalog manifests.
 
 This API is available inside scripts executed by:
 
@@ -86,6 +86,8 @@ Exports:
 - `cvd.extractors.*`
 - `cvd.extract(locator, extractors)`
 - `cvd.snapshot(page, probes, options?)`
+- `cvd.overlaySpec()`
+- `cvd.overlayTarget(name)`
 - `cvd.diff(before, after, options?)`
 - `cvd.report(diff)`
 - `cvd.write.json(path, value)`
@@ -166,6 +168,51 @@ Returns:
   viewport: { width: 1024, height: 768 }
 }
 ```
+
+### `await page.css(cssText)`
+
+Injects a CSS style tag into the loaded page. This is useful for stabilizing captures by disabling animations, forcing scroll behavior, hiding cursors, or applying temporary capture-only styles.
+
+```js
+await page.css(`
+  * { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto !important; }
+`)
+```
+
+Returns:
+
+```js
+{ id: "..." }
+```
+
+### `page.overlay(spec).screenshot(path)`
+
+Creates an annotated overlay screenshot operation from a `cvd.overlaySpec()` builder or built spec. Call `.screenshot(path)` to capture and write the PNG.
+
+```js
+const spec = cvd.overlaySpec()
+  .legend(true)
+  .target(cvd.overlayTarget("Header").selector("header").borderColor("#0096ff"))
+  .target(cvd.overlayTarget("Hero").selector(".hero").borderColor("#ff6347"))
+  .build()
+
+const result = await page.overlay(spec).screenshot("/tmp/page-map.png")
+```
+
+Result:
+
+```js
+{
+  outputPath: "/tmp/page-map.png",
+  width: 1280,
+  height: 2200,
+  colors: { Header: "#0096ff", Hero: "#ff6347" },
+  targets: [ /* overlay target specs that were drawn */ ]
+}
+```
+
+Only `fullPage` overlay screenshots are currently supported. Raw object specs are rejected; use the overlay builders described below.
 
 ### `await page.prepare(spec)`
 
@@ -351,7 +398,7 @@ Operations on one page are serialized internally, so `Promise.all` is safe for p
 
 Closes the page.
 
-## Lower-level builders, extraction, snapshots, and diffs
+## Lower-level builders, extraction, snapshots, overlays, and diffs
 
 The lower-level API is for script-native visual checks that do not always need inspect artifacts. Builder and handle objects are Go-backed values with controlled methods. If you call a method on the wrong object, the API reports which object owns that method.
 
@@ -435,6 +482,105 @@ const snapshot = await cvd.snapshot(page, [
 ```
 
 Raw object probes are rejected. Use `cvd.probe("name").selector("...")` builders.
+
+### `cvd.overlayTarget(name)` and `cvd.overlaySpec()`
+
+Build annotated screenshot specs for `page.overlay(spec).screenshot(path)`. Overlay screenshots are communication artifacts: they draw labeled target boxes over a real full-page screenshot so page sections, components, and handoff regions are visible in context.
+
+```js
+const spec = cvd.overlaySpec()
+  .legend(true)
+  .screenshot("fullPage")
+  .style({
+    label: { fontSize: 13, radius: 3, padding: [4, 7] },
+    legend: {
+      position: "bottom-right",
+      background: "rgba(255,255,255,0.92)",
+      color: "#27221b",
+    },
+    targetDefaults: {
+      borderWidth: 2,
+      labelColor: "white",
+    },
+  })
+  .target(
+    cvd.overlayTarget("Header")
+      .selector(".site-header")
+      .borderColor("#0096ff")
+      .labelBackground("#0096ff")
+  )
+  .target(
+    cvd.overlayTarget("Hero")
+      .selector(".hero")
+      .style({
+        borderColor: "#ff6347",
+        contentBackground: "rgba(255, 99, 71, 0.10)",
+        label: { background: "#ff6347", position: "inside-start" },
+      })
+  )
+  .build()
+
+await page.overlay(spec).screenshot("/tmp/annotated.png")
+```
+
+Target builder methods:
+
+- `.selector(selector)` — required CSS selector for the target.
+- `.label(text)` — label text; defaults to the target name.
+- `.style(targetStyle)` — merge a target style object.
+- `.borderColor(cssColor)` — target border color.
+- `.contentBackground(cssColor)` — fill inside the target rectangle.
+- `.labelBackground(cssColor)` — label background color.
+- `.labelColor(cssColor)` — label text color.
+- `.labelPosition(position)` — label position.
+- `.build()` — validate and freeze the target spec. Passing the builder directly to `.target(...)` is also accepted.
+
+Overlay spec builder methods:
+
+- `.target(target)` — add one target builder/spec.
+- `.targets(targets)` — add an array of target builders/specs.
+- `.legend(enabled)` — show or hide the legend. Defaults to `true`.
+- `.screenshot(mode)` — screenshot mode. Currently only `"fullPage"` is supported.
+- `.style(overlayStyle)` — merge global overlay style.
+- `.cropTo(selector)` — crop the final annotated PNG to a selector's bounds.
+- `.cropPadding(padding)` — add crop padding. Accepts a number, `[vertical, horizontal]`, or `[top, right, bottom, left]`.
+- `.build()` — validate and freeze the overlay spec. Passing the builder directly to `page.overlay(...)` is also accepted.
+
+Style object fields:
+
+```js
+{
+  label: {
+    fontFamily: "system-ui, sans-serif",
+    fontSize: 13,
+    radius: 3,
+    padding: [4, 7]
+  },
+  legend: {
+    position: "bottom-right",
+    background: "rgba(255,255,255,0.92)",
+    color: "#27221b"
+  },
+  targetDefaults: {
+    borderColor: "#0096ff",
+    contentBackground: "rgba(0,150,255,0.10)",
+    paddingBackground: "rgba(255,191,0,0.10)",
+    marginBackground: "rgba(186,85,211,0.10)",
+    borderWidth: 2,
+    labelColor: "white",
+    label: { background: "#0096ff", color: "white", position: "above" }
+  }
+}
+```
+
+Target-level `.style(...)` accepts the same `targetDefaults` fields without the `targetDefaults` wrapper. Supported CSS color strings include hex, `rgb(...)`, `rgba(...)`, and common named colors accepted by the Go parser.
+
+Common positions:
+
+- Legend: `"top-left"`, `"top-right"`, `"bottom-left"`, `"bottom-right"`.
+- Labels: `"above"`, `"below"`, `"inside-start"`, `"inside-end"`.
+
+See `examples/verbs/overlay-examples.js` for a complete annotated PNG and component-gallery workflow.
 
 ### `cvd.diff(...)`, `cvd.report(...)`, and `cvd.write.*`
 

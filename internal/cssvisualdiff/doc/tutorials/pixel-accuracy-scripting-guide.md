@@ -314,5 +314,5 @@ When a script fails, debug from the outside in. First prove the page loaded. The
 
 - `css-visual-diff help javascript-api`
 - `css-visual-diff help javascript-verbs`
-- `css-visual-diff help inspect-workflow`
-- `css-visual-diff help config-selectors`
+- `css-visual-diff help site-comparison-workflow`
+- `css-visual-diff help review-site-data-spec`

@@ -50,7 +50,7 @@ python3 -m http.server 8767
 Export one annotated full-page PNG:
 
 ```bash
-css-visual-diff verbs --repository examples/verbs examples overlay annotatedPng \
+css-visual-diff verbs --repository examples/verbs examples overlay annotated-png \
   http://127.0.0.1:8767/examples/pages/overlay-components.html \
   /tmp/cssvd-overlay-example \
   --output json
