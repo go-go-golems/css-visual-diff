@@ -11,7 +11,6 @@ Topics:
 Commands:
 - serve
 - compare
-- run
 - verbs
 Flags:
 - data-dir
@@ -96,7 +95,7 @@ The serve command requires:
 
 ### What is optional
 
-- `diff_comparison.png` — the side-by-side triptych. The review site does not currently display it, but including it does no harm.
+- `diff_comparison.png` — the side-by-side triptych. The review site mostly uses the side-by-side/overlay/slider views from `left_region.png` and `right_region.png`, but keeping this file is useful for manual artifact browsing and compatibility.
 - `compare.md` — a human-readable markdown version of the comparison. The review site does not use this file.
 - Per-page `manifest.json` and `01-catalog-index.md` — these are produced by the catalog/inspect workflow and are not consumed by the review site.
 
@@ -149,7 +148,7 @@ The summary JSON is the manifest that the review site loads on startup. It tells
 
 ### Top-level shape
 
-The summary JSON can be either a bare object or a single-element list wrapping that object. Both shapes are accepted because the verb pipeline that produces summaries has varied over time.
+The summary JSON can be either a bare object or a single-element list wrapping that object. Both shapes are accepted for compatibility with older verb pipelines.
 
 ```typescript
 type SummaryPayload = SuiteSummary | [SuiteSummary];
@@ -200,7 +199,8 @@ interface SummaryRow {
 
   /**
    * Computed classification from the policy bands.
-   * One of: "accepted", "review", "tune-required", "major-mismatch".
+   * Common values: "accepted", "review", "tune-required", "major-mismatch".
+   * Generator pipelines may also emit "error" rows for failed sections.
    */
   classification: string;
 
@@ -293,10 +293,12 @@ interface BoundsComparison {
   left: { height: number; width: number; x: number; y: number };
   /** React crop bounds. */
   right: { height: number; width: number; x: number; y: number };
-  /** Normalized comparison dimensions (after resizing to match). */
+  /** Optional normalized comparison dimensions (after resizing to match). */
   normalizedWidth?: number;
   normalizedHeight?: number;
 }
+
+For current snake_case `compare.json`, the raw bounds use `width`/`height`, and normalized image dimensions are stored in `pixel_diff.normalized_width` and `pixel_diff.normalized_height`. Summary rows may still use the camelCase `normalizedWidth`/`normalizedHeight` names if a generator chooses to copy those values into `bounds`.
 
 interface TextComparison {
   /** Whether the text content differs. */
@@ -409,224 +411,140 @@ The site will render a card with images and basic metadata. The CSS diff sidebar
 
 ## Part 3: Compare JSON Specification
 
-Each section has its own `compare.json` file at `<page>/artifacts/<section>/compare.json`. This file contains the full structured comparison data: bounding boxes, pixel counts, computed style differences, attribute changes, text content, and source URLs.
+Each section has its own `compare.json` file at `<page>/artifacts/<section>/compare.json`. The review site loads this file lazily when a card expands. Current css-visual-diff comparison output uses the Go/native snake_case shape produced by `css-visual-diff compare` and `require("diff").compareRegion(...)`. The frontend also has adapters for an older camelCase shape, but new generators should prefer the snake_case format below.
 
-The review site loads compare.json lazily when the reviewer expands a card. The CSS diff sidebar tab and the Meta tab both read from this file.
-
-### Top-level shape
+### Current snake_case shape
 
 ```typescript
-interface CompareData {
-  /** Schema version identifier. */
-  schemaVersion: string;  // "cssvd.selectionComparison.v1"
-
-  /** Comparison name, usually "<page>-<section>". */
-  name: string;
-
-  /** Bounding box comparison between prototype and React crops. */
-  bounds: BoundsComparison;
-
-  /** Prototype side metadata. */
-  left: CompareSide;
-
-  /** React side metadata. */
-  right: CompareSide;
-
-  /** Pixel diff statistics. */
-  pixel: PixelData;
-
-  /** All computed CSS properties (both changed and unchanged). */
-  styles: StyleChange[];
-
-  /** All inspected HTML attributes (both changed and unchanged). */
-  attributes: AttributeChange[];
-
-  /** Text content comparison. */
-  text?: TextComparison;
-
-  /** List of artifact files produced for this section. */
-  artifacts: ArtifactRef[];
+interface CompareResult {
+  inputs: CompareInputs;
+  url1: CompareSideResult;
+  url2: CompareSideResult;
+  computed_diffs: StyleDiff[];
+  winner_diffs?: WinnerDiff[];
+  pixel_diff: PixelDiffStats;
 }
-```
 
-### CompareSide type
+interface CompareInputs {
+  url1: string;
+  selector1: string;
+  wait_ms1: number;
+  url2: string;
+  selector2: string;
+  wait_ms2: number;
+  viewport_w: number;
+  viewport_h: number;
+  props: string[];
+  attrs: string[];
+  out_dir: string;
+}
 
-Describes one side of the comparison (prototype or React).
-
-```typescript
-interface CompareSide {
-  /** Name, e.g. "about-content". */
-  name: string;
-
-  /** CSS selector used to crop the element. */
-  selector: string;
-
-  /** Full URL of the page that was captured. */
+interface CompareSideResult {
   url: string;
-
-  /** Bounding box of the cropped element on the page. */
-  bounds: { height: number; width: number; x: number; y: number };
-
-  /** Whether the element was found on the page. */
-  exists: boolean;
-
-  /** Whether the element was visible. */
-  visible: boolean;
+  selector: string;
+  full_screenshot: string;      // url1_full.png or url2_full.png
+  element_screenshot: string;   // url1_screenshot.png or url2_screenshot.png
+  computed: {
+    exists: boolean;
+    visible: boolean;
+    bounds?: { x: number; y: number; width: number; height: number };
+    computed: Record<string, string>;
+    attributes: Record<string, string | null>;
+  };
+  matched?: unknown;
 }
-```
 
-### PixelData type
-
-Pixel diff statistics from the normalized image comparison.
-
-```typescript
-interface PixelData {
-  /** Percentage of pixels that differ, 0–100. */
-  changedPercent: number;
-
-  /** Absolute count of changed pixels. */
-  changedPixels: number;
-
-  /** Total pixels in the normalized comparison area. */
-  totalPixels: number;
-
-  /** Width of the normalized comparison image. */
-  normalizedWidth: number;
-
-  /** Height of the normalized comparison image. */
-  normalizedHeight: number;
-
-  /** Pixel diff threshold (0–255) used during comparison. */
-  threshold: number;
-
-  /** Absolute path to diff_only.png. */
-  diffOnlyPath: string;
-
-  /** Absolute path to diff_comparison.png. */
-  diffComparisonPath: string;
-}
-```
-
-### StyleChange type
-
-A single CSS property comparison. Note: the file contains all inspected properties, not just the changed ones. Filter on `changed === true` to get only the differences.
-
-```typescript
-interface StyleChange {
-  /** Whether this property differs between prototype and React. */
-  changed: boolean;
-
-  /** CSS property name, e.g. "font-size". */
-  name: string;
-
-  /** Value on the prototype side. */
+interface StyleDiff {
+  property: string;
   left: string;
-
-  /** Value on the React side. */
   right: string;
-}
-```
-
-### AttributeChange type
-
-A single HTML attribute comparison. Like styles, this includes unchanged attributes. Filter on `changed === true` for differences only.
-
-```typescript
-interface AttributeChange {
-  /** Whether this attribute differs. */
   changed: boolean;
+}
 
-  /** HTML attribute name, e.g. "class". */
-  name: string;
-
-  /** Value on the prototype side. Null if absent. */
-  left?: string | null;
-
-  /** Value on the React side. Null if absent. */
-  right?: string | null;
+interface PixelDiffStats {
+  threshold: number;
+  total_pixels: number;
+  changed_pixels: number;
+  changed_percent: number;
+  normalized_width: number;
+  normalized_height: number;
+  diff_comparison_path: string;
+  diff_only_path: string;
 }
 ```
 
-### ArtifactRef type
+The review-site frontend reads the snake_case format through `web/review-site/src/utils/compareData.ts`. It derives changed styles from `computed_diffs`, attributes from `url1.computed.attributes` vs `url2.computed.attributes`, bounds from `url1.computed.bounds` and `url2.computed.bounds`, source URLs from `url1.url` and `url2.url`, and pixel stats from `pixel_diff`.
 
-A reference to one artifact file produced for this section.
-
-```typescript
-interface ArtifactRef {
-  /** File kind, e.g. "png". */
-  kind: string;
-
-  /** Logical artifact name, e.g. "diffOnly", "diffComparison". */
-  name: string;
-
-  /** Absolute path to the artifact file. */
-  path: string;
-}
-```
-
-### Example: full compare.json
+### Current example
 
 ```json
 {
-  "schemaVersion": "cssvd.selectionComparison.v1",
-  "name": "shows-content",
-  "bounds": {
-    "changed": true,
-    "delta": { "height": 110.75, "width": 0, "x": 0, "y": 0 },
-    "left":  { "height": 1739.11, "width": 920, "x": 0, "y": 61 },
-    "right": { "height": 1849.86, "width": 920, "x": 0, "y": 61 }
+  "inputs": {
+    "url1": "http://localhost:7070/page.html",
+    "selector1": "#content",
+    "wait_ms1": 250,
+    "url2": "http://localhost:5173/",
+    "selector2": "#content",
+    "wait_ms2": 250,
+    "viewport_w": 1280,
+    "viewport_h": 720,
+    "props": ["font-size", "color", "padding-top"],
+    "attrs": ["id", "class"],
+    "out_dir": "/tmp/run/home/artifacts/content"
   },
-  "left": {
-    "name": "shows-content",
-    "selector": "[data-page='shows']",
-    "url": "http://localhost:7070/standalone/public/shows.html",
-    "bounds": { "height": 1739.11, "width": 920, "x": 0, "y": 61 },
-    "exists": true,
-    "visible": true
+  "url1": {
+    "url": "http://localhost:7070/page.html",
+    "selector": "#content",
+    "full_screenshot": "/tmp/run/home/artifacts/content/url1_full.png",
+    "element_screenshot": "/tmp/run/home/artifacts/content/url1_screenshot.png",
+    "computed": {
+      "exists": true,
+      "visible": true,
+      "bounds": { "x": 0, "y": 61, "width": 920, "height": 800 },
+      "computed": { "font-size": "16px", "color": "rgb(0, 0, 0)" },
+      "attributes": { "id": "content", "class": "hero" }
+    }
   },
-  "right": {
-    "name": "shows-content",
-    "selector": "[data-page='shows']",
-    "url": "http://localhost:6007/iframe.html?id=public-site-pages-shows--desktop&viewMode=story",
-    "bounds": { "height": 1849.86, "width": 920, "x": 0, "y": 61 },
-    "exists": true,
-    "visible": true
+  "url2": {
+    "url": "http://localhost:5173/",
+    "selector": "#content",
+    "full_screenshot": "/tmp/run/home/artifacts/content/url2_full.png",
+    "element_screenshot": "/tmp/run/home/artifacts/content/url2_screenshot.png",
+    "computed": {
+      "exists": true,
+      "visible": true,
+      "bounds": { "x": 0, "y": 61, "width": 920, "height": 848 },
+      "computed": { "font-size": "14px", "color": "rgb(26, 26, 24)" },
+      "attributes": { "id": "content", "class": "hero compact" }
+    }
   },
-  "pixel": {
-    "changedPercent": 11.605,
-    "changedPixels": 197517,
-    "totalPixels": 1702000,
-    "normalizedWidth": 920,
-    "normalizedHeight": 1850,
+  "computed_diffs": [
+    { "property": "font-size", "left": "16px", "right": "14px", "changed": true },
+    { "property": "color", "left": "rgb(0, 0, 0)", "right": "rgb(26, 26, 24)", "changed": true }
+  ],
+  "winner_diffs": [],
+  "pixel_diff": {
     "threshold": 30,
-    "diffOnlyPath": "/tmp/run/shows/artifacts/content/diff_only.png",
-    "diffComparisonPath": "/tmp/run/shows/artifacts/content/diff_comparison.png"
-  },
-  "styles": [
-    { "changed": true,  "name": "background-color", "left": "rgba(0,0,0,0)",  "right": "rgb(255,255,255)" },
-    { "changed": true,  "name": "font-size",        "left": "16px",          "right": "14px" },
-    { "changed": false, "name": "display",           "left": "block",         "right": "block" }
-  ],
-  "attributes": [
-    { "changed": true, "name": "class", "right": "pyxis-public-page pyxis-shows-page" }
-  ],
-  "text": {
-    "changed": false,
-    "left": "Providence, RIUpcoming shows...",
-    "right": "Providence, RIUpcoming shows..."
-  },
-  "artifacts": [
-    { "kind": "png", "name": "diffOnly",        "path": "/tmp/run/shows/artifacts/content/diff_only.png" },
-    { "kind": "png", "name": "diffComparison",   "path": "/tmp/run/shows/artifacts/content/diff_comparison.png" }
-  ]
+    "total_pixels": 780160,
+    "changed_pixels": 62500,
+    "changed_percent": 8.011,
+    "normalized_width": 920,
+    "normalized_height": 848,
+    "diff_comparison_path": "/tmp/run/home/artifacts/content/diff_comparison.png",
+    "diff_only_path": "/tmp/run/home/artifacts/content/diff_only.png"
+  }
 }
 ```
+
+### Legacy camelCase shape
+
+Older prototypes and some adapter code refer to a camelCase shape with fields such as `left`, `right`, `pixel`, `styles`, and `attributes`. The current frontend still tolerates enough of that shape for the sidebar adapters, but it is no longer the primary format emitted by `css-visual-diff compare` or `examples/verbs/review-sweep from-spec`. New producers should emit the snake_case format or at least ensure the `summary.json` row contains all fields needed for the card list and image URLs.
 
 ---
 
 ## Part 4: Artifact PNG Files
 
-Each section directory must contain at minimum these four PNG files. The images represent the visual evidence of the comparison.
+Each review-site section directory should contain the review-site aliases below. The images represent the visual evidence of the comparison. Note that direct `css-visual-diff compare` writes element screenshots as `url1_screenshot.png` and `url2_screenshot.png`; the `examples review-sweep from-spec` verb copies those files to the review-site aliases `left_region.png` and `right_region.png`. If you produce review-site data yourself, either write the aliases directly or copy them as part of summary generation.
 
 ### Required files
 
@@ -644,7 +562,7 @@ Each section directory must contain at minimum these four PNG files. The images 
 
 ### Image dimensions
 
-Both `left_region.png` and `right_region.png` are cropped to the selector bounds on their respective pages. Before pixel comparison, css-visual-diff normalizes both images to the same dimensions (the larger of the two). The normalized dimensions are recorded in `compare.json` under `pixel.normalizedWidth` and `pixel.normalizedHeight`.
+Both `left_region.png` and `right_region.png` are cropped to the selector bounds on their respective pages. Before pixel comparison, css-visual-diff normalizes both images to the same dimensions (the larger of the two). The normalized dimensions are recorded in current `compare.json` files under `pixel_diff.normalized_width` and `pixel_diff.normalized_height`.
 
 The `diff_only.png` image has the same normalized dimensions. It shows the same viewport area as the screenshots, but only the changed pixels are colored (typically red or magenta). Unchanged pixels are black or transparent.
 
@@ -653,23 +571,23 @@ The `diff_only.png` image has the same normalized dimensions. It shows the same 
 Screenshots are captured by css-visual-diff using chromedp (Go Chrome DevTools Protocol). The browser navigates to the target URL, waits for the specified wait time, then captures a full-page or viewport screenshot. The relevant region is then cropped using the selector's bounding box.
 
 ```bash
-# Single comparison produces all four PNG files:
+# Direct comparison produces compare.json, compare.md, url1/url2 screenshots, and diff PNGs:
 css-visual-diff compare \
   --url1 http://localhost:7070/page.html \
   --selector1 "#content" \
   --url2 http://localhost:6007/iframe.html?id=page--desktop \
   --selector2 "#content" \
-  --out /tmp/my-run/about/content
+  --out /tmp/my-run/about/artifacts/content
 ```
 
 This creates:
 
 ```text
-/tmp/my-run/about/content/
+/tmp/my-run/about/artifacts/content/
   compare.json
   compare.md
-  left_region.png
-  right_region.png
+  url1_screenshot.png              # copy/alias to left_region.png for the review site
+  url2_screenshot.png              # copy/alias to right_region.png for the review site
   diff_only.png
   diff_comparison.png
 ```
@@ -678,13 +596,13 @@ This creates:
 
 ## Part 5: How to Generate Review Data
 
-The Pyxis verb scripts are project-specific: they know about Pyxis page names, Storybook URLs, and selector conventions. This section explains how to build equivalent pipelines for any project using the general-purpose css-visual-diff commands.
+This section explains how to build review-site data pipelines for any project using the general-purpose css-visual-diff commands and JavaScript verbs.
 
-There are three approaches, from simplest to most flexible.
+There are two common approaches, from simplest to most flexible.
 
 ### Approach A: Use `css-visual-diff compare` directly
 
-This is the simplest approach and works when you have exactly two URLs to compare. Run `css-visual-diff compare` once per page/section, then build a summary JSON from the outputs.
+This is the simplest approach and works when you have exactly two URLs to compare. Run `css-visual-diff compare` once per page/section, copy `url1_screenshot.png`/`url2_screenshot.png` to the review-site aliases, then build a summary JSON from the outputs.
 
 #### Step 1: Run comparisons
 
@@ -705,8 +623,10 @@ This produces the artifact directory for one section:
 /tmp/review-run/about/artifacts/content/
   compare.json
   compare.md
-  left_region.png
-  right_region.png
+  url1_screenshot.png
+  url2_screenshot.png
+  left_region.png                  # alias for review site
+  right_region.png                 # alias for review site
   diff_only.png
   diff_comparison.png
 ```
@@ -725,7 +645,7 @@ Write a small script (Python, bash, or Node) that:
 Here is a Python sketch:
 
 ```python
-import json, os, glob
+import glob, json, os, shutil
 
 def build_summary(run_dir):
     rows = []
@@ -736,35 +656,55 @@ def build_summary(run_dir):
         parts = compare_path.replace(f"{run_dir}/", "").split("/")
         page = parts[0]
         section = parts[2]  # page/artifacts/section/compare.json
-
         artifact_dir = os.path.dirname(compare_path)
+
+        # Direct compare writes url1_screenshot/url2_screenshot. The review site
+        # expects left_region/right_region URLs in summary.json.
+        alias(os.path.join(artifact_dir, "url1_screenshot.png"), os.path.join(artifact_dir, "left_region.png"))
+        alias(os.path.join(artifact_dir, "url2_screenshot.png"), os.path.join(artifact_dir, "right_region.png"))
+
+        pixel = data.get("pixel_diff", {})
+        url1 = data.get("url1", {})
+        url2 = data.get("url2", {})
+        left_computed = (url1.get("computed") or {})
+        right_computed = (url2.get("computed") or {})
+        left_bounds = left_computed.get("bounds") or {}
+        right_bounds = right_computed.get("bounds") or {}
+        left_attrs = left_computed.get("attributes") or {}
+        right_attrs = right_computed.get("attributes") or {}
+
+        style_diffs = [
+            {"property": s.get("property", ""), "left": s.get("left", ""), "right": s.get("right", "")}
+            for s in data.get("computed_diffs", []) if s.get("changed")
+        ]
+        attribute_diffs = [
+            {"attribute": name, "left": left_attrs.get(name), "right": right_attrs.get(name)}
+            for name in sorted(set(left_attrs) | set(right_attrs))
+            if left_attrs.get(name) != right_attrs.get(name)
+        ]
+        pct = pixel.get("changed_percent", 0)
 
         row = {
             "page": page,
             "section": section,
-            "classification": classify(data["pixel"]["changedPercent"]),
-            "changedPercent": data["pixel"]["changedPercent"],
-            "changedPixels": data["pixel"]["changedPixels"],
-            "totalPixels": data["pixel"]["totalPixels"],
+            "classification": classify(pct),
+            "changedPercent": pct,
+            "changedPixels": pixel.get("changed_pixels", 0),
+            "totalPixels": pixel.get("total_pixels", 0),
+            "threshold": pixel.get("threshold", 30),
             "variant": "desktop",
             "diffOnlyPath": os.path.join(artifact_dir, "diff_only.png"),
             "diffComparisonPath": os.path.join(artifact_dir, "diff_comparison.png"),
             "leftRegionPath": os.path.join(artifact_dir, "left_region.png"),
             "rightRegionPath": os.path.join(artifact_dir, "right_region.png"),
             "artifactJson": compare_path,
-            "leftSelector": data["left"]["selector"],
-            "rightSelector": data["right"]["selector"],
-            "styleChangeCount": sum(1 for s in data["styles"] if s["changed"]),
-            "attributeChangeCount": sum(1 for a in data["attributes"] if a["changed"]),
-            "styleDiffs": [
-                {"property": s["name"], "left": s["left"], "right": s["right"]}
-                for s in data["styles"] if s["changed"]
-            ],
-            "attributeDiffs": [
-                {"attribute": a["name"], "left": a.get("left"), "right": a.get("right")}
-                for a in data["attributes"] if a["changed"]
-            ],
-            "bounds": data["bounds"],
+            "leftSelector": url1.get("selector", ""),
+            "rightSelector": url2.get("selector", ""),
+            "styleChangeCount": len(style_diffs),
+            "attributeChangeCount": len(attribute_diffs),
+            "styleDiffs": style_diffs,
+            "attributeDiffs": attribute_diffs,
+            "bounds": bounds(left_bounds, right_bounds),
         }
         rows.append(row)
 
@@ -774,20 +714,17 @@ def build_summary(run_dir):
         classification_counts[cls] = classification_counts.get(cls, 0) + 1
 
     pages = sorted(set(r["page"] for r in rows))
-    max_pct = max(r["changedPercent"] for r in rows) if rows else 0
+    max_pct = max((r["changedPercent"] for r in rows), default=0)
 
     summary = {
         "classificationCounts": classification_counts,
         "pageCount": len(pages),
+        "sectionCount": len(rows),
         "maxChangedPercent": max_pct,
         "policy": {
             "ok": all(r["classification"] in ("accepted", "review") for r in rows),
-            "worstClassification": max(
-                rows, key=lambda r: severity(r["classification"])
-            )["classification"] if rows else "accepted",
-            "failureCount": sum(
-                1 for r in rows if r["classification"] in ("tune-required", "major-mismatch")
-            ),
+            "worstClassification": max(rows, key=lambda r: severity(r["classification"]))["classification"] if rows else "accepted",
+            "failureCount": sum(1 for r in rows if r["classification"] in ("tune-required", "major-mismatch", "error")),
         },
         "rows": rows,
     }
@@ -797,6 +734,20 @@ def build_summary(run_dir):
 
     print(f"Wrote {len(rows)} rows to {run_dir}/summary.json")
 
+def alias(src, dst):
+    if os.path.exists(src) and not os.path.exists(dst):
+        shutil.copyfile(src, dst)
+
+def bounds(left, right):
+    if not left or not right:
+        return {}
+    return {
+        "changed": any(left.get(k, 0) != right.get(k, 0) for k in ("x", "y", "width", "height")),
+        "delta": {k: right.get(k, 0) - left.get(k, 0) for k in ("x", "y", "width", "height")},
+        "left": left,
+        "right": right,
+    }
+
 def classify(pct):
     if pct <= 0.5:  return "accepted"
     if pct <= 10:   return "review"
@@ -804,7 +755,7 @@ def classify(pct):
     return "major-mismatch"
 
 def severity(cls):
-    return {"accepted": 0, "review": 1, "tune-required": 2, "major-mismatch": 3}.get(cls, 0)
+    return {"accepted": 0, "review": 1, "tune-required": 2, "major-mismatch": 3, "error": 4}.get(cls, 0)
 
 if __name__ == "__main__":
     import sys
@@ -819,7 +770,7 @@ css-visual-diff serve --data-dir /tmp/review-run --port 8097
 
 ### Approach B: Use verb scripts for custom pipelines
 
-The `verbs` subsystem lets you write JavaScript verb scripts that orchestrate comparison, catalog, and summary generation in a single command. This is the preferred approach for project-scale suites and is what the Pyxis project uses.
+The `verbs` subsystem lets you write JavaScript verb scripts that orchestrate comparison, catalog, and summary generation in a single command. This is the preferred approach for project-scale suites.
 
 A verb script has access to the `css-visual-diff` JavaScript API, which provides browser automation, catalog management, screenshot capture, and structured output. The script can load project-specific data files, run comparisons for many pages, collect results, and emit a summary JSON in the exact format the review site expects.
 
@@ -877,21 +828,3 @@ The example demonstrates `require("yaml")`, `require("fs")`, `require("path")`, 
 | B: Verb scripts | Complex or project-scale pipelines | Full flexibility, programmatic, can load project specs | More code to write and maintain |
 
 Both approaches produce the same directory structure and JSON formats. The review site does not care how the data was produced; it only cares that `summary.json` and the artifact directories exist and follow the spec.
-
----
-
-## Part 6: The build-summary Utility
-
-The `css-visual-diff` project includes a helper script at `ttmp/.../scripts/build-summary.py` in the CSSVD-REVIEW-SITE ticket workspace. This script implements Approach A's Step 2: it walks a run directory, reads every `compare.json`, and writes a `summary.json`.
-
-This script is a reference implementation, not a production tool. For real projects, you should adapt it or write your own. The key design decisions in the script are:
-
-1. **Classification bands are hardcoded** to match the Pyxis policy (0.5%, 10%, 30%). Adjust these thresholds for your own policy.
-2. **Paths are written as absolute paths** pointing into the run directory. The review site's React app rewrites them to relative URLs.
-3. **The `variant` field defaults to "desktop"** if not present in compare.json. If you compare at multiple viewports, add a `variant` field to your verb output or project spec.
-
-To adapt this script for your project:
-
-- Change the classification thresholds in `classify()`.
-- Add or remove fields from the row to match what your compare.json files contain.
-- Adjust the path layout if your artifacts are not under `<page>/artifacts/<section>/`.

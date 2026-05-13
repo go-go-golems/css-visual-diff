@@ -429,6 +429,7 @@ The review website is a React/Vite app embedded into the Go binary. If you chang
 The CLI includes Glazed help pages. These are the best next step after the README:
 
 ```bash
+css-visual-diff help getting-started
 css-visual-diff help javascript-api
 css-visual-diff help javascript-verbs
 css-visual-diff help pixel-accuracy-scripting-guide
@@ -442,6 +443,7 @@ Suggested reading:
 
 | If you want to... | Read |
 | --- | --- |
+| Discover the main workflows and examples | `getting-started` |
 | Learn the JS browser API | `javascript-api` |
 | Write project-local CLI workflows | `javascript-verbs` |
 | Build pixel-perfect CSS feedback loops | `pixel-accuracy-scripting-guide` |

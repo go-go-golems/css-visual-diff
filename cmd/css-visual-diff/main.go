@@ -25,6 +25,13 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "css-visual-diff",
 		Short: "Compare rendered HTML/CSS across browser targets",
+		Long: `Compare rendered HTML/CSS across browser targets and generate visual evidence for frontend work.
+
+Start with: css-visual-diff help getting-started
+
+That guide walks through the smoke workflow, direct compare command, overlay screenshot example, review-site workflow, and the repository-scanned JavaScript examples under examples/verbs.
+
+To list all embedded docs, run: css-visual-diff help --list`,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			return logging.InitLoggerFromCobra(cmd)
 		},
