@@ -160,12 +160,16 @@ func loadConfigRepositories(ctx context.Context) ([]Repository, error) {
 
 	configPaths := make([]string, 0, len(files)+2)
 	seenPaths := map[string]struct{}{}
+	gitRoot := nearestGitRoot(mustGetwd())
 	appendConfigPath := func(path string) {
 		path = strings.TrimSpace(path)
 		if path == "" {
 			return
 		}
 		path = filepath.Clean(path)
+		if isLocalConfigFile(path) && gitRoot != "" && !pathWithinDir(path, gitRoot) {
+			return
+		}
 		if _, ok := seenPaths[path]; ok {
 			return
 		}
@@ -196,6 +200,7 @@ func fallbackAncestorConfigPaths() []string {
 		return nil
 	}
 	paths := []string{}
+	stopDir := nearestGitRoot(cwd)
 	for dir := filepath.Clean(cwd); ; dir = filepath.Dir(dir) {
 		for _, name := range []string{LocalConfigFileName, LocalOverrideConfigFileName} {
 			path := filepath.Join(dir, name)
@@ -203,12 +208,52 @@ func fallbackAncestorConfigPaths() []string {
 				paths = append(paths, path)
 			}
 		}
+		if stopDir != "" && sameCleanPath(dir, stopDir) {
+			break
+		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
 			break
 		}
 	}
 	return paths
+}
+
+func mustGetwd() string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
+}
+
+func isLocalConfigFile(path string) bool {
+	base := filepath.Base(path)
+	return base == LocalConfigFileName || base == LocalOverrideConfigFileName
+}
+
+func pathWithinDir(path, dir string) bool {
+	rel, err := filepath.Rel(filepath.Clean(dir), filepath.Clean(path))
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != "" && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != "..")
+}
+
+func nearestGitRoot(start string) string {
+	for dir := filepath.Clean(start); ; dir = filepath.Dir(dir) {
+		if info, err := os.Stat(filepath.Join(dir, ".git")); err == nil && info.IsDir() {
+			return dir
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+	}
+}
+
+func sameCleanPath(a, b string) bool {
+	return filepath.Clean(a) == filepath.Clean(b)
 }
 
 func loadRepositoriesFromConfigFile(path string) ([]Repository, error) {
