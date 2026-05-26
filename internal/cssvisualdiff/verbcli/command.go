@@ -45,15 +45,7 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) 
 		Short: "Run annotated css-visual-diff workflow verbs",
 	}
 
-	repositories, err := ScanRepositories(bootstrap)
-	if err != nil {
-		return nil, err
-	}
-	discovered, err := CollectDiscoveredVerbs(repositories)
-	if err != nil {
-		return nil, err
-	}
-	commands, err := buildCommands(discovered, invokers)
+	commands, err := NewCommandsWithInvokerFactory(bootstrap, invokers)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +55,22 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) 
 		return nil, err
 	}
 	return root, nil
+}
+
+func NewCommands(bootstrap Bootstrap) ([]cmds.Command, error) {
+	return NewCommandsWithInvokerFactory(bootstrap, runtimeInvokerFactory)
+}
+
+func NewCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) ([]cmds.Command, error) {
+	repositories, err := ScanRepositories(bootstrap)
+	if err != nil {
+		return nil, err
+	}
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	if err != nil {
+		return nil, err
+	}
+	return buildCommands(discovered, invokers)
 }
 
 func buildCommands(discovered []DiscoveredVerb, invokers InvokerFactory) ([]cmds.Command, error) {

@@ -44,8 +44,8 @@ func RegisterSharedSections(registry *jsverbs.Registry) error {
 func NewRuntimeFactory(registry *jsverbs.Registry, opts ...engine.Option) (*engine.Factory, error) {
 	builder := engine.NewBuilder(opts...).
 		WithRequireOptions(noderequire.WithLoader(registry.RequireLoader())).
-		WithModules(engine.DefaultRegistryModules()).
-		WithRuntimeModuleRegistrars(newRuntimeRegistrar())
+		UseModuleMiddleware(engine.Pipeline()).
+		WithModules(newRuntimeRegistrar())
 	return builder.Build()
 }
 
