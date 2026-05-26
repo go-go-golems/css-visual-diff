@@ -44,8 +44,9 @@ func (runtimeRegistrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, 
 
 func NewDiffLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
 	return func(vm *goja.Runtime, module *goja.Object) {
-		if ctx == nil {
-			ctx = runtimeContextFromVM(vm)
+		moduleCtx := ctx
+		if moduleCtx == nil {
+			moduleCtx = runtimeContextFromVM(vm)
 		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("compareRegion", func(raw map[string]interface{}) (interface{}, error) {
@@ -54,7 +55,7 @@ func NewDiffLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.Modu
 				return nil, err
 			}
 			settings := input.toCompareSettings()
-			result, err := modes.GenerateCompareResult(ctx.Context, settings)
+			result, err := modes.GenerateCompareResult(moduleCtx.Context, settings)
 			if err != nil {
 				return nil, err
 			}
@@ -72,9 +73,6 @@ func NewDiffLoader() noderequire.ModuleLoader {
 
 func NewReportLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
 	return func(vm *goja.Runtime, module *goja.Object) {
-		if ctx == nil {
-			ctx = runtimeContextFromVM(vm)
-		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("agentBrief", func(raw map[string]interface{}) (interface{}, error) {
 			input, err := decodeInto[agentBriefInput](raw)
