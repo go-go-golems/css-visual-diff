@@ -1,6 +1,6 @@
 module github.com/go-go-golems/css-visual-diff
 
-go 1.26.2
+go 1.26.3
 
 require (
 	dagger.io/dagger v0.20.6
