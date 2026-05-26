@@ -7,6 +7,7 @@ import (
 	glazedcli "github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	gggengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/spf13/cobra"
 )
@@ -93,7 +94,7 @@ func runtimeInvokerFactory(repo ScannedRepository, _ *jsverbs.VerbSpec) jsverbs.
 		if err != nil {
 			return nil, err
 		}
-		rt, err := factory.NewRuntime(ctx)
+		rt, err := factory.NewRuntime(gggengine.WithStartupContext(ctx), gggengine.WithLifetimeContext(ctx))
 		if err != nil {
 			return nil, err
 		}

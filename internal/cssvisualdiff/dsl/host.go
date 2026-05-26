@@ -54,7 +54,7 @@ func (h *Host) Commands() ([]cmds.Command, error) {
 }
 
 func (h *Host) invoke(ctx context.Context, registry *jsverbs.Registry, verb *jsverbs.VerbSpec, parsedValues *glazedvalues.Values) (interface{}, error) {
-	rt, err := h.factory.NewRuntime(ctx)
+	rt, err := h.factory.NewRuntime(engine.WithStartupContext(ctx), engine.WithLifetimeContext(ctx))
 	if err != nil {
 		return nil, err
 	}

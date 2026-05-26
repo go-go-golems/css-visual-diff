@@ -40,21 +40,21 @@ func NewLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLo
 
 func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleContext {
 	ctx := &engine.RuntimeModuleContext{Context: context.Background(), VM: vm}
-	if bindings, ok := runtimebridge.Lookup(vm); ok {
-		ctx.Context = bindings.Context
-		ctx.Loop = bindings.Loop
-		if bindings.Owner != nil {
-			ctx.Owner = runtimebridgeOwner{owner: bindings.Owner}
+	if runtimeServices, ok := runtimebridge.Lookup(vm); ok {
+		ctx.Context = runtimeServices.Lifetime()
+		ctx.Loop = runtimeServices.Loop
+		if runtimeServices.Owner != nil {
+			ctx.Owner = runtimebridgeOwner{owner: runtimeServices.Owner}
 		}
 	}
 	if ctx.Context == nil {
-		ctx.Context = runtimebridge.CurrentContext(vm)
+		ctx.Context = runtimebridge.CurrentOwnerContext(vm)
 	}
 	return ctx
 }
 
 type runtimebridgeOwner struct {
-	owner runtimebridge.OwnerRunner
+	owner runtimebridge.RuntimeOwner
 }
 
 func (o runtimebridgeOwner) Call(ctx context.Context, op string, fn runtimeowner.CallFunc) (any, error) {
@@ -69,6 +69,7 @@ func (o runtimebridgeOwner) Post(ctx context.Context, op string, fn runtimeowner
 	})
 }
 
+func (o runtimebridgeOwner) WaitIdle(context.Context) error { return nil }
 func (o runtimebridgeOwner) Shutdown(context.Context) error { return nil }
 func (o runtimebridgeOwner) IsClosed() bool                 { return o.owner == nil }
 
