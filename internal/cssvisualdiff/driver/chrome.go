@@ -31,6 +31,7 @@ func chromeAllocatorOptions() []chromedp.ExecAllocatorOption {
 		chromedp.Headless,
 		chromedp.NoFirstRun,
 		chromedp.NoDefaultBrowserCheck,
+		chromedp.WSURLReadTimeout(60 * time.Second),
 	}
 	if shouldDisableChromeSandbox() {
 		log.Debug().Msg("css-visual-diff chromedp: disabling Chrome sandbox")
