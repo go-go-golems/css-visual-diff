@@ -1,0 +1,47 @@
+name: css-visual-diff-command-provider
+target:
+  kind: xgoja
+  output: dist/css-visual-diff-command-provider
+packages:
+  - id: go-go-goja-host
+    import: github.com/go-go-golems/go-go-goja/pkg/xgoja/providers/host
+    version: v0.5.0
+  - id: css-visual-diff
+    import: github.com/go-go-golems/css-visual-diff/pkg/xgoja/provider
+    version: v0.0.0
+    replace: ../../..
+runtimes:
+  browser:
+    modules:
+      - package: css-visual-diff
+        name: css-visual-diff
+        as: css-visual-diff
+      - package: css-visual-diff
+        name: diff
+        as: diff
+      - package: css-visual-diff
+        name: report
+        as: report
+      - package: go-go-goja-host
+        name: fs
+        as: fs
+        config:
+          allow: true
+commands:
+  eval:
+    enabled: false
+  run:
+    enabled: false
+  repl:
+    enabled: false
+  jsverbs:
+    enabled: false
+commandProviders:
+  - id: css-visual-diff-verbs
+    package: css-visual-diff
+    name: verbs
+    mount: css
+    runtimeProfile: browser
+    config:
+      repositories:
+        - ./verbs

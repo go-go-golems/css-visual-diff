@@ -44,8 +44,8 @@ func RegisterSharedSections(registry *jsverbs.Registry) error {
 func NewRuntimeFactory(registry *jsverbs.Registry, opts ...engine.Option) (*engine.Factory, error) {
 	builder := engine.NewBuilder(opts...).
 		WithRequireOptions(noderequire.WithLoader(registry.RequireLoader())).
-		WithModules(engine.DefaultRegistryModules()).
-		WithRuntimeModuleRegistrars(newRuntimeRegistrar())
+		UseModuleMiddleware(engine.Pipeline()).
+		WithModules(newRuntimeRegistrar())
 	return builder.Build()
 }
 
@@ -54,7 +54,7 @@ func (h *Host) Commands() ([]cmds.Command, error) {
 }
 
 func (h *Host) invoke(ctx context.Context, registry *jsverbs.Registry, verb *jsverbs.VerbSpec, parsedValues *glazedvalues.Values) (interface{}, error) {
-	rt, err := h.factory.NewRuntime(ctx)
+	rt, err := h.factory.NewRuntime(engine.WithStartupContext(ctx), engine.WithLifetimeContext(ctx))
 	if err != nil {
 		return nil, err
 	}

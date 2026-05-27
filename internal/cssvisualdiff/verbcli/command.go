@@ -7,6 +7,7 @@ import (
 	glazedcli "github.com/go-go-golems/glazed/pkg/cli"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	"github.com/go-go-golems/glazed/pkg/cmds/values"
+	gggengine "github.com/go-go-golems/go-go-goja/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"github.com/spf13/cobra"
 )
@@ -45,15 +46,7 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) 
 		Short: "Run annotated css-visual-diff workflow verbs",
 	}
 
-	repositories, err := ScanRepositories(bootstrap)
-	if err != nil {
-		return nil, err
-	}
-	discovered, err := CollectDiscoveredVerbs(repositories)
-	if err != nil {
-		return nil, err
-	}
-	commands, err := buildCommands(discovered, invokers)
+	commands, err := NewCommandsWithInvokerFactory(bootstrap, invokers)
 	if err != nil {
 		return nil, err
 	}
@@ -63,6 +56,22 @@ func newCommandWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) 
 		return nil, err
 	}
 	return root, nil
+}
+
+func NewCommands(bootstrap Bootstrap) ([]cmds.Command, error) {
+	return NewCommandsWithInvokerFactory(bootstrap, runtimeInvokerFactory)
+}
+
+func NewCommandsWithInvokerFactory(bootstrap Bootstrap, invokers InvokerFactory) ([]cmds.Command, error) {
+	repositories, err := ScanRepositories(bootstrap)
+	if err != nil {
+		return nil, err
+	}
+	discovered, err := CollectDiscoveredVerbs(repositories)
+	if err != nil {
+		return nil, err
+	}
+	return buildCommands(discovered, invokers)
 }
 
 func buildCommands(discovered []DiscoveredVerb, invokers InvokerFactory) ([]cmds.Command, error) {
@@ -85,7 +94,7 @@ func runtimeInvokerFactory(repo ScannedRepository, _ *jsverbs.VerbSpec) jsverbs.
 		if err != nil {
 			return nil, err
 		}
-		rt, err := factory.NewRuntime(ctx)
+		rt, err := factory.NewRuntime(gggengine.WithStartupContext(ctx), gggengine.WithLifetimeContext(ctx))
 		if err != nil {
 			return nil, err
 		}

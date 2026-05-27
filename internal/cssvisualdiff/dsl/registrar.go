@@ -1,6 +1,7 @@
 package dsl
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -10,11 +11,13 @@ import (
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/services"
 	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
 type runtimeRegistrar struct{}
 
-func newRuntimeRegistrar() engine.RuntimeModuleRegistrar {
+func newRuntimeRegistrar() engine.RuntimeModuleSpec {
 	return runtimeRegistrar{}
 }
 
@@ -22,7 +25,7 @@ func (runtimeRegistrar) ID() string {
 	return "css-visual-diff-runtime-modules"
 }
 
-func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) error {
+func (runtimeRegistrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) error {
 	if ctx == nil {
 		return fmt.Errorf("runtime module context is nil")
 	}
@@ -30,7 +33,21 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 		return fmt.Errorf("require registry is nil")
 	}
 
-	reg.RegisterNativeModule("diff", func(vm *goja.Runtime, module *goja.Object) {
+	reg.RegisterNativeModule("diff", NewDiffLoaderWithContext(ctx))
+
+	jsapi.Register(ctx, reg)
+
+	reg.RegisterNativeModule("report", NewReportLoaderWithContext(ctx))
+
+	return nil
+}
+
+func NewDiffLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
+	return func(vm *goja.Runtime, module *goja.Object) {
+		moduleCtx := ctx
+		if moduleCtx == nil {
+			moduleCtx = runtimeContextFromVM(vm)
+		}
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("compareRegion", func(raw map[string]interface{}) (interface{}, error) {
 			input, err := decodeInto[compareRegionInput](raw)
@@ -38,7 +55,7 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 				return nil, err
 			}
 			settings := input.toCompareSettings()
-			result, err := modes.GenerateCompareResult(ctx.Context, settings)
+			result, err := modes.GenerateCompareResult(moduleCtx.Context, settings)
 			if err != nil {
 				return nil, err
 			}
@@ -47,11 +64,15 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 			}
 			return toPlainValue(result)
 		})
-	})
+	}
+}
 
-	jsapi.Register(ctx, reg)
+func NewDiffLoader() noderequire.ModuleLoader {
+	return NewDiffLoaderWithContext(nil)
+}
 
-	reg.RegisterNativeModule("report", func(vm *goja.Runtime, module *goja.Object) {
+func NewReportLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
+	return func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("agentBrief", func(raw map[string]interface{}) (interface{}, error) {
 			input, err := decodeInto[agentBriefInput](raw)
@@ -77,9 +98,46 @@ func (runtimeRegistrar) RegisterRuntimeModules(ctx *engine.RuntimeModuleContext,
 			})
 			return services.RenderAgentBriefText(brief), nil
 		})
-	})
+	}
+}
 
-	return nil
+func NewReportLoader() noderequire.ModuleLoader {
+	return NewReportLoaderWithContext(nil)
+}
+
+type runtimebridgeOwner struct {
+	owner runtimebridge.RuntimeOwner
+}
+
+func (o runtimebridgeOwner) Call(ctx context.Context, op string, fn runtimeowner.CallFunc) (any, error) {
+	return o.owner.Call(ctx, op, func(ctx context.Context, vm *goja.Runtime) (any, error) {
+		return fn(ctx, vm)
+	})
+}
+
+func (o runtimebridgeOwner) Post(ctx context.Context, op string, fn runtimeowner.PostFunc) error {
+	return o.owner.Post(ctx, op, func(ctx context.Context, vm *goja.Runtime) {
+		fn(ctx, vm)
+	})
+}
+
+func (o runtimebridgeOwner) WaitIdle(context.Context) error { return nil }
+func (o runtimebridgeOwner) Shutdown(context.Context) error { return nil }
+func (o runtimebridgeOwner) IsClosed() bool                 { return o.owner == nil }
+
+func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleContext {
+	ctx := &engine.RuntimeModuleContext{Context: context.Background(), VM: vm}
+	if runtimeServices, ok := runtimebridge.Lookup(vm); ok {
+		ctx.Context = runtimeServices.Lifetime()
+		ctx.Loop = runtimeServices.Loop
+		if runtimeServices.Owner != nil {
+			ctx.Owner = runtimebridgeOwner{owner: runtimeServices.Owner}
+		}
+	}
+	if ctx.Context == nil {
+		ctx.Context = runtimebridge.CurrentOwnerContext(vm)
+	}
+	return ctx
 }
 
 type compareRegionInput struct {

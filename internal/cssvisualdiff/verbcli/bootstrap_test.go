@@ -123,6 +123,29 @@ verbs:
 	requireRepositorySource(t, repos, repoDir, filepath.Join(cwd, LocalOverrideConfigFileName))
 }
 
+func TestFallbackAncestorConfigPathsStopsAtGitRootFile(t *testing.T) {
+	parent := t.TempDir()
+	root := filepath.Join(parent, "repo")
+	writeFile(t, filepath.Join(parent, LocalConfigFileName), `verbs: {}`)
+	writeFile(t, filepath.Join(root, ".git"), "gitdir: ../real-git-dir\n")
+	writeFile(t, filepath.Join(root, LocalConfigFileName), `verbs: {}`)
+	nested := filepath.Join(root, "packages", "button")
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+	withChdir(t, nested)
+
+	paths := fallbackAncestorConfigPaths()
+	require.Contains(t, paths, filepath.Join(root, LocalConfigFileName))
+	require.NotContains(t, paths, filepath.Join(parent, LocalConfigFileName), "must not scan local config above linked worktree git root")
+}
+
+func TestNearestGitRootDetectsGitDirectory(t *testing.T) {
+	root := initTempGitRepository(t)
+	nested := filepath.Join(root, "packages", "button")
+	require.NoError(t, os.MkdirAll(nested, 0o755))
+
+	require.Equal(t, root, nearestGitRoot(nested))
+}
+
 func TestDiscoverBootstrapDedupesLocalConfigRepositoriesByRoot(t *testing.T) {
 	withIsolatedConfigEnvironment(t)
 	root := initTempGitRepository(t)

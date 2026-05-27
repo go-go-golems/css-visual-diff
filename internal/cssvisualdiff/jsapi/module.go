@@ -11,33 +11,93 @@ import (
 	noderequire "github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
 	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
+	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
 // Register installs the native require("css-visual-diff") module into a goja require registry.
 func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
-	reg.RegisterNativeModule("css-visual-diff", func(vm *goja.Runtime, module *goja.Object) {
-		exports := module.Get("exports").(*goja.Object)
-		installCVDErrorClasses(vm, exports)
-		installTargetAPI(vm, exports)
-		installProbeAPI(vm, exports)
-		installExtractorAPI(vm, exports)
-		installExtractAPI(ctx, vm, exports)
-		installSnapshotAPI(ctx, vm, exports)
-		installDiffAPI(ctx, vm, exports)
-		installOverlayAPI(ctx, vm, exports)
-		_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
-			catalog, err := newCatalogFromJS(raw)
-			if err != nil {
-				return nil, err
-			}
-			return wrapCatalog(ctx, vm, catalog), nil
-		})
-		_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
-			return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {
-				return service.NewBrowserService(ctx.Context)
-			}, func(vm *goja.Runtime, value any) goja.Value {
-				return wrapBrowser(ctx, vm, value.(*service.BrowserService))
-			})
+	reg.RegisterNativeModule("css-visual-diff", NewLoaderWithContext(ctx))
+}
+
+// NewLoader installs require("css-visual-diff") for xgoja-style module providers.
+// It recovers runtime owner/context bindings from runtimebridge so async browser
+// operations can settle promises on the owner thread.
+func NewLoader() noderequire.ModuleLoader {
+	return func(vm *goja.Runtime, module *goja.Object) {
+		Install(runtimeContextFromVM(vm), vm, module.Get("exports").(*goja.Object))
+	}
+}
+
+func NewLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
+	return func(vm *goja.Runtime, module *goja.Object) {
+		moduleCtx := ctx
+		if moduleCtx == nil {
+			moduleCtx = runtimeContextFromVM(vm)
+		}
+		Install(moduleCtx, vm, module.Get("exports").(*goja.Object))
+	}
+}
+
+func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleContext {
+	ctx := &engine.RuntimeModuleContext{Context: context.Background(), VM: vm}
+	if runtimeServices, ok := runtimebridge.Lookup(vm); ok {
+		ctx.Context = runtimeServices.Lifetime()
+		ctx.Loop = runtimeServices.Loop
+		if runtimeServices.Owner != nil {
+			ctx.Owner = runtimebridgeOwner{owner: runtimeServices.Owner}
+		}
+	}
+	if ctx.Context == nil {
+		ctx.Context = runtimebridge.CurrentOwnerContext(vm)
+	}
+	return ctx
+}
+
+type runtimebridgeOwner struct {
+	owner runtimebridge.RuntimeOwner
+}
+
+func (o runtimebridgeOwner) Call(ctx context.Context, op string, fn runtimeowner.CallFunc) (any, error) {
+	return o.owner.Call(ctx, op, func(ctx context.Context, vm *goja.Runtime) (any, error) {
+		return fn(ctx, vm)
+	})
+}
+
+func (o runtimebridgeOwner) Post(ctx context.Context, op string, fn runtimeowner.PostFunc) error {
+	return o.owner.Post(ctx, op, func(ctx context.Context, vm *goja.Runtime) {
+		fn(ctx, vm)
+	})
+}
+
+func (o runtimebridgeOwner) WaitIdle(context.Context) error { return nil }
+func (o runtimebridgeOwner) Shutdown(context.Context) error { return nil }
+func (o runtimebridgeOwner) IsClosed() bool                 { return o.owner == nil }
+
+func Install(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
+	if ctx == nil {
+		ctx = runtimeContextFromVM(vm)
+	}
+	installCVDErrorClasses(vm, exports)
+	installTargetAPI(vm, exports)
+	installProbeAPI(vm, exports)
+	installExtractorAPI(vm, exports)
+	installExtractAPI(ctx, vm, exports)
+	installSnapshotAPI(ctx, vm, exports)
+	installDiffAPI(ctx, vm, exports)
+	installOverlayAPI(ctx, vm, exports)
+	_ = exports.Set("catalog", func(raw map[string]any) (*goja.Object, error) {
+		catalog, err := newCatalogFromJS(raw)
+		if err != nil {
+			return nil, err
+		}
+		return wrapCatalog(ctx, vm, catalog), nil
+	})
+	_ = exports.Set("browser", func(call goja.FunctionCall) goja.Value {
+		return promiseValue(ctx, vm, "css-visual-diff.browser", func() (any, error) {
+			return service.NewBrowserService(ctx.Context)
+		}, func(vm *goja.Runtime, value any) goja.Value {
+			return wrapBrowser(ctx, vm, value.(*service.BrowserService))
 		})
 	})
 }
