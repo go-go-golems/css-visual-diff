@@ -242,7 +242,7 @@ func pathWithinDir(path, dir string) bool {
 
 func nearestGitRoot(start string) string {
 	for dir := filepath.Clean(start); ; dir = filepath.Dir(dir) {
-		if info, err := os.Stat(filepath.Join(dir, ".git")); err == nil && info.IsDir() {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)

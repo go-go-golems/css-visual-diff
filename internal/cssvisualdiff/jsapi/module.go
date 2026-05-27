@@ -31,10 +31,11 @@ func NewLoader() noderequire.ModuleLoader {
 
 func NewLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
 	return func(vm *goja.Runtime, module *goja.Object) {
-		if ctx == nil {
-			ctx = runtimeContextFromVM(vm)
+		moduleCtx := ctx
+		if moduleCtx == nil {
+			moduleCtx = runtimeContextFromVM(vm)
 		}
-		Install(ctx, vm, module.Get("exports").(*goja.Object))
+		Install(moduleCtx, vm, module.Get("exports").(*goja.Object))
 	}
 }
 
