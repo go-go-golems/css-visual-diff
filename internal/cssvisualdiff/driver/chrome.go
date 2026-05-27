@@ -1,5 +1,7 @@
 package driver
 
+//glazedclilint:file-ignore browser driver discovery intentionally reads process environment and is not CLI flag parsing
+
 import (
 	"context"
 	"fmt"

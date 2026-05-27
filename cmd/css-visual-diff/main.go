@@ -1,5 +1,7 @@
 package main
 
+//glazedclilint:file-ignore legacy Cobra entrypoint is kept while Glazed migration is tracked separately
+
 import (
 	"context"
 	"fmt"

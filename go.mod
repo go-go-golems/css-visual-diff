@@ -9,7 +9,7 @@ require (
 	github.com/dop251/goja v0.0.0-20260311135729-065cd970411c
 	github.com/dop251/goja_nodejs v0.0.0-20260212111938-1f56ff5bcf14
 	github.com/go-go-golems/geppetto v0.11.32
-	github.com/go-go-golems/glazed v1.3.0
+	github.com/go-go-golems/glazed v1.3.5
 	github.com/go-go-golems/go-go-goja v0.6.0
 	github.com/go-go-golems/pinocchio v0.10.16
 	github.com/rs/zerolog v1.35.1
