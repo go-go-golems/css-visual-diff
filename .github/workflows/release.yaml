@@ -53,6 +53,9 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
