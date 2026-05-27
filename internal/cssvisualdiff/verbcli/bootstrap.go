@@ -1,5 +1,7 @@
 package verbcli
 
+//glazedclilint:file-ignore bootstrap code bridges legacy environment configuration into verb runtime setup
+
 import (
 	"context"
 	"fmt"

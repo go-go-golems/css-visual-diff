@@ -11,6 +11,8 @@
 // and copies the dist/ output to internal/cssvisualdiff/review/embed/public/ for go:embed.
 package main
 
+//glazedclilint:file-ignore build helper reads environment variables outside the user-facing Glazed command surface
+
 import (
 	"context"
 	"errors"

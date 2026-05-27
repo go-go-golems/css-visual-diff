@@ -1,5 +1,7 @@
 package main
 
+//glazedclilint:file-ignore legacy Cobra serve flags are kept while Glazed migration is tracked separately
+
 import (
 	"fmt"
 	"net/http"
