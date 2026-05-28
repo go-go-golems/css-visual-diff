@@ -1,0 +1,3 @@
+package cssvisualdiff
+
+//go:generate go tool logcopter-gen -area-prefix go-go-golems.css-visual-diff -strip-prefix github.com/go-go-golems/css-visual-diff ./internal/... ./pkg/... ./cmd/...

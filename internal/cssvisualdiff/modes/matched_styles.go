@@ -12,7 +12,6 @@ import (
 	"github.com/chromedp/chromedp"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/driver"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/rs/zerolog/log"
 )
 
 type MatchedStylesResult struct {

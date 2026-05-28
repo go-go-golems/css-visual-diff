@@ -11,7 +11,6 @@ import (
 
 	"github.com/chromedp/cdproto/emulation"
 	"github.com/chromedp/chromedp"
-	"github.com/rs/zerolog/log"
 )
 
 type Browser struct {
