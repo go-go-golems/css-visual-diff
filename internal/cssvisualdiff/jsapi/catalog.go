@@ -6,7 +6,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type catalogOptionsInput struct {
@@ -29,7 +29,7 @@ func newCatalogFromJS(raw map[string]any) (*service.Catalog, error) {
 	})
 }
 
-func wrapCatalog(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, catalog *service.Catalog) *goja.Object {
+func wrapCatalog(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, catalog *service.Catalog) *goja.Object {
 	obj := vm.NewObject()
 	_ = obj.Set("artifactDir", func(slug string) string {
 		return catalog.ArtifactDir(slug)

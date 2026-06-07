@@ -6,10 +6,10 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
-func installDiffAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
+func installDiffAPI(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, exports *goja.Object) {
 	_ = exports.Set("diff", func(call goja.FunctionCall) goja.Value {
 		var opts service.DiffOptions
 		if len(call.Arguments) > 2 && !goja.IsUndefined(call.Argument(2)) && !goja.IsNull(call.Argument(2)) {
@@ -52,7 +52,7 @@ func installDiffAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports 
 	_ = exports.Set("write", write)
 }
 
-func wrapDiffReport(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, diff service.SnapshotDiff) *goja.Object {
+func wrapDiffReport(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, diff service.SnapshotDiff) *goja.Object {
 	obj := vm.NewObject()
 	_ = obj.Set("markdown", func() string { return service.RenderDiffMarkdown(diff) })
 	_ = obj.Set("writeMarkdown", func(path string) goja.Value {

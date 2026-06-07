@@ -14,7 +14,7 @@ import (
 	noderequire "github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
 	glazedconfig "github.com/go-go-golems/glazed/pkg/config"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 	"gopkg.in/yaml.v3"
 )

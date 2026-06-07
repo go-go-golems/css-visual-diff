@@ -24,7 +24,7 @@ type verbsCommandProviderConfig struct {
 	Repositories []string `json:"repositories,omitempty"`
 }
 
-func Register(registry *providerapi.Registry) error {
+func Register(registry *providerapi.ProviderRegistry) error {
 	return registry.Package(PackageID,
 		moduleEntry("css-visual-diff", "CSS visual diff browser and artifact APIs.", jsapi.NewLoader),
 		moduleEntry("diff", "Compatibility helper module for region comparison workflows.", dsl.NewDiffLoader),
@@ -33,7 +33,7 @@ func Register(registry *providerapi.Registry) error {
 			Name:         "verbs",
 			DefaultMount: "css-diff",
 			Description:  "Run css-visual-diff workflow verbs",
-			New:          newVerbsCommandSet,
+			NewCommandSet: newVerbsCommandSet,
 		},
 	)
 }
@@ -43,7 +43,7 @@ func moduleEntry(name, description string, loader func() require.ModuleLoader) p
 		Name:        name,
 		DefaultAs:   name,
 		Description: description,
-		New: func(providerapi.ModuleContext) (require.ModuleLoader, error) {
+		NewModuleFactory: func(providerapi.ModuleSetupContext) (require.ModuleLoader, error) {
 			return loader(), nil
 		},
 	}
@@ -89,10 +89,6 @@ func xgojaInvokerFactory(providerCtx providerapi.CommandSetContext) verbcli.Invo
 			if providerCtx.RuntimeFactory == nil {
 				return nil, fmt.Errorf("css-visual-diff xgoja runtime factory is nil")
 			}
-			profile := strings.TrimSpace(providerCtx.RuntimeProfile)
-			if profile == "" {
-				return nil, fmt.Errorf("css-visual-diff xgoja runtime profile is empty")
-			}
 			opts := []require.Option{require.WithLoader(registry.RequireLoader())}
 			if !repo.Repository.Embedded && strings.TrimSpace(repo.Repository.RootDir) != "" {
 				folders := []string{repo.Repository.RootDir, filepath.Join(repo.Repository.RootDir, "node_modules")}
@@ -102,7 +98,7 @@ func xgojaInvokerFactory(providerCtx providerapi.CommandSetContext) verbcli.Invo
 				}
 				opts = append(opts, require.WithGlobalFolders(folders...))
 			}
-			rt, err := providerCtx.RuntimeFactory.NewRuntime(ctx, profile, opts...)
+			rt, err := providerCtx.RuntimeFactory.NewRuntime(ctx, opts...)
 			if err != nil {
 				return nil, err
 			}

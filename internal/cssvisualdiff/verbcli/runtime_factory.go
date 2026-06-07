@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/dsl"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
-func newRuntimeFactory(repo ScannedRepository) (*engine.Factory, error) {
+func newRuntimeFactory(repo ScannedRepository) (*engine.RuntimeFactory, error) {
 	if repo.Registry == nil {
 		return nil, fmt.Errorf("repository %s has no jsverbs registry", describeRepository(repo))
 	}

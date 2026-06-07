@@ -5,7 +5,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 type locatorHandle struct {
@@ -13,7 +13,7 @@ type locatorHandle struct {
 	selector string
 }
 
-func wrapLocator(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageState, selector string) goja.Value {
+func wrapLocator(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, state *pageState, selector string) goja.Value {
 	locator := &locatorHandle{page: state, selector: selector}
 	return newProxyValue(vm, nil, ProxySpec{
 		Owner: "cvd.locator",
@@ -40,7 +40,7 @@ func (l *locatorHandle) spec() service.LocatorSpec {
 	return service.LocatorSpec{Selector: l.selector}
 }
 
-func (l *locatorHandle) status(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) status(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.locator.status", func() (any, error) {
 			return l.page.runExclusive(func() (any, error) {
@@ -54,7 +54,7 @@ func (l *locatorHandle) status(ctx *engine.RuntimeModuleContext, vm *goja.Runtim
 	}
 }
 
-func (l *locatorHandle) exists(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) exists(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.locator.exists", func() (any, error) {
 			return l.page.runExclusive(func() (any, error) {
@@ -68,7 +68,7 @@ func (l *locatorHandle) exists(ctx *engine.RuntimeModuleContext, vm *goja.Runtim
 	}
 }
 
-func (l *locatorHandle) visible(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) visible(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.locator.visible", func() (any, error) {
 			return l.page.runExclusive(func() (any, error) {
@@ -82,7 +82,7 @@ func (l *locatorHandle) visible(ctx *engine.RuntimeModuleContext, vm *goja.Runti
 	}
 }
 
-func (l *locatorHandle) waitFor(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) waitFor(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		rawOptions := map[string]any{}
 		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
@@ -108,7 +108,7 @@ func (l *locatorHandle) waitFor(ctx *engine.RuntimeModuleContext, vm *goja.Runti
 	}
 }
 
-func (l *locatorHandle) text(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) text(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		rawOptions := map[string]any{}
 		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) && !goja.IsNull(call.Argument(0)) {
@@ -130,7 +130,7 @@ func (l *locatorHandle) text(ctx *engine.RuntimeModuleContext, vm *goja.Runtime)
 	}
 }
 
-func (l *locatorHandle) bounds(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) bounds(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.locator.bounds", func() (any, error) {
 			return l.page.runExclusive(func() (any, error) {
@@ -147,7 +147,7 @@ func (l *locatorHandle) bounds(ctx *engine.RuntimeModuleContext, vm *goja.Runtim
 	}
 }
 
-func (l *locatorHandle) computedStyle(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) computedStyle(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		props, err := stringListArg(vm, "css-visual-diff.locator.computedStyle", call.Argument(0))
 		if err != nil {
@@ -161,7 +161,7 @@ func (l *locatorHandle) computedStyle(ctx *engine.RuntimeModuleContext, vm *goja
 	}
 }
 
-func (l *locatorHandle) attributes(ctx *engine.RuntimeModuleContext, vm *goja.Runtime) ProxyMethod {
+func (l *locatorHandle) attributes(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime) ProxyMethod {
 	return func(call goja.FunctionCall, receiver goja.Value) goja.Value {
 		attrs, err := stringListArg(vm, "css-visual-diff.locator.attributes", call.Argument(0))
 		if err != nil {

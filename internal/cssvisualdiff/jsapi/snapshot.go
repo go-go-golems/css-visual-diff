@@ -5,10 +5,10 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
-func installSnapshotAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
+func installSnapshotAPI(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, exports *goja.Object) {
 	_ = exports.Set("snapshot", func(call goja.FunctionCall) goja.Value {
 		page := mustUnwrapProxyBacking[pageState](vm, defaultProxyRegistry, "css-visual-diff.snapshot", call.Argument(0), "cvd.page")
 		probes, err := unwrapSnapshotProbes(vm, call.Argument(1))
