@@ -7,7 +7,7 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
 const (
@@ -22,7 +22,7 @@ type overlayTargetSpec struct{ target service.OverlayTarget }
 type overlaySpecBuilder struct{ spec service.OverlaySpec }
 type overlaySpecValue struct{ spec service.OverlaySpec }
 
-func installOverlayAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
+func installOverlayAPI(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, exports *goja.Object) {
 	_ = exports.Set("overlayTarget", func(call goja.FunctionCall) goja.Value {
 		name := requiredStringArg(vm, "cvd.overlayTarget", call.Argument(0))
 		return newOverlayTargetBuilder(vm, service.OverlayTarget{Name: name})
@@ -217,7 +217,7 @@ func overlaySpecFromValue(vm *goja.Runtime, value goja.Value) (service.OverlaySp
 	return service.OverlaySpec{}, fmt.Errorf("page.overlay: expected cvd.overlaySpec builder/spec, got %s", valueKind(value))
 }
 
-func wrapOverlayScreenshotBuilder(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageState, spec service.OverlaySpec) goja.Value {
+func wrapOverlayScreenshotBuilder(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, state *pageState, spec service.OverlaySpec) goja.Value {
 	obj := vm.NewObject()
 	_ = obj.Set("screenshot", func(path string) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.page.overlay.screenshot", func() (any, error) {

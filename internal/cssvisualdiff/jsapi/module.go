@@ -10,13 +10,13 @@ import (
 	"github.com/dop251/goja"
 	noderequire "github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
 // Register installs the native require("css-visual-diff") module into a goja require registry.
-func Register(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) {
+func Register(ctx *engine.RuntimeModuleRegistrationContext, reg *noderequire.Registry) {
 	reg.RegisterNativeModule("css-visual-diff", NewLoaderWithContext(ctx))
 }
 
@@ -29,7 +29,7 @@ func NewLoader() noderequire.ModuleLoader {
 	}
 }
 
-func NewLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
+func NewLoaderWithContext(ctx *engine.RuntimeModuleRegistrationContext) noderequire.ModuleLoader {
 	return func(vm *goja.Runtime, module *goja.Object) {
 		moduleCtx := ctx
 		if moduleCtx == nil {
@@ -39,8 +39,8 @@ func NewLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLo
 	}
 }
 
-func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleContext {
-	ctx := &engine.RuntimeModuleContext{Context: context.Background(), VM: vm}
+func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleRegistrationContext {
+	ctx := &engine.RuntimeModuleRegistrationContext{Context: context.Background(), VM: vm}
 	if runtimeServices, ok := runtimebridge.Lookup(vm); ok {
 		ctx.Context = runtimeServices.Lifetime()
 		ctx.Loop = runtimeServices.Loop
@@ -74,7 +74,7 @@ func (o runtimebridgeOwner) WaitIdle(context.Context) error { return nil }
 func (o runtimebridgeOwner) Shutdown(context.Context) error { return nil }
 func (o runtimebridgeOwner) IsClosed() bool                 { return o.owner == nil }
 
-func Install(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
+func Install(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, exports *goja.Object) {
 	if ctx == nil {
 		ctx = runtimeContextFromVM(vm)
 	}
@@ -135,7 +135,7 @@ globalThis.__cssVisualDiffErrorClasses = { CvdError, SelectorError, PrepareError
 	}
 }
 
-func promiseValue(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, op string, work func() (any, error), wrap func(*goja.Runtime, any) goja.Value) goja.Value {
+func promiseValue(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, op string, work func() (any, error), wrap func(*goja.Runtime, any) goja.Value) goja.Value {
 	promise, resolve, reject := vm.NewPromise()
 	if ctx == nil || ctx.Owner == nil {
 		panic(vm.NewGoError(fmt.Errorf("%s requires runtime owner", op)))
@@ -194,7 +194,7 @@ func classifyCVDError(op string, err error) (string, string) {
 	}
 }
 
-func wrapBrowser(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, browser *service.BrowserService) *goja.Object {
+func wrapBrowser(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, browser *service.BrowserService) *goja.Object {
 	obj := vm.NewObject()
 	_ = obj.Set("newPage", func(call goja.FunctionCall) goja.Value {
 		return promiseValue(ctx, vm, "css-visual-diff.browser.newPage", func() (any, error) {
@@ -256,7 +256,7 @@ func (s *pageState) runExclusive(work func() (any, error)) (any, error) {
 	return work()
 }
 
-func wrapPage(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, state *pageState) *goja.Object {
+func wrapPage(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, state *pageState) *goja.Object {
 	obj := vm.NewObject()
 	_ = obj.Set(proxyIDProperty, defaultProxyRegistry.bind("cvd.page", state))
 	_ = obj.Set("locator", func(selector string) goja.Value {

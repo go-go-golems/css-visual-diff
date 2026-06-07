@@ -177,7 +177,7 @@ __verb__("inspect", {
 
 	outDir := t.TempDir()
 	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
-		"default": {"url": server.URL, "outDir": outDir},
+		"default": {"url": server.URL, "out-dir": outDir},
 	}))
 	require.NoError(t, err)
 
@@ -228,7 +228,7 @@ __verb__("catalogSmoke", {
 
 	outDir := t.TempDir()
 	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
-		"default": {"outDir": outDir},
+		"default": {"out-dir": outDir},
 	}))
 	require.NoError(t, err)
 
@@ -297,7 +297,7 @@ __verb__("diffSmoke", {
 
 	outDir := t.TempDir()
 	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
-		"default": {"outDir": outDir},
+		"default": {"out-dir": outDir},
 	}))
 	require.NoError(t, err)
 
@@ -968,7 +968,7 @@ __verb__("missing", {
 	require.Len(t, commands, 1)
 
 	parsedValues, err := glazerunner.ParseCommandValues(commands[0], glazerunner.WithValuesForSections(map[string]map[string]interface{}{
-		"default": {"url": server.URL, "outDir": t.TempDir()},
+		"default": {"url": server.URL, "out-dir": t.TempDir()},
 	}))
 	require.NoError(t, err)
 

@@ -7,13 +7,13 @@ import (
 	noderequire "github.com/dop251/goja_nodejs/require"
 	"github.com/go-go-golems/glazed/pkg/cmds"
 	glazedvalues "github.com/go-go-golems/glazed/pkg/cmds/values"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/jsverbs"
 )
 
 type Host struct {
 	registry *jsverbs.Registry
-	factory  *engine.Factory
+	factory  *engine.RuntimeFactory
 }
 
 func NewHost() (*Host, error) {
@@ -41,8 +41,8 @@ func RegisterSharedSections(registry *jsverbs.Registry) error {
 	return registerSharedSections(registry)
 }
 
-func NewRuntimeFactory(registry *jsverbs.Registry, opts ...engine.Option) (*engine.Factory, error) {
-	builder := engine.NewBuilder(opts...).
+func NewRuntimeFactory(registry *jsverbs.Registry, opts ...engine.Option) (*engine.RuntimeFactory, error) {
+	builder := engine.NewRuntimeFactoryBuilder(opts...).
 		WithRequireOptions(noderequire.WithLoader(registry.RequireLoader())).
 		UseModuleMiddleware(engine.Pipeline()).
 		WithModules(newRuntimeRegistrar())

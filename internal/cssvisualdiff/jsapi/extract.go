@@ -5,10 +5,10 @@ import (
 
 	"github.com/dop251/goja"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/service"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 )
 
-func installExtractAPI(ctx *engine.RuntimeModuleContext, vm *goja.Runtime, exports *goja.Object) {
+func installExtractAPI(ctx *engine.RuntimeModuleRegistrationContext, vm *goja.Runtime, exports *goja.Object) {
 	_ = exports.Set("extract", func(call goja.FunctionCall) goja.Value {
 		locator := mustUnwrapProxyBacking[locatorHandle](vm, defaultProxyRegistry, "css-visual-diff.extract", call.Argument(0), "cvd.locator")
 		extractors, err := unwrapExtractorList(vm, call.Argument(1))

@@ -10,14 +10,14 @@ import (
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/jsapi"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/modes"
 	"github.com/go-go-golems/css-visual-diff/internal/cssvisualdiff/services"
-	"github.com/go-go-golems/go-go-goja/engine"
+	"github.com/go-go-golems/go-go-goja/pkg/engine"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimebridge"
 	"github.com/go-go-golems/go-go-goja/pkg/runtimeowner"
 )
 
 type runtimeRegistrar struct{}
 
-func newRuntimeRegistrar() engine.RuntimeModuleSpec {
+func newRuntimeRegistrar() engine.RuntimeModuleRegistrar {
 	return runtimeRegistrar{}
 }
 
@@ -25,7 +25,7 @@ func (runtimeRegistrar) ID() string {
 	return "css-visual-diff-runtime-modules"
 }
 
-func (runtimeRegistrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, reg *noderequire.Registry) error {
+func (runtimeRegistrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleRegistrationContext, reg *noderequire.Registry) error {
 	if ctx == nil {
 		return fmt.Errorf("runtime module context is nil")
 	}
@@ -42,7 +42,7 @@ func (runtimeRegistrar) RegisterRuntimeModule(ctx *engine.RuntimeModuleContext, 
 	return nil
 }
 
-func NewDiffLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
+func NewDiffLoaderWithContext(ctx *engine.RuntimeModuleRegistrationContext) noderequire.ModuleLoader {
 	return func(vm *goja.Runtime, module *goja.Object) {
 		moduleCtx := ctx
 		if moduleCtx == nil {
@@ -71,7 +71,7 @@ func NewDiffLoader() noderequire.ModuleLoader {
 	return NewDiffLoaderWithContext(nil)
 }
 
-func NewReportLoaderWithContext(ctx *engine.RuntimeModuleContext) noderequire.ModuleLoader {
+func NewReportLoaderWithContext(ctx *engine.RuntimeModuleRegistrationContext) noderequire.ModuleLoader {
 	return func(vm *goja.Runtime, module *goja.Object) {
 		exports := module.Get("exports").(*goja.Object)
 		_ = exports.Set("agentBrief", func(raw map[string]interface{}) (interface{}, error) {
@@ -125,8 +125,8 @@ func (o runtimebridgeOwner) WaitIdle(context.Context) error { return nil }
 func (o runtimebridgeOwner) Shutdown(context.Context) error { return nil }
 func (o runtimebridgeOwner) IsClosed() bool                 { return o.owner == nil }
 
-func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleContext {
-	ctx := &engine.RuntimeModuleContext{Context: context.Background(), VM: vm}
+func runtimeContextFromVM(vm *goja.Runtime) *engine.RuntimeModuleRegistrationContext {
+	ctx := &engine.RuntimeModuleRegistrationContext{Context: context.Background(), VM: vm}
 	if runtimeServices, ok := runtimebridge.Lookup(vm); ok {
 		ctx.Context = runtimeServices.Lifetime()
 		ctx.Loop = runtimeServices.Loop
