@@ -9,7 +9,7 @@ import (
 )
 
 func TestRegisterProvider(t *testing.T) {
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -43,12 +43,11 @@ func TestCSSVisualDiffLoaderInstallsExports(t *testing.T) {
 
 func TestVerbsCommandProviderBuildsBuiltinCommands(t *testing.T) {
 	provider := resolveCommandProvider(t, "verbs")
-	set, err := provider.New(providerapi.CommandSetContext{
-		Context:        context.Background(),
-		PackageID:      PackageID,
-		Name:           "verbs",
-		Mount:          "css",
-		RuntimeProfile: "browser",
+	set, err := provider.NewCommandSet(providerapi.CommandSetContext{
+		Context:   context.Background(),
+		PackageID: PackageID,
+		Name:      "verbs",
+		Mount:     "css",
 	})
 	if err != nil {
 		t.Fatalf("create command set: %v", err)
@@ -60,7 +59,7 @@ func TestVerbsCommandProviderBuildsBuiltinCommands(t *testing.T) {
 
 func resolveModule(t *testing.T, name string) providerapi.Module {
 	t.Helper()
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -73,7 +72,7 @@ func resolveModule(t *testing.T, name string) providerapi.Module {
 
 func resolveCommandProvider(t *testing.T, name string) providerapi.CommandSetProvider {
 	t.Helper()
-	registry := providerapi.NewRegistry()
+	registry := providerapi.NewProviderRegistry()
 	if err := Register(registry); err != nil {
 		t.Fatalf("register provider: %v", err)
 	}
@@ -86,7 +85,7 @@ func resolveCommandProvider(t *testing.T, name string) providerapi.CommandSetPro
 
 func loadModule(t *testing.T, mod providerapi.Module) *goja.Object {
 	t.Helper()
-	loader, err := mod.New(providerapi.ModuleContext{Name: mod.Name, As: mod.DefaultAs})
+	loader, err := mod.NewModuleFactory(providerapi.ModuleSetupContext{Name: mod.Name, As: mod.DefaultAs})
 	if err != nil {
 		t.Fatalf("create loader: %v", err)
 	}
