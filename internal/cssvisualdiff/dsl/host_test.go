@@ -48,20 +48,20 @@ func TestEmbeddedCompareCommandsExecute(t *testing.T) {
 
 	rows := runCommand(t, commandMap["script compare region"], map[string]map[string]interface{}{
 		"targets": {
-			"leftUrl":  left.URL,
-			"rightUrl": right.URL,
+			"left-url":  left.URL,
+			"right-url": right.URL,
 		},
 		"viewport": {
 			"width":  390,
 			"height": 844,
 		},
 		"output": {
-			"outDir":    regionOutDir,
-			"writePngs": true,
+			"out-dir":    regionOutDir,
+			"write-pngs": true,
 		},
 		"selectors": {
-			"leftSelector":  "#cta",
-			"rightSelector": "#cta",
+			"left-selector":  "#cta",
+			"right-selector": "#cta",
 		},
 	})
 	require.Len(t, rows, 1)
@@ -73,20 +73,20 @@ func TestEmbeddedCompareCommandsExecute(t *testing.T) {
 			"question": "What should change?",
 		},
 		"targets": {
-			"leftUrl":  left.URL,
-			"rightUrl": right.URL,
+			"left-url":  left.URL,
+			"right-url": right.URL,
 		},
 		"viewport": {
 			"width":  390,
 			"height": 844,
 		},
 		"output": {
-			"outDir":    briefOutDir,
-			"writePngs": true,
+			"out-dir":    briefOutDir,
+			"write-pngs": true,
 		},
 		"selectors": {
-			"leftSelector":  "#cta",
-			"rightSelector": "#cta",
+			"left-selector":  "#cta",
+			"right-selector": "#cta",
 		},
 	})
 	require.Contains(t, text, "What should change?")
