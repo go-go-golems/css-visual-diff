@@ -94,7 +94,7 @@ func runtimeInvokerFactory(repo ScannedRepository, _ *jsverbs.VerbSpec) jsverbs.
 		if err != nil {
 			return nil, err
 		}
-		rt, err := factory.NewRuntime(gggengine.WithStartupContext(ctx), gggengine.WithLifetimeContext(ctx))
+		rt, err := factory.NewRuntimeFromSections(ctx, parsedValues, gggengine.WithStartupContext(ctx), gggengine.WithLifetimeContext(ctx))
 		if err != nil {
 			return nil, err
 		}
