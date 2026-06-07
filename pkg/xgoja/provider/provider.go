@@ -30,9 +30,9 @@ func Register(registry *providerapi.ProviderRegistry) error {
 		moduleEntry("diff", "Compatibility helper module for region comparison workflows.", dsl.NewDiffLoader),
 		moduleEntry("report", "Compatibility helper module for rendering review briefs.", dsl.NewReportLoader),
 		providerapi.CommandSetProvider{
-			Name:         "verbs",
-			DefaultMount: "css-diff",
-			Description:  "Run css-visual-diff workflow verbs",
+			Name:          "verbs",
+			DefaultMount:  "css-diff",
+			Description:   "Run css-visual-diff workflow verbs",
 			NewCommandSet: newVerbsCommandSet,
 		},
 	)
@@ -98,7 +98,7 @@ func xgojaInvokerFactory(providerCtx providerapi.CommandSetContext) verbcli.Invo
 				}
 				opts = append(opts, require.WithGlobalFolders(folders...))
 			}
-			rt, err := providerCtx.RuntimeFactory.NewRuntime(ctx, opts...)
+			rt, err := providerCtx.RuntimeFactory.NewRuntimeFromSections(ctx, parsedValues, opts...)
 			if err != nil {
 				return nil, err
 			}
